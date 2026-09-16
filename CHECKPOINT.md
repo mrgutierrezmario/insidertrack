@@ -123,7 +123,7 @@ review list in order:
    welcome + not-financial-advice notice + optional email signup, one
    Continue button.
 2. **Navigation** — 16 flat links → app bar with 5 grouped menus (Signals ·
-   Who's trading · Markets · Mine · ⚙), hints per item, phone drawer.
+   Who's trading · Markets · My Watch · ⚙), hints per item, phone drawer.
 3. **Mobile** — shared `.page-head` (title/subtitle/actions wrap), Politicians
    card no longer overflows, dense grids collapse, 16 px inputs (no iOS zoom).
 4. **Brand / theme / PWA** — MG Network icons + logo mark, self-hosted Plus

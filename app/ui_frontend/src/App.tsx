@@ -58,7 +58,7 @@ const NAV_GROUPS: ReadonlyArray<NavGroup> = [
     { to: "/earnings", label: "Earnings", hint: "Upcoming reports" },
     { to: "/filings",  label: "SEC Filings", hint: "Recent filings by institution" },
   ]},
-  { label: "Mine", items: [
+  { label: "My Watch", items: [
     { to: "/watchlist", label: "Watchlist", hint: "Your tickers" },
     { to: "/alerts",    label: "Alerts", hint: "Rules & triggered events" },
   ]},
