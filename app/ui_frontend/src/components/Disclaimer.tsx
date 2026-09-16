@@ -130,9 +130,9 @@ export default function Disclaimer({ children }: DisclaimerProps) {
         maxHeight: "95vh",
       }}>
         {/* Company branding */}
-        <p style={{ color: C.accent, fontSize: "0.72rem", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "0.75rem" }}>
-          M.G. Network &amp; Technology Solutions
-        </p>
+        {/* Two variants: the tagline under the mark is navy in the brand file, which vanishes on dark. */}
+        <img className="brand-logo brand-logo--light" src="/logo.svg" alt="M.G. Network and Technology Solutions" />
+        <img className="brand-logo brand-logo--dark" src="/logo-dark.svg" alt="" aria-hidden="true" />
 
         <h2 style={{ color: C.textBright, fontSize: "1.35rem", fontWeight: 700, marginBottom: "0.4rem" }}>
           Welcome to InsiderTrack

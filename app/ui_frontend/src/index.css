@@ -120,6 +120,12 @@ input, select, textarea { font-size: max(16px, 0.9rem); } /* no iOS zoom on focu
 ::selection { background: var(--c-accentBg); }
 img, svg { max-width: 100%; }
 
+/* Full company logo (landing gate). The brand file's tagline is navy, so a
+   light-tagline copy is swapped in for the dark theme. */
+.brand-logo { width: min(220px, 60%); height: auto; display: block; margin: 0 auto 1rem; }
+:root[data-theme="dark"] .brand-logo--light { display: none; }
+:root[data-theme="light"] .brand-logo--dark { display: none; }
+
 /* ── App bar ──────────────────────────────────────────────────────────────── */
 .appbar {
   position: sticky; top: 0; z-index: 100;
