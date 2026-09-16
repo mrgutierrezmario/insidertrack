@@ -74,6 +74,45 @@ Initialised as a git repository on 2026-09-16 and pushed to
 are ignored: `.env`, `deploy/.env`, `deploy/state/`, `backups/`, `logs/`,
 `db_migration.dump`.
 
+## Review findings — 2026-09-16 (code + datasets)
+
+Fixed in commit "Review fixes":
+- **Scheduler ran on UTC, not Eastern.** `BackgroundScheduler(timezone=ET)`
+  does not apply to pre-built `CronTrigger` objects (they default to the
+  process zone). Every report/alert/sync had been firing 4 h early: morning
+  report at 4 AM ET, "evening" at 2 PM ET. All triggers now pass `timezone=ET`.
+- **Duplicate congressional trades** (90 groups / 109 rows): `SessionLocal`
+  has `autoflush=False`, so the exists-check inside a filing loop could not see
+  rows added moments earlier. Added `db.flush()` after each insert (Senate and
+  House); duplicates removed (kept lowest id).
+- **Fed "trades" were fabricated placeholders**: three hard-coded rows
+  attributed to Governors Waller and Bowman, source URL on a non-existent host
+  (`efts.usethical.com`). Removed the seed and the rows. The OGE "API" the
+  fetcher targets does not exist either (OGE publishes PDFs) — left in place
+  with a comment; the Fed page shows the roster with no trades, which is the
+  truthful state (board members cannot buy individual stocks since 2022).
+- **13F whale data was stale** (Q1 2026) — the sync was admin-manual only and
+  hadn't run since May. Added a weekly Saturday 06:00 ET `whale_sync` job
+  (idempotent). Ran it: 655 Q2-2026 positions.
+- **ARK had zero positions**: its CIK pointed at *ARK ETF Trust* (no 13Fs).
+  Fixed to ARK Investment Management LLC (0001697748); 172 positions loaded.
+- **Admin sessions died at the top of the hour**: token = sha256(pw:hour),
+  so a login at 10:59 was invalid at 11:00. Verification now accepts the
+  current and previous hour (matches the 1 h cookie).
+
+Noted, not changed:
+- 68 Form 4 duplicate groups are within a single accession (same insider,
+  date, code, shares, price) — likely identical lots in the XML; spot-check
+  before deduping.
+- Form 4 rows with price 0 (1,496) are codes A/M/G/C (grants, exercises,
+  gifts, conversions) — classified "other", not buys/sells. Correct.
+- Pershing Square's Q2 2026 13F is not picked up (fetcher takes only the
+  newest 13F-HR per CIK; Pershing may file an amendment first).
+- Michael Burry / Scion: last 13F is 2025-Q3 — Scion deregistered, so this is
+  expected; consider marking the holder inactive.
+- `snapshot_gaps_14d` went 11 → 0 once the scheduler caught up.
+- Pre-cleanup snapshot: `deploy/state/stocktracker-pre-cleanup-2026-09-16.dump`.
+
 ## Still open
 
 - Off-site backups (lecture-note-app has `deploy/backup.sh` + rclone; this

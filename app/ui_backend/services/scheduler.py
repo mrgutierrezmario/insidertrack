@@ -29,8 +29,13 @@ logger = logging.getLogger(__name__)
 # isn't lost if the process is down at exactly its cron minute. Combined with
 # `replace_existing=True` on add_job, the same DB row is upserted on each
 # startup so we always run the *current* function definition.
+# NB: the scheduler's timezone only applies to triggers APScheduler builds from
+# kwargs. A CronTrigger constructed directly defaults to the *process* local
+# zone (UTC in Docker), so every trigger below passes timezone=ET explicitly.
+ET = "America/New_York"
+
 scheduler = BackgroundScheduler(
-    timezone="America/New_York",
+    timezone=ET,
     jobstores={"default": SQLAlchemyJobStore(url=settings.database_url, tablename="apscheduler_jobs")},
 )
 
@@ -133,6 +138,15 @@ def _fed_sync_job():
         fed_fetcher.sync_all(db)
 
 
+def _whale_sync_job():
+    """Weekly 13F refresh — skips quarters already stored, so it only does work
+    for ~a week after each 45-days-past-quarter-end filing deadline."""
+    from services.edgar_fetcher import sync_whale_positions
+    with SessionLocal() as db:
+        result = sync_whale_positions(db)
+        logger.info(f"Whale 13F sync: {result}")
+
+
 def _risk_refresh_job():
     """Recompute the cached Trade.risk_level for every row."""
     from routers.trades import refresh_risk_levels
@@ -190,25 +204,26 @@ def start_scheduler():
     # replace_existing=True so the persistent jobstore row is upserted on each
     # startup — we always run the current function reference, not a stale one.
     common = {"misfire_grace_time": 600, "replace_existing": True}
-    scheduler.add_job(_morning_job, CronTrigger(hour=8, minute=0), id="morning", **common)
-    scheduler.add_job(_midday_job, CronTrigger(hour=12, minute=0), id="midday", **common)
-    scheduler.add_job(_evening_job, CronTrigger(hour=18, minute=0), id="evening", **common)
-    scheduler.add_job(_outcome_snapshot_job, CronTrigger(hour=7, minute=0), id="outcome_snapshot", **common)
-    scheduler.add_job(_outcome_fill_job, CronTrigger(hour=7, minute=30), id="outcome_fill", **common)
-    scheduler.add_job(_form4_job, CronTrigger(hour=6, minute=30), id="form4_sync", **common)
-    scheduler.add_job(_warm_history_job, CronTrigger(hour=6, minute=45), id="warm_history", **common)
-    scheduler.add_job(_alert_job, CronTrigger(hour="8,12,18", minute=15), id="alert_eval", **common)
-    scheduler.add_job(_fed_sync_job, CronTrigger(hour=7, minute=15), id="fed_sync", **common)
+    scheduler.add_job(_morning_job, CronTrigger(hour=8, minute=0, timezone=ET), id="morning", **common)
+    scheduler.add_job(_midday_job, CronTrigger(hour=12, minute=0, timezone=ET), id="midday", **common)
+    scheduler.add_job(_evening_job, CronTrigger(hour=18, minute=0, timezone=ET), id="evening", **common)
+    scheduler.add_job(_outcome_snapshot_job, CronTrigger(hour=7, minute=0, timezone=ET), id="outcome_snapshot", **common)
+    scheduler.add_job(_outcome_fill_job, CronTrigger(hour=7, minute=30, timezone=ET), id="outcome_fill", **common)
+    scheduler.add_job(_form4_job, CronTrigger(hour=6, minute=30, timezone=ET), id="form4_sync", **common)
+    scheduler.add_job(_warm_history_job, CronTrigger(hour=6, minute=45, timezone=ET), id="warm_history", **common)
+    scheduler.add_job(_alert_job, CronTrigger(hour="8,12,18", minute=15, timezone=ET), id="alert_eval", **common)
+    scheduler.add_job(_fed_sync_job, CronTrigger(hour=7, minute=15, timezone=ET), id="fed_sync", **common)
+    scheduler.add_job(_whale_sync_job, CronTrigger(day_of_week="sat", hour=6, minute=0, timezone=ET), id="whale_sync", **common)
     # Risk classification depends on trade age — refresh once a day so old rows
     # bucket correctly without the /trades read path doing the work.
-    scheduler.add_job(_risk_refresh_job, CronTrigger(hour=5, minute=30), id="risk_refresh", **common)
+    scheduler.add_job(_risk_refresh_job, CronTrigger(hour=5, minute=30, timezone=ET), id="risk_refresh", **common)
     # Sweep expired L2 market_cache rows hourly — the index keeps lookups fast
     # but a clean table is nicer to inspect and bounds disk usage.
-    scheduler.add_job(_market_cache_cleanup_job, CronTrigger(minute=17), id="market_cache_cleanup", **common)
+    scheduler.add_job(_market_cache_cleanup_job, CronTrigger(minute=17, timezone=ET), id="market_cache_cleanup", **common)
     # Daily DB backup at 04:00 ET — earliest slot before anything else runs.
-    scheduler.add_job(_db_backup_job, CronTrigger(hour=4, minute=0), id="db_backup", **common)
+    scheduler.add_job(_db_backup_job, CronTrigger(hour=4, minute=0, timezone=ET), id="db_backup", **common)
     # Weekly cleanup of dormant WatchlistOwner rows (Sundays 03:30 ET).
-    scheduler.add_job(_watchlist_orphan_cleanup_job, CronTrigger(day_of_week="sun", hour=3, minute=30), id="watchlist_orphan_cleanup", **common)
+    scheduler.add_job(_watchlist_orphan_cleanup_job, CronTrigger(day_of_week="sun", hour=3, minute=30, timezone=ET), id="watchlist_orphan_cleanup", **common)
     scheduler.start()
     logger.info("Scheduler started (persistent jobstore) — Form4 06:30, snapshot 07:00, fill 07:30, analysis 08/12/18, alerts 08/12/18:15 ET")
 

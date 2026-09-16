@@ -384,6 +384,7 @@ def sync_senate_trades(db: Session) -> int:
                         source="senate",
                         raw_data=json.dumps({**tx, "ptr_uuid": rpt["uuid"], "amended": rpt.get("amended", False)}),
                     ))
+                    db.flush()  # autoflush is off — make this row visible to the next exists-check
                     count += 1
                 _mark_processed(db, "senate", rpt["uuid"])
                 db.commit()
@@ -519,6 +520,7 @@ def sync_house_trades(db: Session) -> int:
                         source="house",
                         raw_data=json.dumps({**tx, "ptr_doc_id": doc_id}),
                     ))
+                    db.flush()  # autoflush is off — make this row visible to the next exists-check
                     count += 1
                 seen.add(doc_id)
                 _mark_processed(db, "house", doc_id)

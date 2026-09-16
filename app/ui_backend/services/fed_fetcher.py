@@ -24,6 +24,8 @@ from models.fed_official import FedOfficial, FedTrade
 logger = logging.getLogger(__name__)
 
 HEADERS = {"User-Agent": "InsiderTrack/1.0 contact@insidertrack.local"}
+# Placeholder: OGE publishes 278/278-T reports as PDFs, not a JSON API. This
+# host does not exist, so sync_oge_trades() currently fetches nothing.
 OGE_API = "https://efts.usethical.com/EOGE/api"
 
 # ── Known FOMC / Fed officials roster ─────────────────────────────────────────
@@ -264,50 +266,11 @@ FED_OFFICIALS_SEED = [
 
 # Notable historical trades (from 2021 disclosed transactions + OGE filings)
 # These are documented public record trades that led to the 2021 scandal
-FED_TRADES_SEED = [
-    # Robert Kaplan (former Dallas Fed president — resigned 2021)
-    # Traded millions in individual stocks while setting policy
-    # Eric Rosengren (former Boston Fed president — resigned 2021 on health)
-    # Active REIT trading while opposing eviction moratoriums
-
-    # Current officials with disclosed OGE positions
-    {
-        "official_name": "Christopher Waller",
-        "ticker": "AAPL",
-        "asset_name": "Apple Inc.",
-        "transaction_type": "sale",
-        "amount_range": "$1,001 - $15,000",
-        "trade_date": "2023-08-15",
-        "disclosure_date": "2023-09-28",
-        "filing_year": 2023,
-        "source": "oge",
-        "source_url": "https://efts.usethical.com/EOGE/api/",
-    },
-    {
-        "official_name": "Christopher Waller",
-        "ticker": "MSFT",
-        "asset_name": "Microsoft Corp.",
-        "transaction_type": "purchase",
-        "amount_range": "$1,001 - $15,000",
-        "trade_date": "2023-01-10",
-        "disclosure_date": "2023-02-22",
-        "filing_year": 2023,
-        "source": "oge",
-        "source_url": "https://efts.usethical.com/EOGE/api/",
-    },
-    {
-        "official_name": "Michelle Bowman",
-        "ticker": "NVDA",
-        "asset_name": "NVIDIA Corp.",
-        "transaction_type": "purchase",
-        "amount_range": "$15,001 - $50,000",
-        "trade_date": "2024-02-20",
-        "disclosure_date": "2024-04-01",
-        "filing_year": 2024,
-        "source": "oge",
-        "source_url": "https://efts.usethical.com/EOGE/api/",
-    },
-]
+# No seeded trades. Earlier versions shipped a few hard-coded rows attributed to
+# sitting governors; they were placeholders, not disclosures, and were removed.
+# Board members have been barred from buying individual stocks since the 2022
+# investment policy, so an empty table here is the expected state.
+FED_TRADES_SEED: list[dict] = []
 
 
 # ── OGE EFTS API ───────────────────────────────────────────────────────────────

@@ -54,8 +54,8 @@ def _get_ip(request: Request) -> str:
 
 
 # ── Admin token (hourly rotating HMAC, stateless) ─────────────────────────────
-def _make_token(password: str) -> str:
-    hour = int(time.time()) // 3600
+def _make_token(password: str, hour: int | None = None) -> str:
+    hour = int(time.time()) // 3600 if hour is None else hour
     return hashlib.sha256(f"{password}:{hour}".encode()).hexdigest()[:32]
 
 
@@ -65,7 +65,13 @@ _COOKIE_NAME = "admin_token"
 def _valid_admin_token(token: str | None) -> bool:
     if not token:
         return False
-    return hmac.compare_digest(token, _make_token(settings.admin_password))
+    # Current hour, plus the previous one so a session that started just before
+    # the top of the hour isn't cut off at the boundary (matches the 1 h cookie).
+    hour = int(time.time()) // 3600
+    return any(
+        hmac.compare_digest(token, _make_token(settings.admin_password, h))
+        for h in (hour, hour - 1)
+    )
 
 
 def require_admin(request: Request, x_admin_token: str | None = Header(default=None)):
