@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { getTechnicalSignals } from "../lib/api";
 import { exportCSV } from "../lib/csv";
 import { LABEL_COLORS , C} from "../lib/theme";
+import useDocumentTitle from "../hooks/useDocumentTitle";
 import WatchlistButton from "../components/WatchlistButton";
 import SkeletonCard from "../components/SkeletonCard";
 import type { SignalDirection, SignalLabel } from "../types/api";
@@ -57,10 +58,18 @@ function ScoreBar({ score }: { score: number | null | undefined }) {
   );
 }
 
+const SUB_TIPS: Record<string, string> = {
+  "Smart Money": "Institutional (13F) holders and tracked politicians in this ticker — new or growing positions score higher. Max 30.",
+  "Insider": "Corporate insider Form 4 activity in the last 90 days: open-market buys add, sells subtract. Max 25.",
+  "Momentum": "Price vs. 20/50-day averages and RSI. Oversold with an uptrend scores best. Max 25.",
+  "Sentiment": "Tone of recent news headlines for the ticker. Max 10.",
+  "Risk penalty": "Deducted for stale disclosures (old trades or long disclosure lag). Up to −20.",
+};
+
 function SubScore({ label, value, max }: { label: string; value: number | null | undefined; max: number }) {
   return (
-    <div>
-      <div style={{ color: C.dividerStrong, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.04em" }}>{label}</div>
+    <div data-tip={SUB_TIPS[label]} tabIndex={0} style={{ cursor: "help", outline: "none" }}>
+      <div style={{ color: C.dividerStrong, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: "1px dotted var(--c-divider)", display: "inline-block" }}>{label}</div>
       <div style={{ color: C.textSoft, fontWeight: 600, fontSize: 12 }}>
         {value ?? "—"}<span style={{ color: C.divider }}>/{max}</span>
       </div>
@@ -69,6 +78,7 @@ function SubScore({ label, value, max }: { label: string; value: number | null |
 }
 
 export default function Signals() {
+  useDocumentTitle("Signal Scores");
   const [signals, setSignals] = useState<SignalRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [labelFilter, setLabelFilter] = useState<string>("ALL");
@@ -111,9 +121,9 @@ export default function Signals() {
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto" }}>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24 }}>
+      <div className="page-head">
         <div>
-          <h1 style={{ color: C.textBright, margin: "0 0 4px", fontSize: "1.4rem" }}>Signal Scores</h1>
+          <h1>Signal Scores</h1>
           <p style={{ color: C.dividerStrong, margin: 0, fontSize: 13 }}>
             Composite scores for all tracked insider tickers — sorted by conviction strength.
             {computedAt && (
@@ -127,7 +137,7 @@ export default function Signals() {
           {filtered.length > 0 && (
             <button
               onClick={() => exportSignalsCSV(filtered)}
-              style={{ background: C.surfaceAlt, color: C.textSoft, border: "1px solid #334155", borderRadius: 6, padding: "5px 12px", fontSize: 12, cursor: "pointer" }}
+              style={{ background: C.surfaceAlt, color: C.textSoft, border: "1px solid var(--c-divider)", borderRadius: 6, padding: "5px 12px", fontSize: 12, cursor: "pointer" }}
             >
               ↓ CSV
             </button>
@@ -142,7 +152,7 @@ export default function Signals() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            style={{ background: C.surface, border: "1px solid #1e2533", borderRadius: 6, color: C.textSoft, padding: "6px 10px", fontSize: 13 }}
+            style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, color: C.textSoft, padding: "6px 10px", fontSize: 13 }}
           >
             <option value="score">Sort: Score ↓</option>
             <option value="ticker">Sort: Ticker A-Z</option>
@@ -159,7 +169,7 @@ export default function Signals() {
           onChange={(e) => setTickerSearch(e.target.value.toUpperCase())}
           style={{
             background: C.surface, color: C.text,
-            border: "1px solid #1e2533", borderRadius: 6,
+            border: "1px solid var(--c-surfaceAlt)", borderRadius: 6,
             padding: "0.4rem 0.85rem", fontSize: "0.85rem", width: 180,
           }}
         />
@@ -221,7 +231,7 @@ export default function Signals() {
             return (
               <div key={s.ticker} style={{
                 background: C.surface,
-                border: "1px solid #1e2533",
+                border: "1px solid var(--c-surfaceAlt)",
                 borderLeft: `3px solid ${labelColor}`,
                 borderRadius: 10,
                 padding: "14px 18px",

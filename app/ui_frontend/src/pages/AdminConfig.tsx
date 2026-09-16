@@ -1,5 +1,6 @@
 import { safeHref } from "../lib/safeUrl";
 import { C } from "../lib/theme";
+import useDocumentTitle from "../hooks/useDocumentTitle";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
@@ -12,6 +13,7 @@ import {
   getFilingInstitutions, addFilingInstitution, deleteFilingInstitution,
 } from "../lib/api";
 import { ADMIN_SESSION_KEY } from "../lib/storage";
+import { notifyAdminChange } from "../hooks/useAdmin";
 import ConfirmModal from "../components/ConfirmModal";
 
 type Period = "morning" | "midday" | "evening";
@@ -89,6 +91,7 @@ function PasswordGate({ onSuccess }: { onSuccess: () => void }) {
       // Cookie is now set httpOnly by the server — store only a UI visibility flag
       sessionStorage.setItem(ADMIN_SESSION_KEY, "1");
       sessionStorage.setItem(ADMIN_TOKEN_KEY, "1");
+      notifyAdminChange();
       onSuccess();
     } catch {
       setError("Incorrect password.");
@@ -99,7 +102,7 @@ function PasswordGate({ onSuccess }: { onSuccess: () => void }) {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
       <div style={{
-        background: C.surface, border: "1px solid #334155",
+        background: C.surface, border: "1px solid var(--c-divider)",
         borderRadius: 12, padding: "2rem 2.5rem", maxWidth: 360, width: "100%", textAlign: "center",
       }}>
         <div style={{ fontSize: "1.75rem", marginBottom: "0.5rem" }}>🔐</div>
@@ -116,7 +119,7 @@ function PasswordGate({ onSuccess }: { onSuccess: () => void }) {
           placeholder="Password"
           style={{
             width: "100%", background: C.bg, color: C.text,
-            border: error ? "1px solid #ef4444" : "1px solid #334155",
+            border: error ? "1px solid var(--c-dangerSolid)" : "1px solid var(--c-divider)",
             borderRadius: 8, padding: "0.65rem 0.875rem",
             fontSize: "0.9rem", outline: "none", boxSizing: "border-box",
             marginBottom: "0.5rem",
@@ -278,19 +281,19 @@ function AdminPanel() {
         />
       )}
       {toast && (
-        <div style={{ position: "fixed", top: 24, right: 24, background: C.successBg, color: C.success, border: "1px solid #166534", borderRadius: 8, padding: "12px 20px", fontSize: "0.9rem", zIndex: 999 }}>
+        <div style={{ position: "fixed", top: 24, right: 24, background: C.successBg, color: C.success, border: "1px solid var(--c-successDeep)", borderRadius: 8, padding: "12px 20px", fontSize: "0.9rem", zIndex: 999 }}>
           {toast}
         </div>
       )}
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.25rem" }}>
         <div>
-          <h1 style={{ fontSize: "1.5rem", fontWeight: 700 }}>🔐 Admin Panel</h1>
+          <h1>🔐 Admin Panel</h1>
           <p style={{ color: C.textMuted, fontSize: "0.85rem" }}>M.G. Network &amp; Technology Solutions</p>
         </div>
         <button
-          onClick={() => { adminLogout(); sessionStorage.removeItem(ADMIN_SESSION_KEY); sessionStorage.removeItem(ADMIN_TOKEN_KEY); navigate("/config"); }}
-          style={{ background: C.surfaceAlt, color: C.textMuted, border: "1px solid #334155", borderRadius: 6, padding: "0.35rem 0.875rem", cursor: "pointer", fontSize: "0.8rem" }}
+          onClick={() => { adminLogout(); sessionStorage.removeItem(ADMIN_SESSION_KEY); sessionStorage.removeItem(ADMIN_TOKEN_KEY); notifyAdminChange(); navigate("/config"); }}
+          style={{ background: C.surfaceAlt, color: C.textMuted, border: "1px solid var(--c-divider)", borderRadius: 6, padding: "0.35rem 0.875rem", cursor: "pointer", fontSize: "0.8rem" }}
         >
           ← Back to Config
         </button>
@@ -299,18 +302,18 @@ function AdminPanel() {
       <div style={{ height: 1, background: C.surfaceAlt, margin: "1.25rem 0 2rem" }} />
 
       {/* API Keys */}
-      <section style={{ background: C.surface, border: "1px solid #1e2533", borderRadius: 8, padding: "1.25rem", marginBottom: "1.5rem" }}>
+      <section style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, padding: "1.25rem", marginBottom: "1.5rem" }}>
         <div style={{ fontWeight: 600, marginBottom: "1rem" }}>API Keys &amp; Credentials</div>
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
           {apiKeys.map(k => {
             const isEditing = keyEditing[k.key];
             return (
-              <div key={k.key} style={{ borderBottom: "1px solid #0f172a", paddingBottom: "1rem" }}>
+              <div key={k.key} style={{ borderBottom: "1px solid var(--c-bgSunken)", paddingBottom: "1rem" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
                   <div>
                     <span style={{ color: C.text, fontWeight: 500, fontSize: "0.9rem" }}>{k.label}</span>
                     {k.is_set && (
-                      <span style={{ marginLeft: 8, background: C.successBg, color: C.success, border: "1px solid #166534", fontSize: "0.68rem", padding: "1px 7px", borderRadius: 4 }}>
+                      <span style={{ marginLeft: 8, background: C.successBg, color: C.success, border: "1px solid var(--c-successDeep)", fontSize: "0.68rem", padding: "1px 7px", borderRadius: 4 }}>
                         {k.source === "db" ? "saved" : "from .env"}
                       </span>
                     )}
@@ -344,7 +347,7 @@ function AdminPanel() {
                       value={keyValues[k.key] || ""}
                       onChange={e => setKeyValues(v => ({ ...v, [k.key]: e.target.value }))}
                       placeholder={k.placeholder}
-                      style={{ flex: 1, background: C.bg, color: C.text, border: "1px solid #334155", borderRadius: 5, padding: "0.4rem 0.75rem", fontSize: "0.85rem" }}
+                      style={{ flex: 1, background: C.bg, color: C.text, border: "1px solid var(--c-divider)", borderRadius: 5, padding: "0.4rem 0.75rem", fontSize: "0.85rem" }}
                       onKeyDown={e => { if (e.key === "Enter") handleSaveKey(k.key); if (e.key === "Escape") setKeyEditing(ed => ({ ...ed, [k.key]: false })); }}
                     />
                     <button onClick={() => handleSaveKey(k.key)} disabled={keySaving[k.key]}
@@ -364,7 +367,7 @@ function AdminPanel() {
       </section>
 
       {/* Gmail status */}
-      <section style={{ background: C.surface, border: "1px solid #1e2533", borderRadius: 8, padding: "1.25rem", marginBottom: "1.5rem" }}>
+      <section style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, padding: "1.25rem", marginBottom: "1.5rem" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
           <span style={{ fontWeight: 600 }}>Gmail SMTP</span>
           {emailStatus && <StatusBadge configured={emailStatus.configured} />}
@@ -376,12 +379,12 @@ function AdminPanel() {
       </section>
 
       {/* Send report now */}
-      <section style={{ background: C.surface, border: "1px solid #1e2533", borderRadius: 8, padding: "1.25rem", marginBottom: "1.5rem" }}>
+      <section style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, padding: "1.25rem", marginBottom: "1.5rem" }}>
         <div style={{ fontWeight: 600, marginBottom: "1rem" }}>Send Report Now</div>
         <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
           {PERIODS.map(period => (
             <button key={period} onClick={() => handleSendNow(period)} disabled={sending[period]}
-              style={{ background: "#1e293b", color: C.text, border: "1px solid #334155", borderRadius: 6, padding: "0.5rem 1.25rem", cursor: "pointer", opacity: sending[period] ? 0.6 : 1, fontSize: "0.9rem" }}>
+              style={{ background: "var(--c-surfaceAlt)", color: C.text, border: "1px solid var(--c-divider)", borderRadius: 6, padding: "0.5rem 1.25rem", cursor: "pointer", opacity: sending[period] ? 0.6 : 1, fontSize: "0.9rem" }}>
               {sending[period] ? "Sending..." : `${period.charAt(0).toUpperCase() + period.slice(1)} (${periodLabel[period]})`}
             </button>
           ))}
@@ -392,12 +395,12 @@ function AdminPanel() {
       </section>
 
       {/* Add subscriber */}
-      <section style={{ background: C.surface, border: "1px solid #1e2533", borderRadius: 8, padding: "1.25rem", marginBottom: "1.5rem" }}>
+      <section style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, padding: "1.25rem", marginBottom: "1.5rem" }}>
         <div style={{ fontWeight: 600, marginBottom: "1rem" }}>Add Subscriber</div>
         <form onSubmit={handleAdd} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
           <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)}
             placeholder="email@example.com" required
-            style={{ background: C.bg, color: C.text, border: "1px solid #1e2533", borderRadius: 6, padding: "0.5rem 1rem", fontSize: "0.9rem" }} />
+            style={{ background: C.bg, color: C.text, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, padding: "0.5rem 1rem", fontSize: "0.9rem" }} />
           <div style={{ display: "flex", gap: "1.25rem" }}>
             {PERIODS.map(period => (
               <label key={period} style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer", color: C.textSoft, fontSize: "0.85rem" }}>
@@ -433,7 +436,7 @@ function AdminPanel() {
                       const active = sub[`subscribe_${period}`];
                       return (
                         <button key={period} onClick={() => { updateSubscriber(sub.id, { [`subscribe_${period}`]: !active }).then(() => load()); }}
-                          style={{ background: active ? "#1e3a5f" : C.surfaceAlt, color: active ? C.accent : C.textDim, border: `1px solid ${active ? C.accentSolid : C.surfaceAlt}`, borderRadius: 4, padding: "2px 10px", cursor: "pointer", fontSize: "0.75rem" }}>
+                          style={{ background: active ? "var(--c-accentBg)" : C.surfaceAlt, color: active ? C.accent : C.textDim, border: `1px solid ${active ? C.accentSolid : C.surfaceAlt}`, borderRadius: 4, padding: "2px 10px", cursor: "pointer", fontSize: "0.75rem" }}>
                           {period.charAt(0).toUpperCase() + period.slice(1)}
                         </button>
                       );
@@ -441,7 +444,7 @@ function AdminPanel() {
                   </div>
                   <div style={{ display: "flex", gap: "0.5rem", marginLeft: "auto" }}>
                     <button onClick={() => { updateSubscriber(sub.id, { is_active: !sub.is_active }).then(() => load()); }}
-                      style={{ background: "transparent", color: sub.is_active ? C.textMuted : C.success, border: "1px solid #1e2533", borderRadius: 4, padding: "3px 10px", cursor: "pointer", fontSize: "0.75rem" }}>
+                      style={{ background: "transparent", color: sub.is_active ? C.textMuted : C.success, border: "1px solid var(--c-surfaceAlt)", borderRadius: 4, padding: "3px 10px", cursor: "pointer", fontSize: "0.75rem" }}>
                       {sub.is_active ? "Pause" : "Resume"}
                     </button>
                     <button onClick={() => {
@@ -452,7 +455,7 @@ function AdminPanel() {
                         onConfirm: () => { setConfirm(null); deleteSubscriber(sub.id).then(() => { load(); showToast(`${sub.email} removed.`); }); },
                       });
                     }}
-                      style={{ background: "transparent", color: C.danger, border: "1px solid #1e2533", borderRadius: 4, padding: "3px 10px", cursor: "pointer", fontSize: "0.75rem" }}>
+                      style={{ background: "transparent", color: C.danger, border: "1px solid var(--c-surfaceAlt)", borderRadius: 4, padding: "3px 10px", cursor: "pointer", fontSize: "0.75rem" }}>
                       Remove
                     </button>
                   </div>
@@ -464,7 +467,7 @@ function AdminPanel() {
       </section>
 
       {/* Filings Institutions */}
-      <section style={{ background: C.surface, border: "1px solid #1e2533", borderRadius: 8, padding: "1.25rem", marginBottom: "1.5rem" }}>
+      <section style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, padding: "1.25rem", marginBottom: "1.5rem" }}>
         <div style={{ fontWeight: 600, marginBottom: "1rem" }}>13F Filing Institutions ({institutions.length})</div>
         <p style={{ color: C.textDim, fontSize: "0.78rem", marginTop: 0, marginBottom: "1rem" }}>
           Institutions tracked on the Filings page. CIK is the SEC's 10-digit identifier — find it at sec.gov.
@@ -493,7 +496,7 @@ function AdminPanel() {
               onChange={e => setNewInst(n => ({ ...n, name: e.target.value }))}
               placeholder="e.g. Soros Fund Management"
               required
-              style={{ background: C.bg, color: C.text, border: "1px solid #1e2533", borderRadius: 5, padding: "0.4rem 0.75rem", fontSize: "0.85rem", width: 220 }}
+              style={{ background: C.bg, color: C.text, border: "1px solid var(--c-surfaceAlt)", borderRadius: 5, padding: "0.4rem 0.75rem", fontSize: "0.85rem", width: 220 }}
             />
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
@@ -504,7 +507,7 @@ function AdminPanel() {
               placeholder="0001234567"
               required
               maxLength={10}
-              style={{ background: C.bg, color: C.text, border: "1px solid #1e2533", borderRadius: 5, padding: "0.4rem 0.75rem", fontSize: "0.85rem", width: 130, fontFamily: "monospace" }}
+              style={{ background: C.bg, color: C.text, border: "1px solid var(--c-surfaceAlt)", borderRadius: 5, padding: "0.4rem 0.75rem", fontSize: "0.85rem", width: 130, fontFamily: "monospace" }}
             />
           </div>
           <button type="submit" disabled={instAdding}
@@ -517,12 +520,12 @@ function AdminPanel() {
 
       {/* Access Log */}
       <section>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+        <div className="page-head">
           <div style={{ fontWeight: 600, color: C.textSoft }}>
             Access Log {logLoaded && <span style={{ color: C.textDim, fontWeight: 400 }}>({accessLog.length})</span>}
           </div>
           <button onClick={loadAccessLog} disabled={logLoading}
-            style={{ background: C.surfaceAlt, color: C.textSoft, border: "1px solid #334155", borderRadius: 6, padding: "0.3rem 0.875rem", cursor: "pointer", fontSize: "0.8rem", opacity: logLoading ? 0.6 : 1 }}>
+            style={{ background: C.surfaceAlt, color: C.textSoft, border: "1px solid var(--c-divider)", borderRadius: 6, padding: "0.3rem 0.875rem", cursor: "pointer", fontSize: "0.8rem", opacity: logLoading ? 0.6 : 1 }}>
             {logLoading ? "Loading…" : logLoaded ? "↺ Refresh" : "Load Log"}
           </button>
         </div>
@@ -531,7 +534,7 @@ function AdminPanel() {
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem" }}>
               <thead>
-                <tr style={{ borderBottom: "1px solid #1e2533" }}>
+                <tr style={{ borderBottom: "1px solid var(--c-surfaceAlt)" }}>
                   {["#", "IP Address", "Email", "Device / Browser", "Agreed At"].map(h => (
                     <th key={h} style={{ textAlign: "left", color: C.textDim, fontWeight: 600, padding: "0.4rem 0.75rem", whiteSpace: "nowrap" }}>{h}</th>
                   ))}
@@ -539,7 +542,7 @@ function AdminPanel() {
               </thead>
               <tbody>
                 {accessLog.map((row, i) => (
-                  <tr key={row.id} style={{ borderBottom: "1px solid #0f172a", background: i % 2 === 0 ? "transparent" : C.bg }}>
+                  <tr key={row.id} style={{ borderBottom: "1px solid var(--c-bgSunken)", background: i % 2 === 0 ? "transparent" : C.bg }}>
                     <td style={{ padding: "0.5rem 0.75rem", color: C.textDim }}>{row.id}</td>
                     <td style={{ padding: "0.5rem 0.75rem", color: C.textSoft, fontFamily: "monospace" }}>{row.ip_address}</td>
                     <td style={{ padding: "0.5rem 0.75rem", color: C.text }}>{row.email || <span style={{ color: C.textDim }}>—</span>}</td>
@@ -562,6 +565,7 @@ function AdminPanel() {
 
 // ── Route component ───────────────────────────────────────────────────────────
 export default function AdminConfig() {
+  useDocumentTitle("Admin");
   const [authed, setAuthed] = useState(() => sessionStorage.getItem(ADMIN_SESSION_KEY) === "1");
   if (!authed) return <PasswordGate onSuccess={() => setAuthed(true)} />;
   return <AdminPanel />;

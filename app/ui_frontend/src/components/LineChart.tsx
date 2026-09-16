@@ -1,4 +1,5 @@
-import { C } from "../lib/theme";
+import { C, resolvedPalette, resolveCss } from "../lib/theme";
+import { useResolvedTheme } from "../hooks/useTheme";
 import { useEffect, useRef, useState } from "react";
 import ChartModal from "./ChartModal";
 
@@ -94,12 +95,12 @@ function renderTooltip(
     const val = getVal(label);
     return `<div style="display:flex;align-items:center;gap:6px">
       <span style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></span>
-      <span style="color:#94a3b8;font-size:11px;flex:1">${htmlEscape(label)}</span>
-      <span style="color:#f1f5f9;font-size:12px;font-weight:600">${formatVal(val, normalized)}</span>
+      <span style="color:var(--c-textSoft);font-size:11px;flex:1">${htmlEscape(label)}</span>
+      <span style="color:var(--c-textBright);font-size:12px;font-weight:600">${formatVal(val, normalized)}</span>
     </div>`;
   }).join("");
 
-  tooltip.innerHTML = `<div style="color:#64748b;font-size:11px;margin-bottom:6px">${htmlEscape(dateStr)}</div>${lines}`;
+  tooltip.innerHTML = `<div style="color:var(--c-textMuted);font-size:11px;margin-bottom:6px">${htmlEscape(dateStr)}</div>${lines}`;
   tooltip.style.display = "block";
 
   const tW = tooltip.offsetWidth || 180;
@@ -120,6 +121,7 @@ function renderTooltip(
  * title: shown in modal header
  */
 export default function LineChart({ series, height = 300, normalized = false, interactive = false, title = "Chart" }: LineChartProps) {
+  const theme = useResolvedTheme();
   const [expanded, setExpanded] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
@@ -127,6 +129,7 @@ export default function LineChart({ series, height = 300, normalized = false, in
   const chartRef = useRef<any>(null);
 
   useEffect(() => {
+    const R = resolvedPalette();
     if (!containerRef.current || !series?.length) return;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -141,14 +144,14 @@ export default function LineChart({ series, height = 300, normalized = false, in
 
       chart = createChart(containerRef.current, {
         height,
-        layout: { background: { color: C.bg }, textColor: C.textSoft },
-        grid: { vertLines: { color: C.surfaceAlt }, horzLines: { color: C.surfaceAlt } },
-        timeScale: { borderColor: C.surfaceAlt, timeVisible: false },
-        rightPriceScale: { borderColor: C.surfaceAlt },
+        layout: { background: { color: R.bg }, textColor: R.textSoft },
+        grid: { vertLines: { color: R.surfaceAlt }, horzLines: { color: R.surfaceAlt } },
+        timeScale: { borderColor: R.surfaceAlt, timeVisible: false },
+        rightPriceScale: { borderColor: R.surfaceAlt },
         crosshair: {
           mode: CrosshairMode?.Normal ?? 0,
-          vertLine: { color: C.divider, width: 1, style: 3, labelBackgroundColor: C.surfaceAlt },
-          horzLine: { color: C.divider, width: 1, style: 3, labelBackgroundColor: C.surfaceAlt },
+          vertLine: { color: R.divider, width: 1, style: 3, labelBackgroundColor: R.surfaceAlt },
+          horzLine: { color: R.divider, width: 1, style: 3, labelBackgroundColor: R.surfaceAlt },
         },
         handleScroll: false,
         handleScale: false,
@@ -160,7 +163,7 @@ export default function LineChart({ series, height = 300, normalized = false, in
       series.forEach(({ label, data }, i) => {
         if (!data?.length) return;
         const base = normalized ? data[0].value : null;
-        const color = PALETTE[i % PALETTE.length];
+        const color = resolveCss(PALETTE[i % PALETTE.length]);
 
         const seriesApi = chart.addLineSeries({
           color,
@@ -262,7 +265,7 @@ export default function LineChart({ series, height = 300, normalized = false, in
       if (chart) chart.remove();
       chartRef.current = null;
     };
-  }, [series, height, normalized]);
+  }, [series, height, normalized, theme]);
 
   const chartEl = (
     <div style={{ position: "relative", width: "100%" }}>
@@ -274,7 +277,7 @@ export default function LineChart({ series, height = 300, normalized = false, in
           position: "absolute",
           top: 0, left: 0,
           background: C.surfaceAlt,
-          border: "1px solid #334155",
+          border: "1px solid var(--c-divider)",
           borderRadius: "8px",
           padding: "10px 12px",
           pointerEvents: "none",
@@ -298,7 +301,7 @@ export default function LineChart({ series, height = 300, normalized = false, in
           style={{
             position: "absolute", top: 8, right: 8,
             background: "rgba(30,37,51,0.85)",
-            border: "1px solid #334155",
+            border: "1px solid var(--c-divider)",
             borderRadius: 6, color: C.textSoft,
             width: 32, height: 32,
             cursor: "pointer",

@@ -1,4 +1,5 @@
 import { C } from "../lib/theme";
+import useDocumentTitle from "../hooks/useDocumentTitle";
 import { useEffect, useState } from "react";
 import { getTrades, getPoliticians } from "../lib/api";
 import { exportCSV } from "../lib/csv";
@@ -36,11 +37,12 @@ function exportFeedCSV(trades: Trade[]) {
 
 const inputStyle = {
   background: C.surface, color: C.text,
-  border: "1px solid #1e2533", borderRadius: 6,
+  border: "1px solid var(--c-surfaceAlt)", borderRadius: 6,
   padding: "0.4rem 0.75rem", fontSize: "0.85rem",
 };
 
 export default function Feed() {
+  useDocumentTitle("Trade Feed");
   const [trades, setTrades] = useState<Trade[]>([]);
   const [politicians, setPoliticians] = useState<Politician[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,13 +106,13 @@ export default function Feed() {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-        <h1 style={{ fontSize: "1.5rem", fontWeight: 700 }}>Trade Feed</h1>
+      <div className="page-head">
+        <h1>Trade Feed</h1>
         <div style={{ display: "flex", gap: "0.5rem" }}>
           {trades.length > 0 && (
             <button
               onClick={() => exportFeedCSV(trades)}
-              style={{ background: C.surfaceAlt, color: C.textSoft, border: "1px solid #334155", borderRadius: 6, padding: "0.3rem 0.75rem", cursor: "pointer", fontSize: "0.8rem" }}
+              style={{ background: C.surfaceAlt, color: C.textSoft, border: "1px solid var(--c-divider)", borderRadius: 6, padding: "0.3rem 0.75rem", cursor: "pointer", fontSize: "0.8rem" }}
             >
               ↓ CSV
             </button>
@@ -118,7 +120,7 @@ export default function Feed() {
           {activeFilterCount > 0 && (
             <button
               onClick={clearAll}
-              style={{ background: "none", color: C.textMuted, border: "1px solid #1e2533", borderRadius: 6, padding: "0.3rem 0.75rem", cursor: "pointer", fontSize: "0.8rem" }}
+              style={{ background: "none", color: C.textMuted, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, padding: "0.3rem 0.75rem", cursor: "pointer", fontSize: "0.8rem" }}
             >
               Clear ({activeFilterCount})
             </button>
@@ -127,7 +129,7 @@ export default function Feed() {
       </div>
 
       {/* Filter bar */}
-      <div style={{ marginBottom: "1.5rem", background: C.surface, borderRadius: 8, border: "1px solid #1e2533" }}>
+      <div style={{ marginBottom: "1.5rem", background: C.surface, borderRadius: 8, border: "1px solid var(--c-surfaceAlt)" }}>
         <button
           onClick={() => setFiltersOpen(o => !o)}
           style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center", padding: "0.65rem 1rem", background: "none", border: "none", cursor: "pointer", color: C.textSoft, fontSize: "0.85rem" }}
@@ -135,7 +137,7 @@ export default function Feed() {
           <span style={{ fontWeight: 600 }}>Filters {activeFilterCount > 0 && <span style={{ color: C.accent, fontSize: "0.75rem" }}>({activeFilterCount} active)</span>}</span>
           <span>{filtersOpen ? "▲" : "▼"}</span>
         </button>
-      <div style={{ display: filtersOpen ? "flex" : "none", gap: "0.75rem", flexWrap: "wrap", alignItems: "center", padding: "0 1rem 0.75rem", borderTop: "1px solid #1e2533" }}>
+      <div style={{ display: filtersOpen ? "flex" : "none", gap: "0.75rem", flexWrap: "wrap", alignItems: "center", padding: "0 1rem 0.75rem", borderTop: "1px solid var(--c-surfaceAlt)" }}>
         {/* Politician */}
         <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
           <label style={{ color: C.textDim, fontSize: "0.7rem" }}>Person</label>
@@ -243,7 +245,7 @@ export default function Feed() {
         <div style={{ textAlign: "center", color: C.textDim, paddingTop: "3rem" }}>
           <p>No trades match these filters.</p>
           {activeFilterCount > 0 && (
-            <button onClick={clearAll} style={{ marginTop: "0.75rem", background: "none", color: C.textMuted, border: "1px solid #1e2533", borderRadius: 6, padding: "0.35rem 1rem", cursor: "pointer", fontSize: "0.85rem" }}>
+            <button onClick={clearAll} style={{ marginTop: "0.75rem", background: "none", color: C.textMuted, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, padding: "0.35rem 1rem", cursor: "pointer", fontSize: "0.85rem" }}>
               Clear filters
             </button>
           )}
@@ -261,7 +263,7 @@ export default function Feed() {
               <button
                 onClick={() => setLimit((l) => l + 100)}
                 disabled={loading}
-                style={{ background: C.surfaceAlt, color: C.textSoft, border: "1px solid #334155", borderRadius: 6, padding: "0.5rem 1.5rem", cursor: "pointer", fontSize: "0.85rem" }}
+                style={{ background: C.surfaceAlt, color: C.textSoft, border: "1px solid var(--c-divider)", borderRadius: 6, padding: "0.5rem 1.5rem", cursor: "pointer", fontSize: "0.85rem" }}
               >
                 {loading ? "Loading…" : "Load 100 more"}
               </button>

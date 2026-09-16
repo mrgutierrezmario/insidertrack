@@ -119,7 +119,7 @@ export default function Disclaimer({ children }: DisclaimerProps) {
     }}>
       <div style={{
         background: C.bg,
-        border: "1px solid #334155",
+        border: "1px solid var(--c-divider)",
         borderRadius: 14,
         padding: "2rem 1.75rem",
         maxWidth: 540,
@@ -130,42 +130,28 @@ export default function Disclaimer({ children }: DisclaimerProps) {
         maxHeight: "95vh",
       }}>
         {/* Company branding */}
-        <p style={{ color: C.accent, fontSize: "0.75rem", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "0.75rem" }}>
+        <p style={{ color: C.accent, fontSize: "0.72rem", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "0.75rem" }}>
           M.G. Network &amp; Technology Solutions
         </p>
 
-        <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>⚠️</div>
-
-        <h2 style={{ color: C.textBright, fontSize: "1.2rem", fontWeight: 700, marginBottom: "0.4rem" }}>
-          Terms of Use — InsiderTrack
+        <h2 style={{ color: C.textBright, fontSize: "1.35rem", fontWeight: 700, marginBottom: "0.4rem" }}>
+          Welcome to InsiderTrack
         </h2>
 
         <div style={{ width: 48, height: 2, background: C.accent, margin: "0 auto 1.25rem", borderRadius: 2 }} />
 
-        <p style={{ color: C.textSoft, fontSize: "0.88rem", lineHeight: 1.7, marginBottom: "1rem" }}>
-          By accessing and using <strong style={{ color: C.text }}>InsiderTrack</strong>, operated by{" "}
-          <strong style={{ color: C.text }}>M.G. Network &amp; Technology Solutions</strong>, you acknowledge
-          and agree to the following terms:
+        <p style={{ color: C.textSoft, fontSize: "0.9rem", lineHeight: 1.7, marginBottom: "1rem" }}>
+          Congressional, corporate-insider, institutional and Fed disclosures in one place,
+          scored so you can see who is moving before the market does.
         </p>
 
-        {/* Financial agreement */}
-        <div style={{ background: C.surface, border: "1px solid #1e2533", borderRadius: 8, padding: "1rem 1.25rem", marginBottom: "0.875rem", textAlign: "left" }}>
-          <p style={{ color: C.warningSolid, fontSize: "0.82rem", fontWeight: 600, marginBottom: "0.4rem" }}>
-            💰 Financial Agreement
-          </p>
-          <p style={{ color: C.textSoft, fontSize: "0.83rem", lineHeight: 1.65 }}>
-            Use of this platform constitutes agreement to a service fee equal to{" "}
-            <strong style={{ color: C.textBright }}>10% of $100,000 USD ($10,000)</strong>{" "}
-            payable upon demand by M.G. Network &amp; Technology Solutions.
-          </p>
-        </div>
-
         {/* Informational disclaimer */}
-        <div style={{ background: C.surface, border: "1px solid #1e2533", borderRadius: 8, padding: "0.875rem 1.25rem", marginBottom: "1.25rem", textAlign: "left" }}>
+        <div style={{ background: C.surface, border: `1px solid ${C.surfaceAlt}`, borderRadius: 8, padding: "0.875rem 1.25rem", marginBottom: "1.25rem", textAlign: "left" }}>
           <p style={{ color: C.textMuted, fontSize: "0.8rem", lineHeight: 1.65 }}>
-            This platform is for <strong style={{ color: C.textSoft }}>informational purposes only</strong> and
-            does not constitute financial advice. All data is sourced from public filings and may be delayed.
-            Past performance does not guarantee future results.
+            <strong style={{ color: C.textSoft }}>Not financial advice.</strong> Everything here is compiled
+            from public filings (STOCK Act, SEC Form 4, 13F) and may be delayed or incomplete. Signals are
+            statistical, not recommendations. Past performance does not guarantee future results. By
+            continuing you accept this and our use of your IP address to remember that you did.
           </p>
         </div>
 
@@ -184,7 +170,7 @@ export default function Disclaimer({ children }: DisclaimerProps) {
               width: "100%",
               background: C.surface,
               color: C.text,
-              border: emailError ? "1px solid #ef4444" : "1px solid #334155",
+              border: emailError ? "1px solid var(--c-dangerSolid)" : "1px solid var(--c-divider)",
               borderRadius: 8,
               padding: "0.65rem 0.875rem",
               fontSize: "0.9rem",
@@ -196,15 +182,15 @@ export default function Disclaimer({ children }: DisclaimerProps) {
           {emailError && (
             <p style={{ color: C.dangerSolid, fontSize: "0.75rem", marginTop: "0.35rem" }}>{emailError}</p>
           )}
-          <p style={{ color: "#374151", fontSize: "0.72rem", marginTop: "0.35rem" }}>
-            Your IP address is always recorded. Email is only stored if provided.
+          <p style={{ color: C.textDim, fontSize: "0.72rem", marginTop: "0.35rem" }}>
+            Only stored if you subscribe; used for the reports and nothing else.
           </p>
         </div>
 
         {/* Email subscription opt-in */}
         <div style={{
           background: C.surface,
-          border: "1px solid #1e2533",
+          border: "1px solid var(--c-surfaceAlt)",
           borderRadius: 8,
           padding: "0.875rem 1.25rem",
           marginBottom: "1.5rem",
@@ -223,7 +209,7 @@ export default function Disclaimer({ children }: DisclaimerProps) {
           </label>
 
           {wantsEmails && (
-            <div style={{ marginTop: "0.875rem", paddingTop: "0.875rem", borderTop: "1px solid #1e2533" }}>
+            <div style={{ marginTop: "0.875rem", paddingTop: "0.875rem", borderTop: "1px solid var(--c-surfaceAlt)" }}>
               <p style={{ color: C.textMuted, fontSize: "0.75rem", marginBottom: "0.6rem" }}>
                 Choose which reports to receive:
               </p>
@@ -236,7 +222,7 @@ export default function Disclaimer({ children }: DisclaimerProps) {
                       type="button"
                       onClick={() => setPeriods(p => ({ ...p, [key]: !p[key] }))}
                       style={{
-                        background: active ? "#1e3a5f" : C.bg,
+                        background: active ? "var(--c-accentBg)" : C.bg,
                         color: active ? C.accent : C.textDim,
                         border: `1px solid ${active ? C.accentSolid : C.surfaceAlt}`,
                         borderRadius: 6,
@@ -260,8 +246,8 @@ export default function Disclaimer({ children }: DisclaimerProps) {
             <div style={{
               marginTop: "0.875rem",
               padding: "0.65rem 0.875rem",
-              background: "#1c1108",
-              border: "1px solid #78350f",
+              background: "var(--c-warningBg)",
+              border: "1px solid var(--c-warningDeep)",
               borderRadius: 6,
             }}>
               <p style={{ color: C.warningSolid, fontSize: "0.8rem", margin: 0 }}>
@@ -289,38 +275,32 @@ export default function Disclaimer({ children }: DisclaimerProps) {
         </div>
 
         {/* Buttons */}
-        <div style={{ display: "flex", gap: "0.875rem", justifyContent: "center" }}>
-          <button
-            onClick={() => { window.location.href = "https://www.google.com"; }}
-            style={{
-              background: "#991b1b", color: "#fecaca",
-              border: "1px solid #dc2626", borderRadius: 8,
-              padding: "0.75rem 1.5rem", fontSize: "0.92rem",
-              fontWeight: 600, cursor: "pointer", minWidth: 120,
-              WebkitAppearance: "none",
-            }}
-          >
-            ✕ Cancel
-          </button>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.75rem" }}>
           <button
             onClick={handleAgree}
             disabled={submitting}
             style={{
-              background: submitting ? C.successDeep : "#15803d",
-              color: "#bbf7d0",
-              border: "1px solid #16a34a", borderRadius: 8,
-              padding: "0.75rem 1.5rem", fontSize: "0.92rem",
+              background: C.accentSolid, color: "#fff",
+              border: "none", borderRadius: 8,
+              padding: "0.8rem 2rem", fontSize: "0.95rem",
               fontWeight: 600,
               cursor: submitting ? "not-allowed" : "pointer",
-              minWidth: 120, WebkitAppearance: "none",
+              minWidth: 200, WebkitAppearance: "none",
               opacity: submitting ? 0.7 : 1,
             }}
           >
-            {submitting ? "Saving…" : "✓ I Acknowledge"}
+            {submitting ? "Saving…" : "Continue"}
+          </button>
+          <button
+            type="button"
+            onClick={() => { if (window.history.length > 1) window.history.back(); else window.close(); }}
+            style={{ background: "none", border: "none", color: C.textDim, fontSize: "0.78rem", cursor: "pointer", padding: 0 }}
+          >
+            No thanks, take me back
           </button>
         </div>
 
-        <p style={{ color: "#1f2937", fontSize: "0.68rem", marginTop: "1rem" }}>
+        <p style={{ color: C.textDimmest, fontSize: "0.68rem", marginTop: "1rem" }}>
           © {new Date().getFullYear()} M.G. Network &amp; Technology Solutions. All rights reserved.
         </p>
       </div>

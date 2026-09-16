@@ -15,16 +15,21 @@ const RISK_META: Record<RiskLevel, RiskMetaEntry> = {
   HIGH:   { color: C.danger, bg: "rgba(248,113,113,0.1)", border: "rgba(248,113,113,0.25)" },
 };
 
+/**
+ * "Risk" is staleness: how old the trade is and how long the filer took to
+ * disclose it. LOW/MEDIUM describe nearly every row, so only HIGH is worth a
+ * badge — and it is labelled by what it means, not by a grade.
+ */
 function RiskBadge({ level }: { level: RiskLevel | null }) {
-  if (!level) return null;
-  const m = RISK_META[level] ?? RISK_META.MEDIUM;
+  if (level !== "HIGH") return null;
+  const m = RISK_META[level];
   return (
-    <span style={{
+    <span data-tip="Trade is over 5 weeks old, or was disclosed more than 5 weeks after it happened — the price has likely moved since." style={{
       background: m.bg, color: m.color, border: `1px solid ${m.border}`,
       borderRadius: 5, padding: "1px 7px", fontSize: 10, fontWeight: 700,
       letterSpacing: "0.04em", whiteSpace: "nowrap",
     }}>
-      {level} RISK
+      STALE
     </span>
   );
 }
@@ -55,7 +60,7 @@ export default function TradeCard({ trade }: TradeCardProps) {
     <div
       style={{
         background: C.surface,
-        border: "1px solid #1e2533",
+        border: "1px solid var(--c-surfaceAlt)",
         borderRadius: 8,
         padding: "1rem",
         display: "flex",

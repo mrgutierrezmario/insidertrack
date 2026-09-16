@@ -113,6 +113,46 @@ Noted, not changed:
 - `snapshot_gaps_14d` went 11 → 0 once the scheduler caught up.
 - Pre-cleanup snapshot: `deploy/state/stocktracker-pre-cleanup-2026-09-16.dump`.
 
+## UI pass — 2026-09-16 (look & feel)
+
+Rendered every page at 1440 px and 390 px (Playwright, `scratchpad/shoot2.py`
+against a `vite preview` proxied to the live API) and worked through the
+review list in order:
+
+1. **Terms gate** — removed the "10% of $100,000 service fee" clause; now a
+   welcome + not-financial-advice notice + optional email signup, one
+   Continue button.
+2. **Navigation** — 16 flat links → app bar with 5 grouped menus (Signals ·
+   Who's trading · Markets · Mine · ⚙), hints per item, phone drawer.
+3. **Mobile** — shared `.page-head` (title/subtitle/actions wrap), Politicians
+   card no longer overflows, dense grids collapse, 16 px inputs (no iOS zoom).
+4. **Brand / theme / PWA** — MG Network icons + logo mark, self-hosted Plus
+   Jakarta Sans (CSP forbids Google Fonts), `site.webmanifest`, per-page
+   `<title>`. **Light/dark**: all tokens are CSS variables in
+   `src/index.css`; `lib/theme.ts` `C.*` now returns `var(--c-*)`, so the
+   1,100 inline styles follow the theme with no per-page edits. Canvas charts
+   read resolved colors via `resolvedPalette()` and rebuild on
+   `insidertrack:theme`. Picker (System/Light/Dark) in Settings; no flash
+   (inline script in index.html). 238 hard-coded hex values mapped to tokens.
+5. **Admin controls hidden** for visitors (`hooks/useAdmin`, reactive on
+   login/logout): Politicians add/edit/track/delete, Dashboard sync/run,
+   Outcomes snapshot/fill, Alerts create/pause/delete/evaluate/mark-seen,
+   Whales/Fed/Insiders sync, Politician detail track toggle. Nav badge only
+   for admins ("unseen" is a global admin flag).
+6. **Fed page** — reframed as a roster; copy explains the 2022 rules mean an
+   empty trade list is the compliant state; fake OGE link removed; OGE fetch
+   is a no-op (no such API). Roster: Kugler retired, Stephen Miran added,
+   `ROSTER_AS_OF` + `FORMER_OFFICIALS` in `fed_fetcher.py`.
+7. **Dashboard** — rebuilt around "what changed": stat strip (disclosed this
+   week · top signal · latest read · alerts fired), latest analysis
+   bullish/bearish, your watchlist, top-5 signals with score bars, latest
+   disclosures, recent insiders; the 10-line chart moved to the bottom.
+8. **Small gaps** — sub-score tooltips on Signals; the risk badge shows only
+   for HIGH and reads "STALE" (it measures staleness); Whales header states
+   "Data through 2026-Q2" with the 45-day lag note.
+
+Tests: 70 frontend (vitest) + 149 backend pass.
+
 ## Still open
 
 - Off-site backups (lecture-note-app has `deploy/backup.sh` + rclone; this

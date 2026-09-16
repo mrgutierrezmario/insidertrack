@@ -59,7 +59,7 @@ export default function ActivityChart({ trades, height = 220 }: ActivityChartPro
   }
 
   return (
-    <div style={{ background: C.bg, border: "1px solid #1e2533", borderRadius: 8, padding: "1rem" }}>
+    <div style={{ background: C.bg, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, padding: "1rem" }}>
       <div style={{ color: C.textSoft, fontSize: "0.75rem", marginBottom: "0.5rem", display: "flex", gap: "1rem" }}>
         <span><span style={{ color: C.success }}>■</span> Buys</span>
         <span><span style={{ color: C.danger }}>■</span> Sells</span>

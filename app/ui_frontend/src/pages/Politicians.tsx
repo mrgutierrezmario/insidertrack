@@ -5,6 +5,8 @@ import { useNavigate } from "react-router-dom";
 import { isAxiosError } from "axios";
 import { getPoliticians, createPolitician, updatePolitician, toggleTrack, deletePolitician } from "../lib/api";
 import ConfirmModal from "../components/ConfirmModal";
+import useAdmin from "../hooks/useAdmin";
+import useDocumentTitle from "../hooks/useDocumentTitle";
 
 const PARTY_COLOR: Record<string, string> = { D: "#3b82f6", R: C.dangerSolid, I: C.info };
 const CHAMBER_LABEL: Record<string, string> = { house: "House", senate: "Senate" };
@@ -37,7 +39,7 @@ interface EditNotes {
 
 const inputStyle = {
   background: C.bg, color: C.text,
-  border: "1px solid #1e2533", borderRadius: 6,
+  border: "1px solid var(--c-surfaceAlt)", borderRadius: 6,
   padding: "0.5rem 0.75rem", fontSize: "0.85rem", width: "100%",
 };
 
@@ -55,6 +57,8 @@ export default function Politicians() {
   const [deleteTarget, setDeleteTarget] = useState<PoliticianRow | null>(null);
   const [nameFilter, setNameFilter] = useState("");
   const navigate = useNavigate();
+  const isAdmin = useAdmin();
+  useDocumentTitle("Politicians");
 
   const load = () =>
     getPoliticians()
@@ -119,36 +123,34 @@ export default function Politicians() {
         />
       )}
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+      <div className="page-head">
         <div>
-          <h1 style={{ fontSize: "1.5rem", fontWeight: 700 }}>Politicians</h1>
-          <p style={{ color: C.textMuted, fontSize: "0.85rem", marginTop: 4 }}>
-            Why we track each person — and add new ones to watch.
-          </p>
+          <h1>Politicians</h1>
+          <p>{isAdmin ? "Why we track each person — and add new ones to watch." : "Who we track, and why their trades are worth watching."}</p>
         </div>
-        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+        <div className="page-head__actions">
           <input
             placeholder="Search name…"
             value={nameFilter}
             onChange={(e) => setNameFilter(e.target.value)}
             style={{
               background: C.surface, color: C.text,
-              border: "1px solid #1e2533", borderRadius: 6,
+              border: "1px solid var(--c-surfaceAlt)", borderRadius: 6,
               padding: "0.45rem 0.85rem", fontSize: "0.85rem", width: 160,
             }}
           />
-          <button
+          {isAdmin && <button
             onClick={() => { setShowAdd((v) => !v); setError(""); }}
             style={{ background: showAdd ? C.surfaceAlt : C.accentSolid, color: "#fff", border: "none", padding: "0.5rem 1.25rem", borderRadius: 6, cursor: "pointer" }}
           >
             {showAdd ? "Cancel" : "+ Add Person"}
-          </button>
+          </button>}
         </div>
       </div>
 
       {showAdd && (
         <form onSubmit={handleAdd}
-          style={{ background: C.surface, border: "1px solid #1e2533", borderRadius: 10, padding: "1.5rem", marginBottom: "2rem" }}>
+          style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 10, padding: "1.5rem", marginBottom: "2rem" }}>
           <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "1rem", color: C.textSoft }}>Add new politician to track</h2>
           {error && <p style={{ color: C.danger, marginBottom: "0.75rem", fontSize: "0.85rem" }}>{error}</p>}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "0.75rem", marginBottom: "0.75rem" }}>
@@ -176,7 +178,7 @@ export default function Politicians() {
               <input style={inputStyle} value={form.state} onChange={(e) => setForm((f) => ({ ...f, state: e.target.value.toUpperCase().slice(0, 2) }))} placeholder="TX" maxLength={2} />
             </div>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "1rem" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "0.75rem", marginBottom: "1rem" }}>
             <div>
               <label style={{ color: C.textMuted, fontSize: "0.75rem", display: "block", marginBottom: 4 }}>Bio / description</label>
               <textarea style={{ ...inputStyle, resize: "vertical", minHeight: 72 }} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Brief background on this person..." />
@@ -200,12 +202,12 @@ export default function Politicians() {
           <PoliticianGroup title={`Tracking (${tracked.length})`} items={tracked}
             onTrack={handleTrack} onEdit={startEdit} onSaveEdit={saveEdit}
             onCancelEdit={() => setEditId(null)} onDelete={setDeleteTarget}
-            editId={editId} editNotes={editNotes} setEditNotes={setEditNotes} navigate={navigate} />
+            editId={editId} editNotes={editNotes} setEditNotes={setEditNotes} navigate={navigate} isAdmin={isAdmin} />
           {untracked.length > 0 && (
             <PoliticianGroup title={`Not tracking (${untracked.length})`} items={untracked}
               onTrack={handleTrack} onEdit={startEdit} onSaveEdit={saveEdit}
               onCancelEdit={() => setEditId(null)} onDelete={setDeleteTarget}
-              editId={editId} editNotes={editNotes} setEditNotes={setEditNotes} navigate={navigate} muted />
+              editId={editId} editNotes={editNotes} setEditNotes={setEditNotes} navigate={navigate} isAdmin={isAdmin} muted />
           )}
         </>
       )}
@@ -223,6 +225,7 @@ interface CardHandlers {
   editNotes: EditNotes;
   setEditNotes: React.Dispatch<React.SetStateAction<EditNotes>>;
   navigate: (path: string) => void;
+  isAdmin: boolean;
 }
 
 function PoliticianGroup({ title, items, muted, ...handlers }: { title: string; items: PoliticianRow[]; muted?: boolean } & CardHandlers) {
@@ -238,21 +241,21 @@ function PoliticianGroup({ title, items, muted, ...handlers }: { title: string; 
   );
 }
 
-function PoliticianCard({ p, muted, onTrack, onEdit, onSaveEdit, onCancelEdit, onDelete, editId, editNotes, setEditNotes, navigate }: { p: PoliticianRow; muted?: boolean } & CardHandlers) {
+function PoliticianCard({ p, muted, onTrack, onEdit, onSaveEdit, onCancelEdit, onDelete, editId, editNotes, setEditNotes, navigate, isAdmin }: { p: PoliticianRow; muted?: boolean } & CardHandlers) {
   const isEditing = editId === p.id;
   const partyColor = (p.party && PARTY_COLOR[p.party]) || C.textMuted;
 
   return (
     <div style={{
-      background: muted ? "#0f1117" : C.surface,
-      border: `1px solid ${muted ? "#111827" : C.surfaceAlt}`,
+      background: muted ? "var(--c-bg)" : C.surface,
+      border: `1px solid ${muted ? "var(--c-surfaceAlt)" : C.surfaceAlt}`,
       borderRadius: 10, padding: "1.25rem", opacity: muted ? 0.7 : 1,
     }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: isEditing || p.description ? "0.75rem" : 0 }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: 4 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", gap: "0.5rem 1rem", marginBottom: isEditing || p.description ? "0.75rem" : 0 }}>
+        <div style={{ flex: "1 1 260px", minWidth: 0 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.4rem 0.75rem", marginBottom: 4 }}>
             <button onClick={() => navigate(`/politician/${p.id}`)}
-              style={{ background: "none", border: "none", color: C.accent, fontWeight: 700, fontSize: "1rem", cursor: "pointer", padding: 0 }}>
+              style={{ background: "none", border: "none", color: C.accent, fontWeight: 700, fontSize: "1rem", cursor: "pointer", padding: 0, textAlign: "left" }}>
               {p.name}
             </button>
             <span style={{ background: partyColor + "22", color: partyColor, fontSize: "0.7rem", fontWeight: 600, padding: "1px 8px", borderRadius: 4 }}>
@@ -272,12 +275,12 @@ function PoliticianCard({ p, muted, onTrack, onEdit, onSaveEdit, onCancelEdit, o
               <p style={{ color: C.textMuted, fontSize: "0.82rem", lineHeight: 1.5, margin: 0 }}>{p.why_tracked}</p>
             </div>
           )}
-          {!isEditing && !p.description && !p.why_tracked && (
-            <p style={{ color: "#374151", fontSize: "0.8rem", fontStyle: "italic" }}>No description yet — click edit to add one.</p>
+          {!isEditing && !p.description && !p.why_tracked && isAdmin && (
+            <p style={{ color: "var(--c-textDim)", fontSize: "0.8rem", fontStyle: "italic" }}>No description yet — click edit to add one.</p>
           )}
         </div>
 
-        <div style={{ display: "flex", gap: "0.5rem", marginLeft: "1rem", flexShrink: 0 }}>
+        {isAdmin && <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
           <button onClick={() => onEdit(p)}
             style={{ background: C.surfaceAlt, color: C.textSoft, border: "none", padding: "0.3rem 0.75rem", borderRadius: 5, cursor: "pointer", fontSize: "0.78rem" }}>
             Edit
@@ -287,24 +290,24 @@ function PoliticianCard({ p, muted, onTrack, onEdit, onSaveEdit, onCancelEdit, o
             {p.is_tracked ? "✓ Tracking" : "Track"}
           </button>
           <button onClick={() => onDelete(p)}
-            style={{ background: "transparent", color: "#374151", border: "none", padding: "0.3rem 0.5rem", borderRadius: 5, cursor: "pointer", fontSize: "0.78rem" }}
+            style={{ background: "transparent", color: "var(--c-textDim)", border: "none", padding: "0.3rem 0.5rem", borderRadius: 5, cursor: "pointer", fontSize: "0.78rem" }}
             title="Remove politician">
             ✕
           </button>
-        </div>
+        </div>}
       </div>
 
       {isEditing && (
-        <div style={{ borderTop: "1px solid #1e2533", paddingTop: "0.75rem" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "0.75rem" }}>
+        <div style={{ borderTop: "1px solid var(--c-surfaceAlt)", paddingTop: "0.75rem" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "0.75rem", marginBottom: "0.75rem" }}>
             <div>
               <label style={{ color: C.textMuted, fontSize: "0.72rem", display: "block", marginBottom: 3 }}>Bio</label>
-              <textarea style={{ background: C.bg, color: C.text, border: "1px solid #334155", borderRadius: 5, padding: "0.4rem 0.6rem", fontSize: "0.82rem", width: "100%", resize: "vertical", minHeight: 72 }}
+              <textarea style={{ background: C.bg, color: C.text, border: "1px solid var(--c-divider)", borderRadius: 5, padding: "0.4rem 0.6rem", fontSize: "0.82rem", width: "100%", resize: "vertical", minHeight: 72 }}
                 value={editNotes.description} onChange={(e) => setEditNotes((n) => ({ ...n, description: e.target.value }))} />
             </div>
             <div>
               <label style={{ color: C.textMuted, fontSize: "0.72rem", display: "block", marginBottom: 3 }}>Why we track</label>
-              <textarea style={{ background: C.bg, color: C.text, border: "1px solid #334155", borderRadius: 5, padding: "0.4rem 0.6rem", fontSize: "0.82rem", width: "100%", resize: "vertical", minHeight: 72 }}
+              <textarea style={{ background: C.bg, color: C.text, border: "1px solid var(--c-divider)", borderRadius: 5, padding: "0.4rem 0.6rem", fontSize: "0.82rem", width: "100%", resize: "vertical", minHeight: 72 }}
                 value={editNotes.why_tracked} onChange={(e) => setEditNotes((n) => ({ ...n, why_tracked: e.target.value }))} />
             </div>
           </div>

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useParams, Link } from "react-router-dom";
 import { getWhaleDetail } from "../lib/api";
 import { card , C} from "../lib/theme";
+import useDocumentTitle from "../hooks/useDocumentTitle";
 
 type ChangeType = "new" | "increased" | "decreased" | "closed" | "stable";
 
@@ -54,6 +55,7 @@ function Stat({ label, value, color }: StatProps) {
 export default function Whale() {
   const { id } = useParams<{ id: string }>();
   const [data, setData] = useState<WhaleDetail | null>(null);
+  useDocumentTitle(data?.holder?.name ?? "Whale");
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
   const [tickerFilter, setTickerFilter] = useState("");
@@ -111,7 +113,7 @@ export default function Whale() {
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {conviction_buys.map((h) => (
               <Link key={h.ticker} to={`/ticker/${h.ticker}`}
-                style={{ textDecoration: "none", background: C.bg, border: "1px solid #1e3a5f", borderRadius: 6, padding: "4px 10px", display: "flex", gap: 6, alignItems: "center" }}>
+                style={{ textDecoration: "none", background: C.bg, border: "1px solid var(--c-accentBg)", borderRadius: 6, padding: "4px 10px", display: "flex", gap: 6, alignItems: "center" }}>
                 <span style={{ color: C.accent, fontWeight: 700, fontSize: 12 }}>{h.ticker}</span>
                 <span style={{ color: styleFor(h.change_type)?.color || C.textMuted, fontSize: 10 }}>
                   {styleFor(h.change_type)?.label}
@@ -132,12 +134,12 @@ export default function Whale() {
             placeholder="Ticker…"
             value={tickerFilter}
             onChange={(e) => setTickerFilter(e.target.value.toUpperCase())}
-            style={{ background: C.bg, border: "1px solid #1e2533", borderRadius: 6, color: C.textBright, padding: "4px 10px", fontSize: 12, width: 90 }}
+            style={{ background: C.bg, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, color: C.textBright, padding: "4px 10px", fontSize: 12, width: 90 }}
           />
           <select
             value={changeFilter}
             onChange={(e) => setChangeFilter(e.target.value as ChangeType | "")}
-            style={{ background: C.bg, border: "1px solid #1e2533", borderRadius: 6, color: C.textSoft, padding: "4px 8px", fontSize: 12 }}
+            style={{ background: C.bg, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, color: C.textSoft, padding: "4px 8px", fontSize: 12 }}
           >
             <option value="">All moves</option>
             {CHANGE_TYPES.map((t) => (
@@ -147,14 +149,14 @@ export default function Whale() {
           {hasFilter && (
             <button
               onClick={() => { setTickerFilter(""); setChangeFilter(""); }}
-              style={{ background: "none", color: C.textMuted, border: "1px solid #1e2533", borderRadius: 6, padding: "4px 8px", fontSize: 12, cursor: "pointer" }}
+              style={{ background: "none", color: C.textMuted, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, padding: "4px 8px", fontSize: 12, cursor: "pointer" }}
             >
               Clear
             </button>
           )}
           {all_holdings.length > top_holdings.length && (
             <button onClick={() => setShowAll((s) => !s)}
-              style={{ background: C.surfaceAlt, color: C.textSoft, border: "1px solid #334155", borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer" }}>
+              style={{ background: C.surfaceAlt, color: C.textSoft, border: "1px solid var(--c-divider)", borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer" }}>
               {showAll ? "Show top 25" : `Show all ${all_holdings.length}`}
             </button>
           )}
@@ -171,7 +173,7 @@ export default function Whale() {
         <div style={{ ...card, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
-              <tr style={{ borderBottom: "1px solid #1e2533" }}>
+              <tr style={{ borderBottom: "1px solid var(--c-surfaceAlt)" }}>
                 {["Ticker", "Company", "Value", "Weight", "Change"].map((h) => (
                   <th key={h} style={{ padding: "10px 12px", color: C.dividerStrong, fontWeight: 600, fontSize: 11, textAlign: "left" }}>{h}</th>
                 ))}
@@ -179,7 +181,7 @@ export default function Whale() {
             </thead>
             <tbody>
               {filtered.map((h) => (
-                <tr key={h.ticker} style={{ borderBottom: "1px solid #1e2533" }}>
+                <tr key={h.ticker} style={{ borderBottom: "1px solid var(--c-surfaceAlt)" }}>
                   <td style={{ padding: "9px 12px" }}>
                     <Link to={`/ticker/${h.ticker}`} style={{ color: C.accent, fontWeight: 700, textDecoration: "none" }}>{h.ticker}</Link>
                   </td>

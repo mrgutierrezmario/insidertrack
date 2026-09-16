@@ -1,4 +1,5 @@
 import { C } from "../lib/theme";
+import useDocumentTitle from "../hooks/useDocumentTitle";
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { projectInvestment, getSimulatorGrowth } from "../lib/api";
@@ -30,6 +31,7 @@ interface GrowthSeries {
 }
 
 export default function Simulator() {
+  useDocumentTitle("Simulator");
   const [ticker, setTicker] = useState("");
   const [amount, setAmount] = useState(100);
   const [result, setResult] = useState<ProjectionResult | null>(null);
@@ -76,7 +78,7 @@ export default function Simulator() {
 
   return (
     <div style={{ maxWidth: 680 }}>
-      <h1 style={{ fontSize: "1.5rem", fontWeight: 700, marginBottom: "0.5rem" }}>Investment Simulator</h1>
+      <h1>Investment Simulator</h1>
       <p style={{ color: C.textMuted, marginBottom: "1.5rem", fontSize: "0.9rem" }}>
         See what $X would be worth if you'd invested when a tracked insider disclosed their purchase.
       </p>
@@ -89,7 +91,7 @@ export default function Simulator() {
           required
           style={{
             background: C.surface, color: C.text,
-            border: "1px solid #1e2533", borderRadius: 6,
+            border: "1px solid var(--c-surfaceAlt)", borderRadius: 6,
             padding: "0.5rem 1rem", fontSize: "0.9rem", width: 160,
           }}
         />
@@ -101,7 +103,7 @@ export default function Simulator() {
           placeholder="Amount ($)"
           style={{
             background: C.surface, color: C.text,
-            border: "1px solid #1e2533", borderRadius: 6,
+            border: "1px solid var(--c-surfaceAlt)", borderRadius: 6,
             padding: "0.5rem 1rem", fontSize: "0.9rem", width: 140,
           }}
         />
@@ -121,7 +123,7 @@ export default function Simulator() {
       {error && <p style={{ color: C.danger, marginBottom: "1rem" }}>{error}</p>}
 
       {result && (
-        <div style={{ background: C.surface, border: "1px solid #1e2533", borderRadius: 10, padding: "1.5rem", marginBottom: "1.5rem" }}>
+        <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 10, padding: "1.5rem", marginBottom: "1.5rem" }}>
           <div style={{ fontSize: "1rem", color: C.textSoft, marginBottom: "1rem" }}>
             Simulating <strong style={{ color: C.accent }}>{result.ticker}</strong> based on{" "}
             <strong style={{ color: C.text }}>{result.triggered_by}</strong>'s disclosure
@@ -142,7 +144,7 @@ export default function Simulator() {
           </div>
 
           <div style={{
-            borderTop: "1px solid #1e2533", paddingTop: "1rem",
+            borderTop: "1px solid var(--c-surfaceAlt)", paddingTop: "1rem",
             display: "flex", justifyContent: "space-between", alignItems: "center",
           }}>
             <div>
@@ -170,7 +172,7 @@ export default function Simulator() {
           <h2 style={{ fontSize: "1rem", fontWeight: 600, color: C.textSoft, marginBottom: "0.75rem" }}>
             Portfolio Growth Since Entry
           </h2>
-          <div style={{ background: C.bg, border: "1px solid #1e2533", borderRadius: 8 }}>
+          <div style={{ background: C.bg, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8 }}>
             <LineChart series={growthSeries} height={280} normalized={false} title="Portfolio Growth Since Entry" />
           </div>
           {growth.triggered_by && (() => {

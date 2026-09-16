@@ -1,4 +1,5 @@
 import { C } from "../lib/theme";
+import useDocumentTitle from "../hooks/useDocumentTitle";
 import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { getTrades, getInsiderTransactions, getFedTrades } from "../lib/api";
@@ -41,7 +42,7 @@ function ActivityRow({ item }: { item: ActivityItem }) {
   const typeColor = isBuy ? C.success : C.danger;
 
   return (
-    <div style={{ background: C.surface, border: "1px solid #1e2533", borderRadius: 9, padding: "11px 14px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+    <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 9, padding: "11px 14px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
       <div style={{ flexShrink: 0, width: 80 }}>
         <div style={{ color: C.dividerStrong, fontSize: 11 }}>{item.trade_date}</div>
         <SourceBadge source={item._source} />
@@ -155,6 +156,7 @@ function exportActivityCSV(items: ActivityItem[]) {
 }
 
 export default function Activity() {
+  useDocumentTitle("Activity");
   const [items, setItems] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -219,9 +221,9 @@ export default function Activity() {
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+      <div className="page-head">
         <div>
-          <h1 style={{ color: C.textBright, margin: "0 0 4px", fontSize: "1.4rem" }}>Activity Feed</h1>
+          <h1>Activity Feed</h1>
           <p style={{ color: C.dividerStrong, margin: 0, fontSize: 13 }}>
             Congressional trades · Corporate Form 4 insiders · Federal Reserve disclosures — unified timeline.
           </p>
@@ -229,7 +231,7 @@ export default function Activity() {
         <div style={{ display: "flex", gap: 8 }}>
           {filtered.length > 0 && (
             <button onClick={() => exportActivityCSV(filtered)}
-              style={{ background: C.surfaceAlt, color: C.textSoft, border: "1px solid #334155", borderRadius: 6, padding: "6px 14px", fontSize: 12, cursor: "pointer" }}>
+              style={{ background: C.surfaceAlt, color: C.textSoft, border: "1px solid var(--c-divider)", borderRadius: 6, padding: "6px 14px", fontSize: 12, cursor: "pointer" }}>
               ↓ CSV
             </button>
           )}
@@ -241,7 +243,7 @@ export default function Activity() {
       </div>
 
       {/* Filters */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center", background: C.surface, border: "1px solid #1e2533", borderRadius: 8, padding: "10px 14px" }}>
+      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center", background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, padding: "10px 14px" }}>
         {(Object.entries(SOURCE_META) as [Source, typeof SOURCE_META[Source]][]).map(([key, m]) => (
           <button key={key}
             onClick={() => setSources((s) => ({ ...s, [key]: !s[key] }))}
@@ -276,7 +278,7 @@ export default function Activity() {
           placeholder="Ticker…"
           value={tickerFilter}
           onChange={(e) => setTickerFilter(e.target.value.toUpperCase())}
-          style={{ background: C.bg, border: "1px solid #1e2533", borderRadius: 6, color: C.textBright, padding: "4px 10px", fontSize: 12, width: 90 }}
+          style={{ background: C.bg, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, color: C.textBright, padding: "4px 10px", fontSize: 12, width: 90 }}
         />
 
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -285,13 +287,13 @@ export default function Activity() {
             type="date"
             value={afterDate}
             onChange={(e) => setAfterDate(e.target.value)}
-            style={{ background: C.bg, border: "1px solid #1e2533", borderRadius: 6, color: afterDate ? C.textBright : C.dividerStrong, padding: "3px 8px", fontSize: 12, colorScheme: "dark" }}
+            style={{ background: C.bg, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, color: afterDate ? C.textBright : C.dividerStrong, padding: "3px 8px", fontSize: 12, colorScheme: "dark" }}
           />
         </div>
 
         {hasActiveFilter && (
           <button onClick={clearAll}
-            style={{ background: "none", color: C.textMuted, border: "1px solid #1e2533", borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer", marginLeft: "auto" }}>
+            style={{ background: "none", color: C.textMuted, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer", marginLeft: "auto" }}>
             Clear
           </button>
         )}
@@ -306,7 +308,7 @@ export default function Activity() {
           {[...Array(6)].map((_, i) => <SkeletonCard key={i} lines={2} height={54} />)}
         </div>
       ) : filtered.length === 0 ? (
-        <div style={{ color: C.dividerStrong, textAlign: "center", padding: "60px 0", background: C.surface, border: "1px solid #1e2533", borderRadius: 12 }}>
+        <div style={{ color: C.dividerStrong, textAlign: "center", padding: "60px 0", background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 12 }}>
           No activity matches your filters.
         </div>
       ) : (

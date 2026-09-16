@@ -5,6 +5,8 @@ import {
   getAlertEvents, markAlertsSeen, runAlerts,
 } from "../lib/api";
 import { card as themeCard , C} from "../lib/theme";
+import useDocumentTitle from "../hooks/useDocumentTitle";
+import useAdmin from "../hooks/useAdmin";
 
 interface TypeMeta {
   label: string;
@@ -57,7 +59,7 @@ interface AlertForm {
 }
 
 const card: CSSProperties = { ...themeCard, padding: "16px 18px" };
-const inputStyle: CSSProperties = { background: C.bg, color: C.text, border: "1px solid #334155", borderRadius: 6, padding: "7px 10px", fontSize: 13 };
+const inputStyle: CSSProperties = { background: C.bg, color: C.text, border: "1px solid var(--c-divider)", borderRadius: 6, padding: "7px 10px", fontSize: 13 };
 
 function fmtDate(iso: string | null | undefined): string {
   if (!iso) return "";
@@ -135,7 +137,7 @@ function NewRuleForm({ types, onCreated }: { types: AlertTypeOption[]; onCreated
   );
 }
 
-function RuleCard({ rule, onToggle, onDelete }: { rule: AlertRule; onToggle: (rule: AlertRule) => void; onDelete: (id: number) => void }) {
+function RuleCard({ rule, onToggle, onDelete, canEdit }: { rule: AlertRule; onToggle: (rule: AlertRule) => void; onDelete: (id: number) => void; canEdit: boolean }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const meta: TypeMeta = TYPE_META[rule.alert_type] || EMPTY_META;
 
@@ -154,16 +156,16 @@ function RuleCard({ rule, onToggle, onDelete }: { rule: AlertRule; onToggle: (ru
           {` · ${rule.event_count} fired`}
         </div>
       </div>
-      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+      {canEdit && <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
         <button onClick={() => onToggle(rule)}
-          style={{ background: C.surfaceAlt, color: rule.is_active ? C.textMuted : C.success, border: "1px solid #334155", borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer" }}>
+          style={{ background: C.surfaceAlt, color: rule.is_active ? C.textMuted : C.success, border: "1px solid var(--c-divider)", borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer" }}>
           {rule.is_active ? "Pause" : "Resume"}
         </button>
         {confirmDelete ? (
           <>
             <span style={{ color: C.danger, fontSize: 12 }}>Delete?</span>
             <button onClick={() => onDelete(rule.id)}
-              style={{ background: C.dangerDeep, color: "#fca5a5", border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer", fontWeight: 700 }}>
+              style={{ background: C.dangerDeep, color: "var(--c-danger)", border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer", fontWeight: 700 }}>
               Yes
             </button>
             <button onClick={() => setConfirmDelete(false)}
@@ -173,16 +175,18 @@ function RuleCard({ rule, onToggle, onDelete }: { rule: AlertRule; onToggle: (ru
           </>
         ) : (
           <button onClick={() => setConfirmDelete(true)}
-            style={{ background: "transparent", color: C.dividerStrong, border: "1px solid #1e2533", borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer" }}>
+            style={{ background: "transparent", color: C.dividerStrong, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer" }}>
             Delete
           </button>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
 
 export default function Alerts() {
+  const isAdmin = useAdmin();
+  useDocumentTitle("Alerts");
   const [rules, setRules] = useState<AlertRule[]>([]);
   const [events, setEvents] = useState<AlertEvent[]>([]);
   const [types, setTypes] = useState<AlertTypeOption[]>([]);
@@ -205,7 +209,7 @@ export default function Alerts() {
 
   useEffect(() => {
     load();
-    markAlertsSeen().catch(() => {});
+    if (isAdmin) markAlertsSeen().catch(() => {}); // "seen" is an admin flag
   }, []);
 
   const toggleRule = async (rule: AlertRule) => {
@@ -235,9 +239,9 @@ export default function Alerts() {
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24 }}>
+      <div className="page-head">
         <div>
-          <h1 style={{ color: C.textBright, margin: "0 0 4px", fontSize: "1.4rem" }}>Alerts</h1>
+          <h1>Alerts</h1>
           <p style={{ color: C.dividerStrong, margin: 0, fontSize: 13 }}>
             Define conditions on signals, insiders, whales, and earnings — get notified when they fire.
           </p>
@@ -247,19 +251,19 @@ export default function Alerts() {
             </p>
           )}
         </div>
-        <button onClick={runNow}
+        {isAdmin && <button onClick={runNow}
           style={{ background: "rgba(74,222,128,0.08)", color: C.success, border: "1px solid rgba(74,222,128,0.2)", borderRadius: 6, padding: "7px 14px", fontSize: 12, cursor: "pointer" }}>
           ↻ Evaluate Now
-        </button>
+        </button>}
       </div>
 
       {msg && (
         <div style={{ ...card, marginBottom: 16, color: C.textSoft, fontSize: 13, padding: "10px 14px" }}>{msg}</div>
       )}
 
-      <div style={{ marginBottom: 16 }}>
+      {isAdmin && <div style={{ marginBottom: 16 }}>
         <NewRuleForm types={types} onCreated={load} />
-      </div>
+      </div>}
 
       <h2 style={{ color: C.textSoft, fontSize: 13, fontWeight: 600, margin: "20px 0 10px" }}>
         Rules ({rules.length})
@@ -267,11 +271,11 @@ export default function Alerts() {
       {loading ? (
         <p style={{ color: C.dividerStrong }}>Loading…</p>
       ) : rules.length === 0 ? (
-        <p style={{ color: C.dividerStrong, fontSize: 13 }}>No rules yet. Create one above.</p>
+        <p style={{ color: C.dividerStrong, fontSize: 13 }}>{isAdmin ? "No rules yet. Create one above." : "No alert rules are configured yet."}</p>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {rules.map((r) => (
-            <RuleCard key={r.id} rule={r} onToggle={toggleRule} onDelete={removeRule} />
+            <RuleCard key={r.id} rule={r} onToggle={toggleRule} onDelete={removeRule} canEdit={isAdmin} />
           ))}
         </div>
       )}

@@ -1,4 +1,5 @@
-import { C } from "../lib/theme";
+import { C, resolvedPalette, resolveCss } from "../lib/theme";
+import { useResolvedTheme } from "../hooks/useTheme";
 import { useEffect, useRef, useState } from "react";
 import ChartModal from "./ChartModal";
 
@@ -78,16 +79,16 @@ function renderCandleTooltip(
     : new Date(timeVal * 1000).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
   tooltip.innerHTML = `
-    <div style="color:#64748b;font-size:11px;margin-bottom:6px">${timeStr}</div>
+    <div style="color:var(--c-textMuted);font-size:11px;margin-bottom:6px">${timeStr}</div>
     <div style="color:${color};font-size:14px;font-weight:700;margin-bottom:6px">
       ${fmtPrice(candle.close)}
       <span style="font-size:11px;font-weight:500">${sign}${changePct}%</span>
     </div>
     <div style="display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:12px">
-      <span style="color:#64748b">Open</span><span style="color:#f1f5f9">${fmtPrice(candle.open)}</span>
-      <span style="color:#64748b">High</span><span style="color:#4ade80">${fmtPrice(candle.high)}</span>
-      <span style="color:#64748b">Low</span><span style="color:#f87171">${fmtPrice(candle.low)}</span>
-      <span style="color:#64748b">Close</span><span style="color:#f1f5f9">${fmtPrice(candle.close)}</span>
+      <span style="color:var(--c-textMuted)">Open</span><span style="color:var(--c-textBright)">${fmtPrice(candle.open)}</span>
+      <span style="color:var(--c-textMuted)">High</span><span style="color:var(--c-success)">${fmtPrice(candle.high)}</span>
+      <span style="color:var(--c-textMuted)">Low</span><span style="color:var(--c-danger)">${fmtPrice(candle.low)}</span>
+      <span style="color:var(--c-textMuted)">Close</span><span style="color:var(--c-textBright)">${fmtPrice(candle.close)}</span>
     </div>
   `;
   tooltip.style.display = "block";
@@ -108,6 +109,7 @@ function renderCandleTooltip(
  * title: shown in modal header
  */
 export default function StockChart({ data, height = 300, interactive = false, title = "Chart" }: StockChartProps) {
+  const theme = useResolvedTheme();
   const [expanded, setExpanded] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
@@ -119,6 +121,7 @@ export default function StockChart({ data, height = 300, interactive = false, ti
   const mappedRef = useRef<Candle[]>([]);
 
   useEffect(() => {
+    const R = resolvedPalette();
     if (!containerRef.current || !data?.length) return;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -133,14 +136,14 @@ export default function StockChart({ data, height = 300, interactive = false, ti
 
       chart = createChart(containerRef.current, {
         height,
-        layout: { background: { color: C.bg }, textColor: C.textSoft },
-        grid: { vertLines: { color: C.surfaceAlt }, horzLines: { color: C.surfaceAlt } },
-        timeScale: { borderColor: C.surfaceAlt, timeVisible: true, secondsVisible: false },
-        rightPriceScale: { borderColor: C.surfaceAlt },
+        layout: { background: { color: R.bg }, textColor: R.textSoft },
+        grid: { vertLines: { color: R.surfaceAlt }, horzLines: { color: R.surfaceAlt } },
+        timeScale: { borderColor: R.surfaceAlt, timeVisible: true, secondsVisible: false },
+        rightPriceScale: { borderColor: R.surfaceAlt },
         crosshair: {
           mode: CrosshairMode?.Normal ?? 0,
-          vertLine: { color: C.dividerStrong, width: 1, style: 3, labelBackgroundColor: C.surfaceAlt },
-          horzLine: { color: C.dividerStrong, width: 1, style: 3, labelBackgroundColor: C.surfaceAlt },
+          vertLine: { color: R.dividerStrong, width: 1, style: 3, labelBackgroundColor: R.surfaceAlt },
+          horzLine: { color: R.dividerStrong, width: 1, style: 3, labelBackgroundColor: R.surfaceAlt },
         },
         handleScroll: false,
         handleScale: false,
@@ -149,9 +152,9 @@ export default function StockChart({ data, height = 300, interactive = false, ti
       chartRef.current = chart;
 
       const candleSeries = chart.addCandlestickSeries({
-        upColor: C.success, downColor: C.danger,
-        borderUpColor: C.success, borderDownColor: C.danger,
-        wickUpColor: C.success, wickDownColor: C.danger,
+        upColor: R.success, downColor: R.danger,
+        borderUpColor: R.success, borderDownColor: R.danger,
+        wickUpColor: R.success, wickDownColor: R.danger,
       });
 
       const mapped = data.map((d) => ({
@@ -217,7 +220,7 @@ export default function StockChart({ data, height = 300, interactive = false, ti
       if (chart) chart.remove();
       chartRef.current = null;
     };
-  }, [data, height]);
+  }, [data, height, theme]);
 
   const chartEl = (
     <div style={{ position: "relative", width: "100%" }}>
@@ -229,7 +232,7 @@ export default function StockChart({ data, height = 300, interactive = false, ti
           position: "absolute",
           top: 0, left: 0,
           background: C.surfaceAlt,
-          border: "1px solid #334155",
+          border: "1px solid var(--c-divider)",
           borderRadius: "8px",
           padding: "10px 12px",
           pointerEvents: "none",
@@ -253,7 +256,7 @@ export default function StockChart({ data, height = 300, interactive = false, ti
           style={{
             position: "absolute", top: 8, right: 8,
             background: "rgba(30,37,51,0.85)",
-            border: "1px solid #334155",
+            border: "1px solid var(--c-divider)",
             borderRadius: 6, color: C.textSoft,
             width: 32, height: 32,
             cursor: "pointer",

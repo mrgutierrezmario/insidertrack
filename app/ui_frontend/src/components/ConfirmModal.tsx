@@ -24,7 +24,7 @@ export default function ConfirmModal({ message, onConfirm, onCancel, confirmLabe
     }} onClick={onCancel}>
       <div
         style={{
-          background: C.surface, border: "1px solid #334155",
+          background: C.surface, border: "1px solid var(--c-divider)",
           borderRadius: 12, padding: "1.75rem 2rem",
           maxWidth: 400, width: "90%", textAlign: "center",
         }}
@@ -38,7 +38,7 @@ export default function ConfirmModal({ message, onConfirm, onCancel, confirmLabe
             onClick={onCancel}
             style={{
               background: C.surfaceAlt, color: C.textSoft,
-              border: "1px solid #334155", borderRadius: 7,
+              border: "1px solid var(--c-divider)", borderRadius: 7,
               padding: "0.55rem 1.25rem", cursor: "pointer", fontSize: "0.88rem",
             }}
           >
@@ -49,8 +49,8 @@ export default function ConfirmModal({ message, onConfirm, onCancel, confirmLabe
             onClick={onConfirm}
             style={{
               background: danger ? C.dangerDeep : C.accentSolid,
-              color: danger ? "#fca5a5" : "#fff",
-              border: `1px solid ${danger ? "#991b1b" : C.accentSolid}`,
+              color: danger ? "var(--c-danger)" : "#fff",
+              border: `1px solid ${danger ? "var(--c-dangerDeep)" : C.accentSolid}`,
               borderRadius: 7, padding: "0.55rem 1.25rem",
               cursor: "pointer", fontSize: "0.88rem", fontWeight: 600,
             }}

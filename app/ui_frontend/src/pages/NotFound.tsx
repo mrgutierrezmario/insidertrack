@@ -1,7 +1,9 @@
 import { C } from "../lib/theme";
+import useDocumentTitle from "../hooks/useDocumentTitle";
 import { Link } from "react-router-dom";
 
 export default function NotFound() {
+  useDocumentTitle("Not found");
   return (
     <div style={{ textAlign: "center", padding: "80px 24px" }}>
       <div style={{ fontSize: 64, marginBottom: 16 }}>404</div>

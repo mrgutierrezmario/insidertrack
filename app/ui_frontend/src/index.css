@@ -1,0 +1,235 @@
+/* ── Design tokens ─────────────────────────────────────────────────────────
+   MG Network brand palette (same source as lecture-note-app). Dark is the
+   default for a market-data tool; [data-theme="light"] overrides the surface
+   and text tokens. <html data-theme> is set by index.html before first paint
+   and kept in sync by hooks/useTheme. lib/theme.ts exposes these same tokens
+   to inline styles as var(--c-*), so every page follows the theme. */
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/PlusJakartaSans-latin.woff2") format("woff2");
+}
+
+:root {
+  --brand-navy: #061f52;
+  --brand-blue: #0b74f6;
+  --brand-cyan: #12bceb;
+  --brand-teal: #11d4b2;
+
+  /* Surfaces (dark → light) */
+  --c-bg:            #0a1430;
+  --c-bgSunken:      #071027;
+  --c-surface:       #101d3f;
+  --c-surfaceAlt:    #172650;
+  --c-divider:       #243663;
+  --c-dividerStrong: #34497a;
+
+  /* Text (dim → bright) */
+  --c-textDimmest:   #3a4b74;
+  --c-textDim:       #55688f;
+  --c-textMuted:     #7f92b8;
+  --c-textSoft:      #9aaac9;
+  --c-text:          #e7ecf7;
+  --c-textBright:    #ffffff;
+  --c-textFaint:     #6d7fa6;
+
+  /* Semantic */
+  --c-accent:        #38bdf8;
+  --c-accentSolid:   #0b74f6;
+  --c-accentBg:      rgba(11, 116, 246, 0.16);
+  --c-success:       #4ade80;
+  --c-successDeep:   #166534;
+  --c-successBg:     rgba(74, 222, 128, 0.12);
+  --c-danger:        #f87171;
+  --c-dangerSolid:   #ef4444;
+  --c-dangerDeep:    #7f1d1d;
+  --c-dangerBg:      rgba(248, 113, 113, 0.12);
+  --c-warning:       #fb923c;
+  --c-warningSolid:  #fbbf24;
+  --c-warningDeep:   #78350f;
+  --c-warningBg:     rgba(251, 191, 36, 0.12);
+  --c-info:          #a78bfa;
+
+  --shadow:    0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.45);
+  --backdrop:  rgba(4, 10, 28, 0.72);
+
+  color-scheme: dark;
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  color: var(--c-text);
+  background-color: var(--c-bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+:root[data-theme="light"] {
+  --c-bg:            #f4f6fa;
+  --c-bgSunken:      #e9edf5;
+  --c-surface:       #ffffff;
+  --c-surfaceAlt:    #eef2f8;
+  --c-divider:       #dee4ee;
+  --c-dividerStrong: #b9c6db;
+
+  --c-textDimmest:   #b3bfd2;
+  --c-textDim:       #8a97ae;
+  --c-textMuted:     #5b6b86;
+  --c-textSoft:      #44546f;
+  --c-text:          #0f1f3d;
+  --c-textBright:    #061f52;
+  --c-textFaint:     #8a97ae;
+
+  --c-accent:        #0b74f6;
+  --c-accentSolid:   #0b74f6;
+  --c-accentBg:      rgba(11, 116, 246, 0.1);
+  --c-success:       #15803d;
+  --c-successDeep:   #86efac;
+  --c-successBg:     rgba(22, 163, 74, 0.1);
+  --c-danger:        #dc2626;
+  --c-dangerSolid:   #dc2626;
+  --c-dangerDeep:    #fca5a5;
+  --c-dangerBg:      rgba(220, 38, 38, 0.08);
+  --c-warning:       #c2410c;
+  --c-warningSolid:  #b45309;
+  --c-warningDeep:   #fcd34d;
+  --c-warningBg:     rgba(217, 119, 6, 0.1);
+  --c-info:          #6d28d9;
+
+  --shadow:    0 1px 2px rgba(6, 31, 82, 0.06), 0 8px 24px rgba(6, 31, 82, 0.05);
+  --shadow-lg: 0 24px 64px rgba(6, 31, 82, 0.25);
+  --backdrop:  rgba(4, 10, 28, 0.55);
+
+  color-scheme: light;
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body { background: var(--c-bg); color: var(--c-text); min-height: 100dvh; overflow-x: hidden; }
+#root { min-height: 100dvh; display: flex; flex-direction: column; }
+a { color: var(--c-accent); }
+button, input, select, textarea { font: inherit; }
+input, select, textarea { font-size: max(16px, 0.9rem); } /* no iOS zoom on focus */
+@media (min-width: 700px) { input, select, textarea { font-size: 0.9rem; } }
+:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+::selection { background: var(--c-accentBg); }
+img, svg { max-width: 100%; }
+
+/* ── App bar ──────────────────────────────────────────────────────────────── */
+.appbar {
+  position: sticky; top: 0; z-index: 100;
+  display: flex; align-items: center; gap: 0.5rem;
+  height: 56px; padding: 0 1rem;
+  background: var(--c-surface);
+  border-bottom: 1px solid var(--c-divider);
+  box-shadow: var(--shadow);
+}
+.appbar__brand {
+  display: flex; align-items: center; gap: 0.5rem;
+  color: var(--c-textBright); font-weight: 700; font-size: 1rem;
+  text-decoration: none; white-space: nowrap; flex-shrink: 0;
+}
+.appbar__brand img { width: 30px; height: 30px; display: block; }
+.appbar__brand span b { color: var(--c-accent); font-weight: 700; }
+.appbar__nav { display: flex; align-items: center; gap: 0.15rem; margin-left: 0.75rem; min-width: 0; }
+.appbar__right { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; flex-shrink: 0; }
+
+.navgroup { position: relative; }
+.navgroup__btn, .navlink {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  height: 34px; padding: 0 0.7rem; border-radius: 7px;
+  background: transparent; border: none; cursor: pointer;
+  color: var(--c-textSoft); font-size: 0.86rem; font-weight: 500; text-decoration: none;
+  white-space: nowrap;
+}
+.navgroup__btn:hover, .navlink:hover { background: var(--c-surfaceAlt); color: var(--c-text); }
+.navgroup__btn[aria-expanded="true"], .navgroup--active > .navgroup__btn, .navlink.active {
+  color: var(--c-accent); background: var(--c-accentBg);
+}
+.navgroup__btn .chev { font-size: 0.65rem; opacity: 0.7; transition: transform 0.15s; }
+.navgroup__btn[aria-expanded="true"] .chev { transform: rotate(180deg); }
+.navgroup__menu {
+  position: absolute; top: calc(100% + 6px); left: 0; min-width: 210px;
+  background: var(--c-surface); border: 1px solid var(--c-divider);
+  border-radius: 10px; box-shadow: var(--shadow-lg); padding: 6px; z-index: 120;
+}
+.navgroup__item {
+  display: flex; flex-direction: column; gap: 1px;
+  padding: 8px 10px; border-radius: 7px; text-decoration: none;
+  color: var(--c-text); font-size: 0.86rem;
+}
+.navgroup__item small { color: var(--c-textMuted); font-size: 0.74rem; }
+.navgroup__item:hover { background: var(--c-surfaceAlt); }
+.navgroup__item.active { color: var(--c-accent); background: var(--c-accentBg); }
+.navgroup__item.active small { color: var(--c-accent); opacity: 0.8; }
+
+.badge-count {
+  background: var(--c-dangerSolid); color: #fff; font-size: 9px; font-weight: 700;
+  border-radius: 10px; padding: 1px 6px; line-height: 1.6; min-width: 16px; text-align: center;
+}
+
+.iconbtn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--c-divider);
+  background: var(--c-surface); color: var(--c-textSoft); cursor: pointer; font-size: 16px;
+}
+.iconbtn:hover { background: var(--c-surfaceAlt); color: var(--c-text); }
+
+/* Drawer (phone) */
+.drawer-backdrop { position: fixed; inset: 0; z-index: 200; background: var(--backdrop); }
+.drawer {
+  position: absolute; top: 0; right: 0; width: min(300px, 88vw); height: 100dvh;
+  background: var(--c-surface); border-left: 1px solid var(--c-divider);
+  display: flex; flex-direction: column; box-shadow: var(--shadow-lg);
+}
+.drawer__head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--c-divider); }
+.drawer__body { flex: 1; overflow-y: auto; padding: 8px 0 24px; }
+.drawer__group { padding: 12px 16px 4px; color: var(--c-textMuted); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.drawer__link { display: block; padding: 11px 16px; color: var(--c-text); text-decoration: none; font-size: 0.95rem; border-left: 3px solid transparent; }
+.drawer__link.active { color: var(--c-accent); background: var(--c-accentBg); border-left-color: var(--c-accent); }
+
+/* Show/hide by width */
+.only-desktop { display: flex; }
+.only-mobile { display: none; }
+@media (max-width: 960px) {
+  .only-desktop { display: none !important; }
+  .only-mobile { display: inline-flex; }
+  .appbar { padding: 0 0.75rem; }
+}
+
+/* ── Layout ───────────────────────────────────────────────────────────────── */
+.main-content { flex: 1; padding: 1.75rem 2rem; width: 100%; max-width: 1400px; margin: 0 auto; }
+@media (max-width: 700px) { .main-content { padding: 1rem; } }
+.site-footer {
+  border-top: 1px solid var(--c-divider); padding: 1rem 2rem; text-align: center;
+  color: var(--c-textDim); font-size: 0.75rem; letter-spacing: 0.02em;
+}
+
+/* Page header pattern: title + subtitle left, actions right, wraps on phones */
+.page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.page-head h1 { margin: 0; font-size: 1.6rem; font-weight: 700; color: var(--c-textBright); }
+.page-head p { margin: 0.25rem 0 0; color: var(--c-textMuted); font-size: 0.88rem; }
+.page-head__actions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+
+/* Theme picker (segmented) */
+.segmented { display: inline-flex; border: 1px solid var(--c-divider); border-radius: 8px; overflow: hidden; background: var(--c-bg); }
+.segmented button { padding: 6px 14px; border: none; background: transparent; color: var(--c-textSoft); cursor: pointer; font-size: 0.85rem; }
+.segmented button[aria-pressed="true"] { background: var(--c-accentSolid); color: #fff; font-weight: 600; }
+
+/* Tooltip on data-tip */
+[data-tip] { position: relative; }
+[data-tip]:hover::after, [data-tip]:focus-visible::after {
+  content: attr(data-tip); position: absolute; left: 0; top: calc(100% + 6px); z-index: 50;
+  background: var(--c-textBright); color: var(--c-bg); font-size: 0.75rem; font-weight: 500;
+  padding: 6px 9px; border-radius: 6px; white-space: normal; width: max-content; max-width: 260px;
+  box-shadow: var(--shadow); pointer-events: none; line-height: 1.4;
+}
+@media (hover: none) { [data-tip]:hover::after { display: none; } }
+
+/* Generic card (mirrors lib/theme.ts `card`) */
+.card { background: var(--c-surface); border: 1px solid var(--c-surfaceAlt); border-radius: 10px; }

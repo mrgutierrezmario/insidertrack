@@ -22,7 +22,7 @@ export default function SkeletonCard({ lines = 2, height = 80 }: SkeletonCardPro
       className="sk-pulse"
       style={{
         background: C.surface,
-        border: "1px solid #1e2533",
+        border: "1px solid var(--c-surfaceAlt)",
         borderRadius: 10,
         padding: "16px 18px",
         height,

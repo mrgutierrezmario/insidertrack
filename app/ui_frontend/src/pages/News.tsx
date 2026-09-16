@@ -1,5 +1,6 @@
 import { safeHref } from "../lib/safeUrl";
 import { C } from "../lib/theme";
+import useDocumentTitle from "../hooks/useDocumentTitle";
 import { useEffect, useState } from "react";
 import { getNewsFeed } from "../lib/api";
 
@@ -7,9 +8,9 @@ type SentimentLabel = "Bullish" | "Somewhat-Bullish" | "Neutral" | "Somewhat-Bea
 
 const LABEL_STYLE: Record<SentimentLabel, { color: string; bg: string }> = {
   "Bullish":          { color: C.success, bg: C.successBg },
-  "Somewhat-Bullish": { color: "#86efac", bg: "#022c22" },
+  "Somewhat-Bullish": { color: "var(--c-success)", bg: "var(--c-successBg)" },
   "Neutral":          { color: C.textSoft, bg: C.bgSunken },
-  "Somewhat-Bearish": { color: C.warning, bg: "#431407" },
+  "Somewhat-Bearish": { color: C.warning, bg: "var(--c-warningBg)" },
   "Bearish":          { color: C.danger, bg: C.dangerBg },
 };
 
@@ -51,6 +52,7 @@ function fmtDate(iso: string): string {
 }
 
 export default function News() {
+  useDocumentTitle("News");
   const [data, setData] = useState<NewsFeedData | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
@@ -73,16 +75,16 @@ export default function News() {
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24 }}>
+      <div className="page-head">
         <div>
-          <h1 style={{ color: C.textBright, margin: "0 0 4px", fontSize: "1.4rem" }}>News & Sentiment</h1>
+          <h1>News & Sentiment</h1>
           <p style={{ color: C.dividerStrong, margin: 0, fontSize: 13 }}>
             AI-scored sentiment for tracked tickers · Alpha Vantage NEWS_SENTIMENT · cached 4 hrs
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {data && !data.has_key && (
-            <span style={{ color: C.warningSolid, fontSize: 12, border: "1px solid #78350f", background: C.warningBg, padding: "4px 10px", borderRadius: 6 }}>
+            <span style={{ color: C.warningSolid, fontSize: 12, border: "1px solid var(--c-warningDeep)", background: C.warningBg, padding: "4px 10px", borderRadius: 6 }}>
               No AV key — add ALPHA_VANTAGE_KEY to .env
             </span>
           )}
@@ -101,7 +103,7 @@ export default function News() {
           onChange={(e) => setFilter(e.target.value)}
           style={{
             background: C.surface, color: C.text,
-            border: "1px solid #1e2533", borderRadius: 6,
+            border: "1px solid var(--c-surfaceAlt)", borderRadius: 6,
             padding: "0.45rem 0.85rem", fontSize: "0.85rem", width: 280,
           }}
         />
@@ -131,7 +133,7 @@ export default function News() {
             rel="noopener noreferrer"
             style={{
               display: "block",
-              background: C.surface, border: "1px solid #1e2533", borderRadius: 10,
+              background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 10,
               padding: "14px 16px", textDecoration: "none",
               transition: "border-color 0.15s",
             }}
@@ -148,7 +150,7 @@ export default function News() {
                 )}
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                   {(item.tickers || []).slice(0, 6).map((t) => (
-                    <span key={t} style={{ background: "#0f2744", color: C.accent, fontSize: 11, padding: "1px 7px", borderRadius: 4, fontWeight: 700 }}>
+                    <span key={t} style={{ background: "var(--c-accentBg)", color: C.accent, fontSize: 11, padding: "1px 7px", borderRadius: 4, fontWeight: 700 }}>
                       {t}
                     </span>
                   ))}

@@ -1,4 +1,5 @@
 import { C } from "../lib/theme";
+import useDocumentTitle from "../hooks/useDocumentTitle";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getEarningsCalendar } from "../lib/api";
@@ -42,6 +43,7 @@ function fmtDate(d: string | null | undefined): string {
 }
 
 export default function Earnings() {
+  useDocumentTitle("Earnings");
   const [data, setData] = useState<EarningsData | null>(null);
   const [loading, setLoading] = useState(true);
   const watchlistEmail = localStorage.getItem(EMAIL_KEY) || null;
@@ -57,15 +59,15 @@ export default function Earnings() {
 
   return (
     <div style={{ maxWidth: 800, margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24 }}>
+      <div className="page-head">
         <div>
-          <h1 style={{ color: C.textBright, margin: "0 0 4px", fontSize: "1.4rem" }}>Earnings Calendar</h1>
+          <h1>Earnings Calendar</h1>
           <p style={{ color: C.dividerStrong, margin: 0, fontSize: 13 }}>
             Upcoming earnings for tracked tickers · Alpha Vantage · cached 24 hrs
           </p>
         </div>
         {data && !data.has_key && (
-          <span style={{ color: C.warningSolid, fontSize: 12, border: "1px solid #78350f", background: C.warningBg, padding: "4px 10px", borderRadius: 6 }}>
+          <span style={{ color: C.warningSolid, fontSize: 12, border: "1px solid var(--c-warningDeep)", background: C.warningBg, padding: "4px 10px", borderRadius: 6 }}>
             No AV key — add ALPHA_VANTAGE_KEY to .env
           </span>
         )}
@@ -95,7 +97,7 @@ export default function Earnings() {
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 32 }}>
             {upcoming.map((e) => (
               <div key={e.ticker + e.report_date} style={{
-                background: C.surface, border: "1px solid #1e2533", borderRadius: 10,
+                background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 10,
                 padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center",
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
@@ -132,7 +134,7 @@ export default function Earnings() {
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {recent.map((e) => (
               <div key={e.ticker + e.report_date} style={{
-                background: C.bg, border: "1px solid #1e2533", borderRadius: 10,
+                background: C.bg, border: "1px solid var(--c-surfaceAlt)", borderRadius: 10,
                 padding: "12px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", opacity: 0.6,
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
@@ -148,7 +150,7 @@ export default function Earnings() {
         </>
       )}
 
-      <div style={{ marginTop: 24, padding: "12px 14px", background: C.bg, borderRadius: 8, border: "1px solid #1e2533", fontSize: 12, color: C.dividerStrong }}>
+      <div style={{ marginTop: 24, padding: "12px 14px", background: C.bg, borderRadius: 8, border: "1px solid var(--c-surfaceAlt)", fontSize: 12, color: C.dividerStrong }}>
         Earnings dates are estimates from Alpha Vantage. Confirm on company IR sites before trading.
       </div>
     </div>

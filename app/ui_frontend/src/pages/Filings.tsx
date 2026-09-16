@@ -1,5 +1,6 @@
 import { safeHref } from "../lib/safeUrl";
 import { C } from "../lib/theme";
+import useDocumentTitle from "../hooks/useDocumentTitle";
 import { useEffect, useState } from "react";
 import { getRecentFilings, getWhalePositions, getWhales } from "../lib/api";
 import type { WhaleHolder } from "../types/api";
@@ -48,7 +49,7 @@ function FilingRow({ f }: { f: Filing }) {
     <div style={{
       display: "flex", justifyContent: "space-between", alignItems: "center",
       padding: "10px 0",
-      borderBottom: "1px solid #1e2533",
+      borderBottom: "1px solid var(--c-surfaceAlt)",
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <span style={{
@@ -101,7 +102,7 @@ function HoldingsPanel({ holderId }: { holderId: number | null }) {
 
   const items = positions?.positions ?? [];
   return (
-    <div style={{ borderTop: "1px solid #1e2533", padding: "12px 20px 16px" }}>
+    <div style={{ borderTop: "1px solid var(--c-surfaceAlt)", padding: "12px 20px 16px" }}>
       {loading && <p style={{ color: C.dividerStrong, fontSize: 12 }}>Loading holdings…</p>}
       {!loading && positions && items.length === 0 && (
         <p style={{ color: C.dividerStrong, fontSize: 12 }}>No position data yet — click "↻ Sync 13F Holdings" on the Whales page to parse holdings.</p>
@@ -113,7 +114,7 @@ function HoldingsPanel({ holderId }: { holderId: number | null }) {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 6 }}>
             {items.slice(0, 20).map((p) => (
-              <div key={p.ticker} style={{ background: C.bg, border: "1px solid #1e2533", borderRadius: 6, padding: "6px 10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div key={p.ticker} style={{ background: C.bg, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, padding: "6px 10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ color: C.accent, fontWeight: 700, fontSize: 13 }}>{p.ticker}</span>
                 <span style={{ color: C.textSoft, fontSize: 12 }}>{p.value_fmt}</span>
               </div>
@@ -137,7 +138,7 @@ function InstitutionCard({ inst, whaleHolder }: { inst: Institution; whaleHolder
   return (
     <div style={{
       background: C.surface,
-      border: "1px solid #1e2533",
+      border: "1px solid var(--c-surfaceAlt)",
       borderRadius: 12,
       overflowX: "auto", WebkitOverflowScrolling: "touch",
     }}>
@@ -191,6 +192,7 @@ function InstitutionCard({ inst, whaleHolder }: { inst: Institution; whaleHolder
 }
 
 export default function Filings() {
+  useDocumentTitle("SEC Filings");
   const [data, setData] = useState<Institution[]>([]);
   const [whales, setWhales] = useState<WhaleHolder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -214,9 +216,9 @@ export default function Filings() {
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24 }}>
+      <div className="page-head">
         <div>
-          <h1 style={{ color: C.textBright, margin: "0 0 4px", fontSize: "1.4rem" }}>Institutional Filings</h1>
+          <h1>Institutional Filings</h1>
           <p style={{ color: C.dividerStrong, margin: 0, fontSize: 13 }}>
             SEC 13F-HR filings — required quarterly from funds managing &gt;$100M in US equities.
             Data pulled live from{" "}
@@ -255,7 +257,7 @@ export default function Filings() {
             ))}
           </div>
 
-          <div style={{ marginTop: 24, padding: "14px 16px", background: C.bg, borderRadius: 8, border: "1px solid #1e2533", fontSize: 12, color: C.dividerStrong, lineHeight: 1.6 }}>
+          <div style={{ marginTop: 24, padding: "14px 16px", background: C.bg, borderRadius: 8, border: "1px solid var(--c-surfaceAlt)", fontSize: 12, color: C.dividerStrong, lineHeight: 1.6 }}>
             <strong style={{ color: C.textMuted }}>About 13F filings:</strong> The SEC requires institutional investment managers with ≥$100M in US equity assets to file Form 13F within 45 days of each quarter end. Filings disclose long equity positions — they do not include short positions, options strategies, or non-US holdings. Each filing reflects holdings as of the quarter end date, not the current date.
           </div>
         </>

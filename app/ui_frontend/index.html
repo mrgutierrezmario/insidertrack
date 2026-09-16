@@ -2,12 +2,27 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Stock Tracker</title>
-    <style>
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { background: #0f1117; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-    </style>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#11D4B2" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#061F52" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="Congressional, insider, 13F and Fed trading disclosures with signal scoring." />
+    <title>InsiderTrack</title>
+    <!-- Apply the saved theme before first paint so the page never flashes the wrong one. -->
+    <script>
+      (function () {
+        var stored = null
+        try { stored = localStorage.getItem('theme') } catch (e) {}
+        var dark = stored === 'dark' ||
+          (stored !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

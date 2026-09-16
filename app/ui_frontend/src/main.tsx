@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
+import "./index.css";
 
 // index.html guarantees #root exists; failing at boot with "container missing"
 // is the right behaviour. Cast keeps `createRoot` happy without a runtime check.

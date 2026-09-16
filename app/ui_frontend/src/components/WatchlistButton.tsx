@@ -50,7 +50,7 @@ function EmailModal({ ticker, onConfirm, onCancel }: EmailModalProps) {
         onClick={(e) => e.stopPropagation()}
         style={{
           background: C.surface,
-          border: "1px solid #1e2533",
+          border: "1px solid var(--c-surfaceAlt)",
           borderRadius: 12,
           padding: "28px 32px",
           width: 340,
@@ -77,7 +77,7 @@ function EmailModal({ ticker, onConfirm, onCancel }: EmailModalProps) {
           </div>
         </div>
 
-        <div style={{ borderTop: "1px solid #1e2533", margin: "14px 0" }} />
+        <div style={{ borderTop: "1px solid var(--c-surfaceAlt)", margin: "14px 0" }} />
 
         <p style={{ color: C.textSoft, fontSize: 13, marginBottom: 16, lineHeight: 1.5 }}>
           Enter your email to save your watchlist. No account or password needed.
@@ -117,7 +117,7 @@ function EmailModal({ ticker, onConfirm, onCancel }: EmailModalProps) {
             style={{
               flex: 1,
               background: "transparent",
-              border: "1px solid #1e2533",
+              border: "1px solid var(--c-surfaceAlt)",
               borderRadius: 7,
               color: C.textMuted,
               padding: "8px 0",

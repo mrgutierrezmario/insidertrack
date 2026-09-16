@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { isAxiosError } from "axios";
-import { getInsiderTransactions, getInsiderSummary, syncInsiders, ADMIN_TOKEN_KEY } from "../lib/api";
+import { getInsiderTransactions, getInsiderSummary, syncInsiders } from "../lib/api";
 import { exportCSV } from "../lib/csv";
 import { card , C} from "../lib/theme";
+import useDocumentTitle from "../hooks/useDocumentTitle";
+import useAdmin from "../hooks/useAdmin";
 import SkeletonCard from "../components/SkeletonCard";
 
 type TxType = "buy" | "sell" | "other";
@@ -99,6 +101,8 @@ function SyncButton({ onDone }: { onDone: () => void }) {
 }
 
 export default function Insiders() {
+  const isAdmin = useAdmin();
+  useDocumentTitle("Corporate Insiders");
   const [rows, setRows] = useState<InsiderRow[]>([]);
   const [summary, setSummary] = useState<TickerSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -127,7 +131,7 @@ export default function Insiders() {
 
   // Auto-sync on first load if DB is empty and user has admin access
   useEffect(() => {
-    if (!loading && rows.length === 0 && !autoSynced && sessionStorage.getItem(ADMIN_TOKEN_KEY)) {
+    if (!loading && rows.length === 0 && !autoSynced && isAdmin) {
       setAutoSynced(true);
       syncInsiders()
         .then(() => load())
@@ -137,9 +141,9 @@ export default function Insiders() {
 
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24 }}>
+      <div className="page-head">
         <div>
-          <h1 style={{ color: C.textBright, margin: "0 0 4px", fontSize: "1.4rem" }}>Corporate Insiders</h1>
+          <h1>Corporate Insiders</h1>
           <p style={{ color: C.dividerStrong, margin: 0, fontSize: 13 }}>
             SEC Form 4 filings — officers, directors, and 10%+ owners trading their own company's stock.
           </p>
@@ -157,7 +161,7 @@ export default function Insiders() {
         <div style={{ ...card, padding: "12px 16px", marginBottom: 16, display: "flex", gap: 8, flexWrap: "wrap" }}>
           {summary.slice(0, 14).map((s) => (
             <Link key={s.ticker} to={`/ticker/${s.ticker}`}
-              style={{ textDecoration: "none", background: C.bg, border: "1px solid #1e2533", borderRadius: 6, padding: "4px 10px", display: "flex", gap: 6, alignItems: "center" }}>
+              style={{ textDecoration: "none", background: C.bg, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, padding: "4px 10px", display: "flex", gap: 6, alignItems: "center" }}>
               <span style={{ color: C.accent, fontWeight: 700, fontSize: 12 }}>{s.ticker}</span>
               <span style={{ color: C.success, fontSize: 11 }}>{s.buys}B</span>
               <span style={{ color: C.danger, fontSize: 11 }}>{s.sells}S</span>
@@ -170,16 +174,16 @@ export default function Insiders() {
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
         {rows.length > 0 && (
           <button onClick={() => exportInsidersCSV(rows)}
-            style={{ background: C.surfaceAlt, color: C.textSoft, border: "1px solid #334155", borderRadius: 6, padding: "6px 12px", fontSize: 13, cursor: "pointer", marginLeft: "auto" }}>
+            style={{ background: C.surfaceAlt, color: C.textSoft, border: "1px solid var(--c-divider)", borderRadius: 6, padding: "6px 12px", fontSize: 13, cursor: "pointer", marginLeft: "auto" }}>
             ↓ CSV
           </button>
         )}
         <input placeholder="Filter ticker…" value={filter.ticker}
           onChange={(e) => setFilter((f) => ({ ...f, ticker: e.target.value.toUpperCase() }))}
-          style={{ background: C.surface, border: "1px solid #1e2533", borderRadius: 6, color: C.textBright, padding: "6px 12px", fontSize: 13, width: 130 }} />
+          style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, color: C.textBright, padding: "6px 12px", fontSize: 13, width: 130 }} />
         <select value={filter.transaction_type}
           onChange={(e) => setFilter((f) => ({ ...f, transaction_type: e.target.value }))}
-          style={{ background: C.surface, border: "1px solid #1e2533", borderRadius: 6, color: C.textSoft, padding: "6px 12px", fontSize: 13 }}>
+          style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, color: C.textSoft, padding: "6px 12px", fontSize: 13 }}>
           <option value="">All transactions</option>
           <option value="buy">Buys only</option>
           <option value="sell">Sells only</option>
@@ -187,7 +191,7 @@ export default function Insiders() {
         </select>
         {(filter.ticker || filter.transaction_type) && (
           <button onClick={() => setFilter({ ticker: "", transaction_type: "" })}
-            style={{ background: "none", color: C.textMuted, border: "1px solid #1e2533", borderRadius: 6, padding: "6px 12px", fontSize: 13, cursor: "pointer" }}>
+            style={{ background: "none", color: C.textMuted, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, padding: "6px 12px", fontSize: 13, cursor: "pointer" }}>
             Clear
           </button>
         )}
@@ -199,7 +203,7 @@ export default function Insiders() {
         </div>
       ) : rows.length === 0 ? (
         <div style={{ color: C.dividerStrong, textAlign: "center", padding: "60px 0" }}>
-          {sessionStorage.getItem(ADMIN_TOKEN_KEY)
+          {isAdmin
             ? "No Form 4 data yet — pulling from SEC EDGAR automatically…"
             : "No Form 4 data yet — use the Sync button (admin access required)."}
         </div>
@@ -207,7 +211,7 @@ export default function Insiders() {
         <div style={{ ...card, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
-              <tr style={{ borderBottom: "1px solid #1e2533" }}>
+              <tr style={{ borderBottom: "1px solid var(--c-surfaceAlt)" }}>
                 {["Ticker", "Insider", "Role", "Type", "Shares", "Price", "Value", "Date"].map((h) => (
                   <th key={h} style={{ padding: "10px 12px", color: C.dividerStrong, fontWeight: 600, fontSize: 11, textAlign: "left" }}>{h}</th>
                 ))}
@@ -217,7 +221,7 @@ export default function Insiders() {
               {rows.map((r) => {
                 const ts = (TYPE_STYLE as Record<string, typeof TYPE_STYLE.other>)[r.transaction_type] || TYPE_STYLE.other;
                 return (
-                  <tr key={r.id} style={{ borderBottom: "1px solid #1e2533" }}>
+                  <tr key={r.id} style={{ borderBottom: "1px solid var(--c-surfaceAlt)" }}>
                     <td style={{ padding: "9px 12px" }}>
                       <Link to={`/ticker/${r.ticker}`} style={{ color: C.accent, fontWeight: 700, textDecoration: "none" }}>{r.ticker}</Link>
                     </td>

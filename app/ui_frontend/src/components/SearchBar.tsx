@@ -132,7 +132,7 @@ function MobileSearch() {
         onClick={() => setOpen(true)}
         placeholder="Search…"
         style={{
-          background: C.surface, border: "1px solid #1e2533",
+          background: C.surface, border: "1px solid var(--c-surfaceAlt)",
           color: C.textSoft, borderRadius: 6,
           padding: "5px 10px", fontSize: "0.82rem",
           width: 110, cursor: "pointer", outline: "none",
@@ -149,7 +149,7 @@ function MobileSearch() {
           <div style={{
             display: "flex", alignItems: "center", gap: 10,
             padding: "12px 16px",
-            borderBottom: "1px solid #1e2533",
+            borderBottom: "1px solid var(--c-surfaceAlt)",
             flexShrink: 0,
           }}>
             <button
@@ -167,7 +167,7 @@ function MobileSearch() {
                 flex: 1,
                 background: C.surface,
                 color: C.text,
-                border: "1px solid #1e2533",
+                border: "1px solid var(--c-surfaceAlt)",
                 borderRadius: 8,
                 padding: "10px 14px",
                 fontSize: 16,
@@ -244,7 +244,7 @@ function MobileSearch() {
 function Section({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <div style={{ padding: "10px 16px 6px", color: C.textDim, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", borderTop: "1px solid #1e2533" }}>
+      <div style={{ padding: "10px 16px 6px", color: C.textDim, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", borderTop: "1px solid var(--c-surfaceAlt)" }}>
         {label}
       </div>
       {children}
@@ -259,11 +259,11 @@ function MobileItem({ onClick, children }: { onClick: () => void; children: Reac
       style={{
         padding: "14px 16px", cursor: "pointer",
         display: "flex", alignItems: "center", gap: 10,
-        borderBottom: "1px solid #1e2533",
+        borderBottom: "1px solid var(--c-surfaceAlt)",
         fontSize: 14,
         WebkitTapHighlightColor: "transparent",
       }}
-      onTouchStart={(e) => e.currentTarget.style.background = "#1e2d40"}
+      onTouchStart={(e) => e.currentTarget.style.background = "var(--c-accentBg)"}
       onTouchEnd={(e) => e.currentTarget.style.background = "transparent"}
     >
       {children}
@@ -328,7 +328,7 @@ function DesktopSearch() {
           placeholder="Search…"
           style={{
             background: C.surface, color: C.text,
-            border: "1px solid #1e2533", borderRadius: 6,
+            border: "1px solid var(--c-surfaceAlt)", borderRadius: 6,
             padding: "0.4rem 2.5rem 0.4rem 0.9rem", fontSize: "0.82rem",
             width: 200, outline: "none",
           }}
@@ -350,7 +350,7 @@ function DesktopSearch() {
             right: 0,           // anchor right so it doesn't fly off-screen
             minWidth: 280,
             background: C.surface,
-            border: "1px solid #1e2533",
+            border: "1px solid var(--c-surfaceAlt)",
             borderRadius: 8,
             boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
             zIndex: 1000,
@@ -420,7 +420,7 @@ function DesktopSearch() {
 function DesktopSection({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <div style={{ padding: "0.4rem 1rem 0.25rem", color: C.textDim, fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.06em", borderTop: "1px solid #1e2533" }}>
+      <div style={{ padding: "0.4rem 1rem 0.25rem", color: C.textDim, fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.06em", borderTop: "1px solid var(--c-surfaceAlt)" }}>
         {label}
       </div>
       {children}
@@ -434,7 +434,7 @@ function DesktopItem({ active, onClick, onMouseEnter, children }: { active: bool
       style={{
         padding: "0.55rem 1rem", cursor: "pointer",
         display: "flex", alignItems: "center", gap: "0.5rem",
-        background: active ? "#1e2d40" : "transparent",
+        background: active ? "var(--c-accentBg)" : "transparent",
         fontSize: "0.85rem", transition: "background 0.1s",
       }}>
       {children}

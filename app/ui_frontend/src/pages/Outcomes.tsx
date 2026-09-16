@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { getOutcomeStats, getOutcomes, runOutcomeSnapshot, runOutcomeFill } from "../lib/api";
 import { exportCSV } from "../lib/csv";
 import { C, LABEL_COLORS, OUTCOME_COLORS } from "../lib/theme";
+import useDocumentTitle from "../hooks/useDocumentTitle";
+import useAdmin from "../hooks/useAdmin";
 import WatchlistButton from "../components/WatchlistButton";
 import SkeletonCard from "../components/SkeletonCard";
 import type { OutcomeDirection, OutcomeRow, OutcomeStats, OutcomeWindow, SignalLabel } from "../types/api";
@@ -41,7 +43,7 @@ function WinRateBar({ up, down, flat, total }: { up: number; down: number; flat:
 function StatsCard({ stat }: { stat: import("../types/api").OutcomeStatsRow }) {
   const color = LABEL_COLORS[stat.label] || C.textSoft;
   return (
-    <div style={{ background: C.surface, border: "1px solid #1e2533", borderLeft: `3px solid ${color}`, borderRadius: 10, padding: "16px 18px" }}>
+    <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderLeft: `3px solid ${color}`, borderRadius: 10, padding: "16px 18px" }}>
       <div style={{ color, fontWeight: 700, fontSize: 14, marginBottom: 12 }}>{stat.label}</div>
       {[{ label: "30d", d: stat.d30 }, { label: "60d", d: stat.d60 }, { label: "90d", d: stat.d90 }].map(({ label, d }) => (
         <div key={label} style={{ marginBottom: 8 }}>
@@ -114,7 +116,7 @@ function SubScoreTooltip({ sub }: { sub: Partial<import("../types/api").SubScore
       {show && (
         <div style={{
           position: "absolute", bottom: "120%", left: "50%", transform: "translateX(-50%)",
-          background: C.bg, border: "1px solid #1e2533", borderRadius: 8,
+          background: C.bg, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8,
           padding: "10px 14px", zIndex: 100, whiteSpace: "nowrap", boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
         }}>
           {[
@@ -142,6 +144,8 @@ interface OutcomeFilter {
 }
 
 export default function Outcomes() {
+  const isAdmin = useAdmin();
+  useDocumentTitle("Outcomes");
   const [stats, setStats] = useState<OutcomeStats | null>(null);
   const [rows, setRows] = useState<OutcomeRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -175,14 +179,14 @@ export default function Outcomes() {
 
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24 }}>
+      <div className="page-head">
         <div>
-          <h1 style={{ color: C.textBright, margin: "0 0 4px", fontSize: "1.4rem" }}>Signal Outcomes</h1>
+          <h1>Signal Outcomes</h1>
           <p style={{ color: C.dividerStrong, margin: 0, fontSize: 13 }}>
             Tracks whether signal scores predicted price direction at 30, 60, and 90 days.
           </p>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        {isAdmin && <div style={{ display: "flex", gap: 8 }}>
           <button onClick={() => triggerAction(runOutcomeSnapshot, "Snapshot")}
             style={{ background: "rgba(56,189,248,0.1)", color: C.accent, border: "1px solid rgba(56,189,248,0.3)", borderRadius: 6, padding: "6px 14px", fontSize: 12, cursor: "pointer" }}>
             ↻ Snapshot Today
@@ -191,11 +195,11 @@ export default function Outcomes() {
             style={{ background: "rgba(74,222,128,0.08)", color: C.success, border: "1px solid rgba(74,222,128,0.2)", borderRadius: 6, padding: "6px 14px", fontSize: 12, cursor: "pointer" }}>
             ↻ Fill Outcomes
           </button>
-        </div>
+        </div>}
       </div>
 
       {msg && (
-        <div style={{ background: C.surface, border: "1px solid #1e2533", borderRadius: 8, padding: "10px 14px", marginBottom: 16, color: C.textSoft, fontSize: 13 }}>
+        <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, padding: "10px 14px", marginBottom: 16, color: C.textSoft, fontSize: 13 }}>
           {msg}
         </div>
       )}
@@ -222,11 +226,11 @@ export default function Outcomes() {
           value={filter.ticker}
           onChange={(e) => setFilter((f) => ({ ...f, ticker: e.target.value.toUpperCase() }))}
           placeholder="Filter by ticker…"
-          style={{ background: C.surface, border: "1px solid #1e2533", borderRadius: 6, color: C.textBright, padding: "6px 12px", fontSize: 13, width: 160 }}
+          style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, color: C.textBright, padding: "6px 12px", fontSize: 13, width: 160 }}
         />
         <select value={filter.label}
           onChange={(e) => setFilter((f) => ({ ...f, label: e.target.value as SignalLabel | "" }))}
-          style={{ background: C.surface, border: "1px solid #1e2533", borderRadius: 6, color: C.textSoft, padding: "6px 12px", fontSize: 13 }}>
+          style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, color: C.textSoft, padding: "6px 12px", fontSize: 13 }}>
           <option value="">All labels</option>
           {(["Strong Watch", "Watch", "Neutral", "High Risk", "Avoid for Now"] as SignalLabel[]).map((l) => (
             <option key={l} value={l}>{l}</option>
@@ -234,20 +238,20 @@ export default function Outcomes() {
         </select>
         <select value={filter.resolved}
           onChange={(e) => setFilter((f) => ({ ...f, resolved: e.target.value as "" | "yes" | "no" }))}
-          style={{ background: C.surface, border: "1px solid #1e2533", borderRadius: 6, color: C.textSoft, padding: "6px 12px", fontSize: 13 }}>
+          style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, color: C.textSoft, padding: "6px 12px", fontSize: 13 }}>
           <option value="">All rows</option>
           <option value="yes">Resolved (30d+ done)</option>
           <option value="no">Pending</option>
         </select>
         {(filter.ticker || filter.label || filter.resolved) && (
           <button onClick={() => setFilter({ ticker: "", label: "", resolved: "" })}
-            style={{ background: "none", color: C.textMuted, border: "1px solid #1e2533", borderRadius: 6, padding: "6px 12px", fontSize: 13, cursor: "pointer" }}>
+            style={{ background: "none", color: C.textMuted, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, padding: "6px 12px", fontSize: 13, cursor: "pointer" }}>
             Clear
           </button>
         )}
         {rows.length > 0 && (
           <button onClick={() => exportOutcomesCSV(rows)}
-            style={{ background: C.surfaceAlt, color: C.textSoft, border: "1px solid #334155", borderRadius: 6, padding: "6px 12px", fontSize: 13, cursor: "pointer", marginLeft: "auto" }}>
+            style={{ background: C.surfaceAlt, color: C.textSoft, border: "1px solid var(--c-divider)", borderRadius: 6, padding: "6px 12px", fontSize: 13, cursor: "pointer", marginLeft: "auto" }}>
             ↓ CSV
           </button>
         )}
@@ -262,10 +266,10 @@ export default function Outcomes() {
           No outcome records yet — click "↻ Snapshot Today" to capture today's signals.
         </div>
       ) : (
-        <div style={{ background: C.surface, border: "1px solid #1e2533", borderRadius: 12, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+        <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 12, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
-              <tr style={{ borderBottom: "1px solid #1e2533" }}>
+              <tr style={{ borderBottom: "1px solid var(--c-surfaceAlt)" }}>
                 {[
                   ["date", "Date"], ["ticker", "Ticker"], ["label", "Label"],
                   ["politician", "Politician"], ["score", "Score"], ["price", "Price"],
@@ -279,13 +283,13 @@ export default function Outcomes() {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} style={{ borderBottom: "1px solid #1e2533" }}>
+                <tr key={r.id} style={{ borderBottom: "1px solid var(--c-surfaceAlt)" }}>
                   <td style={{ padding: "9px 12px", color: C.textMuted, whiteSpace: "nowrap" }}>
                     {r.signal_date}
                     {r.is_backfilled && (
                       <span
                         title="Backfilled retroactively — sentiment used neutral 50 (Alpha Vantage doesn't expose historical news)"
-                        style={{ marginLeft: 6, fontSize: 9, color: C.warning, border: "1px solid #78350f", borderRadius: 3, padding: "0 4px", verticalAlign: "middle" }}
+                        style={{ marginLeft: 6, fontSize: 9, color: C.warning, border: "1px solid var(--c-warningDeep)", borderRadius: 3, padding: "0 4px", verticalAlign: "middle" }}
                       >
                         BF
                       </span>

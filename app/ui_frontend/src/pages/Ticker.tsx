@@ -1,5 +1,6 @@
 import { safeHref } from "../lib/safeUrl";
 import { C } from "../lib/theme";
+import useDocumentTitle from "../hooks/useDocumentTitle";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { isAxiosError } from "axios";
@@ -69,7 +70,7 @@ function InsiderRow({ txn }: { txn: InsiderTxn }) {
   const isBuy = txn.transaction_type === "buy";
   return (
     <div style={{
-      background: C.surface, border: "1px solid #1e2533", borderRadius: 8,
+      background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8,
       padding: "0.75rem 1rem", display: "flex", justifyContent: "space-between",
       alignItems: "center", gap: "1rem", flexWrap: "wrap",
     }}>
@@ -108,6 +109,7 @@ function InsiderRow({ txn }: { txn: InsiderTxn }) {
 
 export default function Ticker() {
   const { symbol = "" } = useParams<{ symbol: string }>();
+  useDocumentTitle(symbol.toUpperCase());
   const [trades, setTrades] = useState<Trade[]>([]);
   const [insiderTxns, setInsiderTxns] = useState<InsiderTxn[]>([]);
   const [candles, setCandles] = useState<Candle[]>([]);
@@ -227,7 +229,7 @@ export default function Ticker() {
                 style={{
                   background: interval === iv ? C.divider : "transparent",
                   color: interval === iv ? C.text : C.textMuted,
-                  border: "1px solid #1e2533", borderRadius: 4,
+                  border: "1px solid var(--c-surfaceAlt)", borderRadius: 4,
                   padding: "0.25rem 0.6rem", cursor: "pointer", fontSize: "0.75rem",
                 }}>
                 {iv}
@@ -237,7 +239,7 @@ export default function Ticker() {
         )}
         <div style={{ marginLeft: "auto", display: "flex", gap: "0.5rem", alignItems: "center" }}>
           {isDemo && (
-            <span style={{ background: C.warningBg, color: C.warningSolid, border: "1px solid #78350f", fontSize: "0.68rem", padding: "1px 8px", borderRadius: 4 }}>
+            <span style={{ background: C.warningBg, color: C.warningSolid, border: "1px solid var(--c-warningDeep)", fontSize: "0.68rem", padding: "1px 8px", borderRadius: 4 }}>
               demo data
             </span>
           )}
@@ -248,7 +250,7 @@ export default function Ticker() {
       </div>
 
       {/* Chart */}
-      <div style={{ background: C.bg, border: "1px solid #1e2533", borderRadius: 8, marginBottom: "2rem", minHeight: 320 }}>
+      <div style={{ background: C.bg, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, marginBottom: "2rem", minHeight: 320 }}>
         {chartLoading ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 320, color: C.textMuted }}>Loading chart...</div>
         ) : chartError ? (
@@ -295,7 +297,7 @@ export default function Ticker() {
       {earnings && (
         <div style={{ marginTop: "2rem" }}>
           <h2 style={{ fontSize: "1rem", fontWeight: 600, color: C.textSoft, marginBottom: "0.75rem" }}>Next Earnings</h2>
-          <div style={{ background: C.surface, border: "1px solid #1e2533", borderRadius: 8, padding: "0.875rem 1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, padding: "0.875rem 1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <div style={{ color: C.text, fontWeight: 600 }}>{earnings.report_date}</div>
               {earnings.fiscal_date_ending && <div style={{ color: C.textMuted, fontSize: "0.8rem" }}>FY ending {earnings.fiscal_date_ending}</div>}
@@ -316,7 +318,7 @@ export default function Ticker() {
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {news.map((n) => (
               <a key={n.url} href={safeHref(n.url)} target="_blank" rel="noopener noreferrer"
-                style={{ display: "block", background: C.surface, border: "1px solid #1e2533", borderRadius: 8, padding: "10px 14px", textDecoration: "none" }}>
+                style={{ display: "block", background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, padding: "10px 14px", textDecoration: "none" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
                   <div style={{ color: C.text, fontSize: 13, fontWeight: 500, lineHeight: 1.4 }}>{n.title}</div>
                   {n.overall_label && (

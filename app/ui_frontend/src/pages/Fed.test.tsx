@@ -156,34 +156,32 @@ describe("<Fed />", () => {
     expect(screen.getByRole("button", { name: /↓ CSV/i })).toBeInTheDocument();
   });
 
-  it("does NOT show the Sync button when user is not admin", async () => {
+  it("does NOT show the roster refresh button when user is not admin", async () => {
     renderPage();
     await screen.findByText("Jerome Powell");
-    expect(screen.queryByRole("button", { name: /↻ Sync/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Refresh roster/i })).not.toBeInTheDocument();
   });
 
-  it("SHOWS the Sync button when admin and triggers seed+sync on click", async () => {
+  it("SHOWS the roster refresh button when admin and re-seeds on click", async () => {
     sessionStorage.setItem(ADMIN_TOKEN_KEY, "1");
     vi.mocked(seedFed).mockResolvedValue({ data: { seeded: 12 } } as any);
-    vi.mocked(syncFed).mockResolvedValue({ data: { synced: 8 } } as any);
 
     const user = userEvent.setup();
     renderPage();
     await screen.findByText("Jerome Powell");
 
-    const syncBtn = screen.getByRole("button", { name: /↻ Sync/i });
-    await user.click(syncBtn);
+    const btn = screen.getByRole("button", { name: /Refresh roster/i });
+    await user.click(btn);
 
-    await waitFor(() => {
-      expect(seedFed).toHaveBeenCalledTimes(1);
-      expect(syncFed).toHaveBeenCalledTimes(1);
-    });
-    expect(await screen.findByText(/Sync started/i)).toBeInTheDocument();
+    await waitFor(() => expect(seedFed).toHaveBeenCalledTimes(1));
+    // There is no machine-readable Fed trade source, so nothing else is called.
+    expect(syncFed).not.toHaveBeenCalled();
+    expect(await screen.findByText(/Roster refreshed/i)).toBeInTheDocument();
   });
 
-  it("shows the empty state when no trades come back", async () => {
+  it("shows the compliant empty state when no trades come back", async () => {
     vi.mocked(getFedTrades).mockResolvedValue({ data: { items: [], has_more: false } } as any);
     renderPage();
-    expect(await screen.findByText(/No disclosed trades yet/i)).toBeInTheDocument();
+    expect(await screen.findByText(/No individual-stock transactions on record/i)).toBeInTheDocument();
   });
 });

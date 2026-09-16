@@ -20,7 +20,7 @@ function Section({ label, color, text }: { label: string; color: string; text: s
       <div style={{ color, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 3 }}>
         {label}
       </div>
-      <div style={{ color: "#cbd5e1", fontSize: 13, lineHeight: 1.55 }}>{text}</div>
+      <div style={{ color: "var(--c-text)", fontSize: 13, lineHeight: 1.55 }}>{text}</div>
     </div>
   );
 }
@@ -45,7 +45,7 @@ export default function AiSummaryPanel({ symbol }: { symbol: string }) {
 
   return (
     <div style={{
-      background: C.surface, border: "1px solid #1e2533", borderRadius: 10,
+      background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 10,
       padding: "16px 18px", marginTop: "2rem", marginBottom: "2rem",
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -61,7 +61,7 @@ export default function AiSummaryPanel({ symbol }: { symbol: string }) {
           <button
             onClick={() => generate(true)}
             disabled={loading}
-            style={{ background: C.surfaceAlt, color: C.textSoft, border: "1px solid #334155", borderRadius: 6, padding: "5px 12px", fontSize: 12, cursor: "pointer" }}
+            style={{ background: C.surfaceAlt, color: C.textSoft, border: "1px solid var(--c-divider)", borderRadius: 6, padding: "5px 12px", fontSize: 12, cursor: "pointer" }}
           >
             {loading ? "…" : "↻ Regenerate"}
           </button>
@@ -77,11 +77,11 @@ export default function AiSummaryPanel({ symbol }: { symbol: string }) {
       </div>
 
       {loaded && data && (
-        <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid #1e2533" }}>
+        <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--c-surfaceAlt)" }}>
           {data.available ? (
             <>
               {data.why_today && (
-                <div style={{ background: C.bg, border: "1px solid #1e2533", borderRadius: 8, padding: "10px 12px", marginBottom: 14, color: C.text, fontSize: 13, fontStyle: "italic" }}>
+                <div style={{ background: C.bg, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, padding: "10px 12px", marginBottom: 14, color: C.text, fontSize: 13, fontStyle: "italic" }}>
                   {data.why_today}
                 </div>
               )}

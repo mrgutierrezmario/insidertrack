@@ -10,9 +10,9 @@ describe("theme constants", () => {
     expect(C.danger).toBeDefined();
   });
 
-  it("every color is a valid 7-char hex string", () => {
+  it("every color is a CSS custom property so inline styles follow the theme", () => {
     for (const [name, value] of Object.entries(C)) {
-      expect(value, `C.${name}`).toMatch(/^#[0-9a-fA-F]{6}$/);
+      expect(value, `C.${name}`).toBe(`var(--c-${name})`);
     }
   });
 

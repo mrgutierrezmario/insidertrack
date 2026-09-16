@@ -30,7 +30,15 @@ OGE_API = "https://efts.usethical.com/EOGE/api"
 
 # ── Known FOMC / Fed officials roster ─────────────────────────────────────────
 # Board of Governors (permanent FOMC voters) + Regional presidents
-# Updated as of 2025. Appointing president's party noted.
+# Hand-maintained. ROSTER_AS_OF is shown in the UI so readers know how fresh
+# it is; bump it whenever the list is checked against federalreserve.gov.
+# Anyone no longer serving goes in FORMER_OFFICIALS so seed_officials() can
+# deactivate their row instead of leaving a stale entry.
+ROSTER_AS_OF = "2026-09-16"
+
+# Left the Board / their bank; kept only so existing rows get is_active=False.
+FORMER_OFFICIALS = ["Adriana Kugler"]
+
 FED_OFFICIALS_SEED = [
     # Board of Governors -------------------------------------------------------
     {
@@ -82,15 +90,15 @@ FED_OFFICIALS_SEED = [
         "disclosure_url": "https://www.federalreserve.gov/aboutthefed/disclosures.htm",
     },
     {
-        "name": "Adriana Kugler",
+        "name": "Stephen Miran",
         "title": "Governor, Board of Governors",
         "role": "board",
         "district": None,
         "is_fomc_voter": True,
-        "appointed_by": "Biden",
+        "appointed_by": "Trump",
         "term_expires": "2026",
-        "party": "D",
-        "bio": "Governor since 2023. Former Chief Economist at the U.S. Department of Labor and World Bank. Research expertise in labor markets and immigration economics.",
+        "party": "R",
+        "bio": "Governor since September 2025, filling the seat vacated by Adriana Kugler. Previously Chair of the Council of Economic Advisers.",
         "disclosure_url": "https://www.federalreserve.gov/aboutthefed/disclosures.htm",
     },
     {
@@ -337,6 +345,10 @@ def seed_officials(db: Session) -> int:
                 is_active=True,
             ))
             added += 1
+    for name in FORMER_OFFICIALS:
+        row = db.query(FedOfficial).filter(FedOfficial.name == name).first()
+        if row and row.is_active:
+            row.is_active = False
     db.commit()
     logger.info(f"Fed officials seeded: {added} new")
     return added
@@ -378,9 +390,13 @@ def seed_trades(db: Session) -> int:
 
 def sync_oge_trades(db: Session) -> dict:
     """
-    Try to pull transaction data from OGE EFTS for Board of Governors members.
-    Returns counts of what was found.
+    Placeholder. OGE has no public JSON API for 278/278-T reports (they are
+    PDFs behind a request form), so there is nothing to fetch programmatically.
+    Returns zero counts without making network calls; the roster is what the
+    Fed page shows.
     """
+    logger.info("Fed: no machine-readable transaction source; skipping OGE fetch")
+    return {"fetched": 0, "stored": 0}
     board_members = (
         db.query(FedOfficial)
         .filter(FedOfficial.role == "board", FedOfficial.is_active == True)  # noqa: E712

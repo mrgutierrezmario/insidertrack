@@ -1,10 +1,11 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import type { CSSProperties } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Disclaimer from "./components/Disclaimer";
-import { Routes, Route, NavLink } from "react-router-dom";
+import { Routes, Route, NavLink, Link, useLocation } from "react-router-dom";
 import SearchBar from "./components/SearchBar";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { getUnseenAlertCount } from "./lib/api";
+import useTheme from "./hooks/useTheme";
+import useAdmin from "./hooks/useAdmin";
 
 // Route-level code splitting. Each page becomes its own chunk, loaded on
 // first navigation. Cuts the initial bundle by ~60%; the Suspense fallback
@@ -32,238 +33,191 @@ const Fed         = lazy(() => import("./pages/Fed"));
 const Activity    = lazy(() => import("./pages/Activity"));
 const NotFound    = lazy(() => import("./pages/NotFound"));
 
-// NavLink's `style` prop accepts a function whose arg shape varies across
-// react-router versions (isPending/isTransitioning were added later). We only
-// read `isActive`, so destructure just that and stay forward-compatible.
-const linkStyle = ({ isActive }: { isActive: boolean }): CSSProperties => ({
-  color: isActive ? "#38bdf8" : "#94a3b8",
-  textDecoration: "none",
-  fontWeight: isActive ? 600 : 400,
-  fontSize: "0.88rem",
-  whiteSpace: "nowrap",
-});
+interface NavEntry { to: string; label: string; hint?: string; }
+interface NavGroup { label: string; items: NavEntry[]; }
 
-function AlertsLink() {
+// Sixteen pages grouped into five menus. Order inside a group = importance.
+const NAV_GROUPS: ReadonlyArray<NavGroup> = [
+  { label: "Signals", items: [
+    { to: "/",          label: "Dashboard", hint: "Today at a glance" },
+    { to: "/signals",   label: "Signal Scores", hint: "Composite score per ticker" },
+    { to: "/outcomes",  label: "Outcomes", hint: "How past signals played out" },
+    { to: "/simulator", label: "Simulator", hint: "Paper portfolio vs SPY" },
+  ]},
+  { label: "Who's trading", items: [
+    { to: "/feed",        label: "Trade Feed", hint: "Congressional disclosures" },
+    { to: "/politicians", label: "Politicians", hint: "Who we track and why" },
+    { to: "/insiders",    label: "Corporate Insiders", hint: "SEC Form 4" },
+    { to: "/whales",      label: "Whales", hint: "13F institutional holdings" },
+    { to: "/fed",         label: "Fed Officials", hint: "FOMC roster & disclosures" },
+    { to: "/activity",    label: "Activity", hint: "Everything, newest first" },
+  ]},
+  { label: "Markets", items: [
+    { to: "/markets",  label: "Markets", hint: "Indices, movers, Fed rate" },
+    { to: "/news",     label: "News", hint: "Sentiment-tagged headlines" },
+    { to: "/earnings", label: "Earnings", hint: "Upcoming reports" },
+    { to: "/filings",  label: "SEC Filings", hint: "Recent filings by institution" },
+  ]},
+  { label: "Mine", items: [
+    { to: "/watchlist", label: "Watchlist", hint: "Your tickers" },
+    { to: "/alerts",    label: "Alerts", hint: "Rules & triggered events" },
+  ]},
+];
+
+/** Unseen-alert badge. "Seen" is a global admin flag, so visitors get no badge. */
+function useUnseenAlerts(enabled: boolean): number {
   const [count, setCount] = useState<number>(0);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-
   useEffect(() => {
-    const fetch = () => {
-      getUnseenAlertCount()
-        .then((r) => setCount(r.data?.unseen ?? 0))
-        .catch(() => {});
-    };
+    if (!enabled) { setCount(0); return; }
+    const fetch = () => getUnseenAlertCount().then((r) => setCount(r.data?.unseen ?? 0)).catch(() => {});
     fetch();
-    timer.current = setInterval(fetch, 60_000);
-    return () => {
-      if (timer.current) clearInterval(timer.current);
-    };
-  }, []);
+    const t = setInterval(fetch, 60_000);
+    return () => clearInterval(t);
+  }, [enabled]);
+  return count;
+}
+
+function Badge({ n }: { n: number }) {
+  if (n <= 0) return null;
+  return <span className="badge-count">{n > 99 ? "99+" : n}</span>;
+}
+
+/** One desktop menu: a button that opens a list of links; closes on outside click / Esc / navigation. */
+function NavGroupMenu({ group, alerts }: { group: NavGroup; alerts: number }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+  const { pathname } = useLocation();
+  const active = group.items.some((i) => (i.to === "/" ? pathname === "/" : pathname.startsWith(i.to)));
+  const badge = group.items.some((i) => i.to === "/alerts") ? alerts : 0;
+
+  useEffect(() => { setOpen(false); }, [pathname]);
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("keydown", onKey); };
+  }, [open]);
 
   return (
-    <NavLink to="/alerts" style={({ isActive }) => ({ ...linkStyle({ isActive }), display: "flex", alignItems: "center", gap: 5 })}>
-      Alerts
-      {count > 0 && (
-        <span style={{
-          background: "#ef4444", color: "#fff",
-          fontSize: 9, fontWeight: 700,
-          borderRadius: 10, padding: "1px 6px",
-          lineHeight: 1.6, minWidth: 16, textAlign: "center",
-          display: "inline-block",
-        }}>
-          {count > 99 ? "99+" : count}
-        </span>
+    <div ref={ref} className={"navgroup" + (active ? " navgroup--active" : "")}>
+      <button type="button" className="navgroup__btn" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+        {group.label} <Badge n={badge} /> <span className="chev">▼</span>
+      </button>
+      {open && (
+        <div className="navgroup__menu" role="menu">
+          {group.items.map((i) => (
+            <NavLink key={i.to} to={i.to} end={i.to === "/"} className={({ isActive }) => "navgroup__item" + (isActive ? " active" : "")} role="menuitem">
+              <span>{i.label} {i.to === "/alerts" && <Badge n={alerts} />}</span>
+              {i.hint && <small>{i.hint}</small>}
+            </NavLink>
+          ))}
+        </div>
       )}
-    </NavLink>
+    </div>
   );
 }
 
-interface NavEntry { to: string; label: string; }
-
-const ALL_NAV: ReadonlyArray<NavEntry> = [
-  { to: "/",           label: "Dashboard" },
-  { to: "/watchlist",  label: "Watchlist" },
-  { to: "/feed",       label: "Trade Feed" },
-  { to: "/markets",    label: "Markets" },
-  { to: "/signals",    label: "Signals" },
-  { to: "/politicians",label: "Politicians" },
-  { to: "/fed",         label: "Fed Officials" },
-  { to: "/activity",    label: "Activity" },
-  { to: "/whales",     label: "Whales" },
-  { to: "/insiders",   label: "Insiders" },
-  { to: "/filings",    label: "Filings" },
-  { to: "/news",       label: "News" },
-  { to: "/earnings",   label: "Earnings" },
-  { to: "/simulator",  label: "Simulator" },
-  { to: "/outcomes",   label: "Outcomes" },
-  { to: "/alerts",     label: "Alerts" },
-  { to: "/config",     label: "⚙ Config" },
-];
-
-function HamburgerNav() {
-  const [open, setOpen] = useState(false);
-
+/** Phone drawer: all groups expanded, one tap to navigate. */
+function Drawer({ open, onClose, alerts }: { open: boolean; onClose: () => void; alerts: number }) {
+  const { pathname } = useLocation();
+  useEffect(() => { onClose(); /* close on navigation */ }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = ""; };
+  }, [open, onClose]);
+  if (!open) return null;
   return (
-    <>
-      <button
-        onClick={() => setOpen((v) => !v)}
-        aria-label="Toggle menu"
-        style={{
-          display: "none",
-          background: "transparent", border: "1px solid #1e2533",
-          color: "#94a3b8", borderRadius: 6,
-          padding: "4px 10px", cursor: "pointer", fontSize: 18,
-          lineHeight: 1,
-        }}
-        className="hamburger-btn"
-      >
-        ☰
-      </button>
-
-      {open && (
-        <div
-          onClick={() => setOpen(false)}
-          style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.55)" }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              position: "absolute", top: 0, right: 0,
-              width: 230, height: "100dvh",
-              background: "#0d1117", borderLeft: "1px solid #1e2533",
-              display: "flex", flexDirection: "column",
-            }}
-          >
-            {/* Header */}
-            <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid #1e2533", flexShrink: 0 }}>
-              <span style={{ color: "#38bdf8", fontWeight: 700, fontSize: 15 }}>📈 InsiderTrack</span>
-            </div>
-
-            {/* Scrollable link list */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
-              {ALL_NAV.map(({ to, label }) => (
-                <NavLink
-                  key={to}
-                  to={to}
-                  onClick={() => setOpen(false)}
-                  style={({ isActive }) => ({
-                    display: "block",
-                    padding: "11px 20px",
-                    color: isActive ? "#38bdf8" : "#94a3b8",
-                    textDecoration: "none",
-                    fontWeight: isActive ? 600 : 400,
-                    fontSize: "0.92rem",
-                    background: isActive ? "rgba(56,189,248,0.07)" : "transparent",
-                    borderLeft: isActive ? "2px solid #38bdf8" : "2px solid transparent",
-                  })}
-                >
-                  {label}
+    <div className="drawer-backdrop" onClick={onClose}>
+      <div className="drawer" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Menu">
+        <div className="drawer__head">
+          <span style={{ fontWeight: 700 }}>Menu</span>
+          <button type="button" className="iconbtn" aria-label="Close menu" onClick={onClose}>✕</button>
+        </div>
+        <div className="drawer__body">
+          {NAV_GROUPS.map((g) => (
+            <div key={g.label}>
+              <div className="drawer__group">{g.label}</div>
+              {g.items.map((i) => (
+                <NavLink key={i.to} to={i.to} end={i.to === "/"} className={({ isActive }) => "drawer__link" + (isActive ? " active" : "")}>
+                  {i.label} {i.to === "/alerts" && <Badge n={alerts} />}
                 </NavLink>
               ))}
             </div>
-          </div>
+          ))}
+          <div className="drawer__group">Settings</div>
+          <NavLink to="/config" className={({ isActive }) => "drawer__link" + (isActive ? " active" : "")}>Settings</NavLink>
         </div>
-      )}
-    </>
+      </div>
+    </div>
   );
 }
 
 export default function App() {
+  useTheme(); // keeps <html data-theme> in sync with the stored preference
+  const isAdmin = useAdmin();
+  const alerts = useUnseenAlerts(isAdmin);
+  const [drawer, setDrawer] = useState(false);
+  const closeDrawer = useCallback(() => setDrawer(false), []);
+
   return (
     <Disclaimer>
-      <style>{`
-        @media (max-width: 900px) {
-          .desktop-nav { display: none !important; }
-          .hamburger-btn { display: block !important; }
-          .main-content { padding: 1rem !important; }
-        }
-      `}</style>
-      <div style={{ minHeight: "100vh" }}>
-        <nav style={{
-          display: "flex",
-          padding: "0.6rem 1.25rem",
-          borderBottom: "1px solid #1e2533",
-          background: "#0d1117",
-          alignItems: "center",
-          gap: "1rem",
-        }}>
-          <span style={{ color: "#38bdf8", fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0 }}>
-            📈 InsiderTrack
-          </span>
+      <header className="appbar">
+        <Link to="/" className="appbar__brand" aria-label="InsiderTrack home">
+          <img src="/logo-mark.svg" alt="" />
+          <span>Insider<b>Track</b></span>
+        </Link>
 
-          {/* Desktop links */}
-          <div className="desktop-nav" style={{
-            display: "flex", gap: "1rem", alignItems: "center",
-            overflowX: "auto", flex: 1, scrollbarWidth: "none",
-          }}>
-            <NavLink to="/" style={linkStyle}>Dashboard</NavLink>
-            <NavLink to="/watchlist" style={linkStyle}>Watchlist</NavLink>
-            <NavLink to="/feed" style={linkStyle}>Trade Feed</NavLink>
-            <NavLink to="/markets" style={linkStyle}>Markets</NavLink>
-            <NavLink to="/signals" style={linkStyle}>Signals</NavLink>
-            <NavLink to="/politicians" style={linkStyle}>Politicians</NavLink>
-            <NavLink to="/fed" style={linkStyle}>Fed Officials</NavLink>
-            <NavLink to="/activity" style={linkStyle}>Activity</NavLink>
-            <NavLink to="/whales" style={linkStyle}>Whales</NavLink>
-            <NavLink to="/insiders" style={linkStyle}>Insiders</NavLink>
-            <NavLink to="/filings" style={linkStyle}>Filings</NavLink>
-            <NavLink to="/news" style={linkStyle}>News</NavLink>
-            <NavLink to="/earnings" style={linkStyle}>Earnings</NavLink>
-            <NavLink to="/simulator" style={linkStyle}>Simulator</NavLink>
-            <NavLink to="/outcomes" style={linkStyle}>Outcomes</NavLink>
-            <AlertsLink />
-          </div>
-
-          {/* Right side */}
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexShrink: 0, marginLeft: "auto" }}>
-            <SearchBar />
-            <NavLink to="/config" style={linkStyle} className="desktop-nav">⚙ Config</NavLink>
-            <HamburgerNav />
-          </div>
+        <nav className="appbar__nav only-desktop" aria-label="Primary">
+          {NAV_GROUPS.map((g) => <NavGroupMenu key={g.label} group={g} alerts={alerts} />)}
         </nav>
 
-        <main className="main-content" style={{ padding: "2rem" }}>
-          <ErrorBoundary>
-          <Suspense fallback={<div style={{ color: "#475569", padding: "60px 0", textAlign: "center" }}>Loading…</div>}>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/feed" element={<Feed />} />
-            <Route path="/markets" element={<Markets />} />
-            <Route path="/signals" element={<Signals />} />
-            <Route path="/politicians" element={<Politicians />} />
-            <Route path="/fed" element={<Fed />} />
-            <Route path="/activity" element={<Activity />} />
-            <Route path="/politician/:id" element={<Politician />} />
-            <Route path="/ticker/:symbol" element={<Ticker />} />
-            <Route path="/whales" element={<Whales />} />
-            <Route path="/filings" element={<Filings />} />
-            <Route path="/news" element={<News />} />
-            <Route path="/earnings" element={<Earnings />} />
-            <Route path="/simulator" element={<Simulator />} />
-            <Route path="/outcomes" element={<Outcomes />} />
-            <Route path="/alerts" element={<Alerts />} />
-            <Route path="/insiders" element={<Insiders />} />
-            <Route path="/watchlist" element={<Watchlist />} />
-            <Route path="/whale/:id" element={<Whale />} />
-            <Route path="/config" element={<Config />} />
-            <Route path="/admin" element={<AdminConfig />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-          </Suspense>
-          </ErrorBoundary>
-        </main>
+        <div className="appbar__right">
+          <SearchBar />
+          <NavLink to="/config" className={({ isActive }) => "navlink only-desktop" + (isActive ? " active" : "")} data-tip="Settings">⚙</NavLink>
+          <button type="button" className="iconbtn only-mobile" aria-label="Open menu" onClick={() => setDrawer(true)}>☰</button>
+        </div>
+      </header>
+      <Drawer open={drawer} onClose={closeDrawer} alerts={alerts} />
 
-        <footer style={{
-          borderTop: "1px solid #1e2533",
-          padding: "1rem 2rem",
-          textAlign: "center",
-          color: "#334155",
-          fontSize: "0.75rem",
-          letterSpacing: "0.02em",
-        }}>
-          © {new Date().getFullYear()} M.G. Network & Technology Solutions. All rights reserved.
-        </footer>
-      </div>
+      <main className="main-content">
+        <ErrorBoundary>
+        <Suspense fallback={<div style={{ color: "var(--c-textFaint)", padding: "60px 0", textAlign: "center" }}>Loading…</div>}>
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/feed" element={<Feed />} />
+          <Route path="/markets" element={<Markets />} />
+          <Route path="/signals" element={<Signals />} />
+          <Route path="/politicians" element={<Politicians />} />
+          <Route path="/fed" element={<Fed />} />
+          <Route path="/activity" element={<Activity />} />
+          <Route path="/politician/:id" element={<Politician />} />
+          <Route path="/ticker/:symbol" element={<Ticker />} />
+          <Route path="/whales" element={<Whales />} />
+          <Route path="/filings" element={<Filings />} />
+          <Route path="/news" element={<News />} />
+          <Route path="/earnings" element={<Earnings />} />
+          <Route path="/simulator" element={<Simulator />} />
+          <Route path="/outcomes" element={<Outcomes />} />
+          <Route path="/alerts" element={<Alerts />} />
+          <Route path="/insiders" element={<Insiders />} />
+          <Route path="/watchlist" element={<Watchlist />} />
+          <Route path="/whale/:id" element={<Whale />} />
+          <Route path="/config" element={<Config />} />
+          <Route path="/admin" element={<AdminConfig />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+        </Suspense>
+        </ErrorBoundary>
+      </main>
+
+      <footer className="site-footer">
+        © {new Date().getFullYear()} M.G. Network &amp; Technology Solutions · Public filings only · Not financial advice
+      </footer>
     </Disclaimer>
   );
 }

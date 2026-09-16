@@ -58,6 +58,7 @@ function renderPage() {
 
 describe("<Outcomes />", () => {
   beforeEach(() => {
+    sessionStorage.clear();
     vi.clearAllMocks();
     vi.mocked(getOutcomeStats).mockResolvedValue({ data: STATS_FIXTURE } as any);
     vi.mocked(getOutcomes).mockResolvedValue({ data: [RESOLVED_ROW, PENDING_ROW] } as any);
@@ -128,7 +129,15 @@ describe("<Outcomes />", () => {
     expect(await screen.findByText(/No outcome records yet/i)).toBeInTheDocument();
   });
 
-  it("Snapshot Today button calls runOutcomeSnapshot", async () => {
+  it("hides the admin actions for visitors", async () => {
+    renderPage();
+    await screen.findByText("AAPL");
+    expect(screen.queryByRole("button", { name: /Snapshot Today/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Fill Outcomes/i })).not.toBeInTheDocument();
+  });
+
+  it("Snapshot Today button calls runOutcomeSnapshot (admin)", async () => {
+    sessionStorage.setItem("insidertrack_admin_token", "1");
     vi.mocked(runOutcomeSnapshot).mockResolvedValue({ data: { status: "snapshot started" } } as any);
     const user = userEvent.setup();
     renderPage();
@@ -141,7 +150,8 @@ describe("<Outcomes />", () => {
     expect(await screen.findByText(/Snapshot started/i)).toBeInTheDocument();
   });
 
-  it("Fill Outcomes button calls runOutcomeFill", async () => {
+  it("Fill Outcomes button calls runOutcomeFill (admin)", async () => {
+    sessionStorage.setItem("insidertrack_admin_token", "1");
     vi.mocked(runOutcomeFill).mockResolvedValue({ data: { status: "fill started" } } as any);
     const user = userEvent.setup();
     renderPage();

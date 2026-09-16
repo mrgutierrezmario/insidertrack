@@ -3,7 +3,7 @@ type SignalKind = "BUY" | "SELL" | "HOLD";
 
 const colors: Record<SignalKind, { bg: string; color: string; border: string }> = {
   BUY:  { bg: C.successBg, color: C.success, border: C.successDeep },
-  SELL: { bg: C.dangerBg, color: C.danger, border: "#991b1b" },
+  SELL: { bg: C.dangerBg, color: C.danger, border: "var(--c-dangerDeep)" },
   HOLD: { bg: C.warningBg, color: C.warningSolid, border: C.warningDeep },
 };
 

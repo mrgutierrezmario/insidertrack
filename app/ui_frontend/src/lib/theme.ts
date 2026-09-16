@@ -1,5 +1,9 @@
 // Single source of truth for color tokens and shared inline-style objects.
 //
+// Every value is a CSS custom property defined in src/index.css, so inline
+// styles follow the light/dark theme automatically. Canvas-based charts need
+// real color strings — use resolveColor() for those.
+//
 // Usage:
 //   import { C, card, input } from "../lib/theme";
 //   <div style={{ ...card, padding: 16 }}>...</div>
@@ -13,40 +17,60 @@ export const C = {
   // `as const` at the bottom narrows each value to its literal-string type so
   // consumers like `style={{ color: C.text }}` get string, not arbitrary widen.
   // ── Surfaces (dark → light) ───────────────────────────────────────────────
-  bg:           "#0d1117",  // app background, input backgrounds
-  bgSunken:     "#0f172a",  // deepest panel (sub-card)
-  surface:      "#161b27",  // card / panel background
-  surfaceAlt:   "#1e2533",  // border on surface, hover state
-  divider:      "#334155",  // subtle dividers
-  dividerStrong:"#475569",  // emphasised divider
+  bg:           "var(--c-bg)",  // app background, input backgrounds
+  bgSunken:     "var(--c-bgSunken)",  // deepest panel (sub-card)
+  surface:      "var(--c-surface)",  // card / panel background
+  surfaceAlt:   "var(--c-surfaceAlt)",  // border on surface, hover state
+  divider:      "var(--c-divider)",  // subtle dividers
+  dividerStrong:"var(--c-dividerStrong)",  // emphasised divider
 
   // ── Text (dim → bright) ───────────────────────────────────────────────────
-  textDimmest:  "#334155",  // disabled / placeholder
-  textDim:      "#4b5563",  // de-emphasised
-  textMuted:    "#64748b",  // subtitles / metadata
-  textSoft:     "#94a3b8",  // secondary body
-  text:         "#e2e8f0",  // primary body
-  textBright:   "#f1f5f9",  // headings
-  textFaint:    "#475569",  // captions
+  textDimmest:  "var(--c-textDimmest)",  // disabled / placeholder
+  textDim:      "var(--c-textDim)",  // de-emphasised
+  textMuted:    "var(--c-textMuted)",  // subtitles / metadata
+  textSoft:     "var(--c-textSoft)",  // secondary body
+  text:         "var(--c-text)",  // primary body
+  textBright:   "var(--c-textBright)",  // headings
+  textFaint:    "var(--c-textFaint)",  // captions
 
   // ── Semantic ──────────────────────────────────────────────────────────────
-  accent:       "#38bdf8",  // links / focus
-  accentSolid:  "#1d4ed8",  // primary button
-  success:      "#4ade80",  // UP / positive
-  successDeep:  "#166534",  // success border
-  successBg:    "#052e16",  // success badge background
-  danger:       "#f87171",  // DOWN / negative
-  dangerSolid:  "#ef4444",  // error
-  dangerDeep:   "#7f1d1d",  // danger border
-  dangerBg:     "#450a0a",  // danger badge background
-  warning:      "#fb923c",  // high risk / overdue
-  warningSolid: "#fbbf24",  // pause / caution
-  warningDeep:  "#78350f",  // warning border
-  warningBg:    "#1c1917",  // warning badge background
-  info:         "#a78bfa",  // neutral accent (purple)
+  accent:       "var(--c-accent)",  // links / focus
+  accentSolid:  "var(--c-accentSolid)",  // primary button
+  accentBg:     "var(--c-accentBg)",     // selected / tinted accent background
+  success:      "var(--c-success)",  // UP / positive
+  successDeep:  "var(--c-successDeep)",  // success border
+  successBg:    "var(--c-successBg)",  // success badge background
+  danger:       "var(--c-danger)",  // DOWN / negative
+  dangerSolid:  "var(--c-dangerSolid)",  // error
+  dangerDeep:   "var(--c-dangerDeep)",  // danger border
+  dangerBg:     "var(--c-dangerBg)",  // danger badge background
+  warning:      "var(--c-warning)",  // high risk / overdue
+  warningSolid: "var(--c-warningSolid)",  // pause / caution
+  warningDeep:  "var(--c-warningDeep)",  // warning border
+  warningBg:    "var(--c-warningBg)",  // warning badge background
+  info:         "var(--c-info)",  // neutral accent (purple)
 } as const;
 
 export type ColorToken = keyof typeof C;
+
+/** Resolve any "var(--c-x)" string to its computed value; other strings pass through. */
+export function resolveCss(value: string): string {
+  const m = /^var\(--c-([a-zA-Z]+)\)$/.exec(value);
+  return m ? resolveColor(m[1] as ColorToken) : value;
+}
+
+/** Snapshot of every token as a real color string — for canvas charts, which cannot read CSS variables. */
+export function resolvedPalette(): Record<ColorToken, string> {
+  const out = {} as Record<ColorToken, string>;
+  (Object.keys(C) as ColorToken[]).forEach((k) => { out[k] = resolveColor(k); });
+  return out;
+}
+
+/** Resolve a token to its current computed value (for canvas charts). */
+export function resolveColor(token: ColorToken): string {
+  if (typeof window === "undefined") return "#000";
+  return getComputedStyle(document.documentElement).getPropertyValue(`--c-${token}`).trim() || "#000";
+}
 
 // ── Common inline-style objects ─────────────────────────────────────────────
 // Spread these to keep the per-page diff small while still going through the

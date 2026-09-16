@@ -36,7 +36,7 @@ export default function ChartModal({ title, onClose, children }: ChartModalProps
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "14px 16px",
-        borderBottom: "1px solid #1e2533",
+        borderBottom: "1px solid var(--c-surfaceAlt)",
       }}>
         <div>
           <span style={{ color: C.textBright, fontWeight: 600, fontSize: 15 }}>{title}</span>
@@ -47,7 +47,7 @@ export default function ChartModal({ title, onClose, children }: ChartModalProps
         <button
           onClick={onClose}
           style={{
-            background: C.surfaceAlt, border: "1px solid #334155",
+            background: C.surfaceAlt, border: "1px solid var(--c-divider)",
             borderRadius: 8, color: C.textSoft,
             width: 36, height: 36, fontSize: 20, lineHeight: 1,
             cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",

@@ -1,8 +1,10 @@
 import { safeHref } from "../lib/safeUrl";
 import { C } from "../lib/theme";
+import useDocumentTitle from "../hooks/useDocumentTitle";
+import useAdmin from "../hooks/useAdmin";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getFedOfficials, getFedTrades, syncFed, seedFed, ADMIN_TOKEN_KEY } from "../lib/api";
+import { getFedOfficials, getFedTrades, seedFed } from "../lib/api";
 import { exportCSV } from "../lib/csv";
 import WatchlistButton from "../components/WatchlistButton";
 import SkeletonCard from "../components/SkeletonCard";
@@ -60,7 +62,7 @@ function OfficialCard({ official, isSelected, onClick }: { official: Official; i
     <div
       onClick={onClick}
       style={{
-        background: isSelected ? "#1a2540" : C.surface,
+        background: isSelected ? "var(--c-accentBg)" : C.surface,
         border: `1px solid ${isSelected ? C.accent : C.surfaceAlt}`,
         borderLeft: `3px solid ${official.is_fomc_voter ? C.accent : C.divider}`,
         borderRadius: 10,
@@ -100,7 +102,7 @@ function OfficialCard({ official, isSelected, onClick }: { official: Official; i
 function TradeRow({ trade }: { trade: FedTrade }) {
   const typeColor = TYPE_COLOR[trade.transaction_type] || C.textSoft;
   return (
-    <tr style={{ borderBottom: "1px solid #1e2533" }}>
+    <tr style={{ borderBottom: "1px solid var(--c-surfaceAlt)" }}>
       <td style={{ padding: "9px 12px", color: C.textMuted, whiteSpace: "nowrap", fontSize: 12 }}>{trade.trade_date}</td>
       <td style={{ padding: "9px 12px" }}>
         <div style={{ fontSize: 12, color: C.textSoft, lineHeight: 1.3 }}>
@@ -142,6 +144,8 @@ function TradeRow({ trade }: { trade: FedTrade }) {
 }
 
 export default function Fed() {
+  const isAdmin = useAdmin();
+  useDocumentTitle("Fed Officials");
   const [officials, setOfficials] = useState<Official[]>([]);
   const [trades, setTrades] = useState<FedTrade[]>([]);
   const [loading, setLoading] = useState(true);
@@ -174,14 +178,12 @@ export default function Fed() {
   }, [selectedId, filter.ticker, filter.type]);
 
   const handleSync = async () => {
-    setMsg("Seeding officials and syncing disclosures…");
+    setMsg("Refreshing roster…");
     try {
       await seedFed();
-      setMsg("Officials seeded. Running OGE sync in background…");
-      await syncFed();
-      setMsg("Sync started — refresh in a moment.");
       const r = await getFedOfficials();
       setOfficials(r.data as Official[]);
+      setMsg("Roster refreshed.");
     } catch {
       setMsg("Error — check backend logs.");
     }
@@ -200,43 +202,45 @@ export default function Fed() {
         }
       `}</style>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
+      <div className="page-head">
         <div>
-          <h1 style={{ color: C.textBright, margin: "0 0 4px", fontSize: "1.4rem" }}>Federal Reserve Officials</h1>
+          <h1>Federal Reserve Officials</h1>
           <p style={{ color: C.dividerStrong, margin: 0, fontSize: 13 }}>
-            FOMC members and their publicly disclosed financial transactions via OGE and Fed ethics filings.
+            Who sets rates — the FOMC roster, with links to each official's annual disclosure.
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <a
             href="https://www.federalreserve.gov/aboutthefed/disclosures.htm"
             target="_blank" rel="noopener noreferrer"
-            style={{ color: C.textMuted, fontSize: 12, textDecoration: "none", border: "1px solid #1e2533", borderRadius: 6, padding: "6px 12px" }}
+            style={{ color: C.textMuted, fontSize: 12, textDecoration: "none", border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, padding: "6px 12px" }}
           >
             Fed Disclosures ↗
           </a>
-          {sessionStorage.getItem(ADMIN_TOKEN_KEY) && (
+          {isAdmin && (
             <button
               onClick={handleSync}
+              data-tip="Re-applies the built-in roster (activates new members, retires departed ones)."
               style={{ background: "rgba(56,189,248,0.1)", color: C.accent, border: "1px solid rgba(56,189,248,0.3)", borderRadius: 6, padding: "6px 14px", fontSize: 12, cursor: "pointer" }}
             >
-              ↻ Sync
+              ↻ Refresh roster
             </button>
           )}
         </div>
       </div>
 
       {msg && (
-        <div style={{ background: C.surface, border: "1px solid #1e2533", borderRadius: 8, padding: "10px 14px", marginBottom: 16, color: C.textSoft, fontSize: 13 }}>
+        <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, padding: "10px 14px", marginBottom: 16, color: C.textSoft, fontSize: 13 }}>
           {msg}
         </div>
       )}
 
       {/* Info banner */}
       <div style={{ background: "rgba(56,189,248,0.05)", border: "1px solid rgba(56,189,248,0.15)", borderRadius: 8, padding: "10px 16px", marginBottom: 20, fontSize: 12, color: C.textMuted, lineHeight: 1.6 }}>
-        <span style={{ color: C.accent, fontWeight: 600 }}>Why this matters: </span>
-        Fed officials set interest rates that move all markets. After the 2021 trading scandal, they're required to disclose trades within 45 days.
-        Board of Governors file with OGE · Regional presidents file with their bank's ethics office.
+        <span style={{ color: C.accent, fontWeight: 600 }}>What to expect here: </span>
+        Since the 2022 investment rules (a response to the 2021 trading scandal), Fed governors and reserve-bank presidents may not
+        hold individual stocks, bonds or crypto, must pre-clear trades and give 45-day notice. So this page is a <em>roster</em>, not a trade feed:
+        an empty transactions list is the normal, compliant state. Annual disclosures (Form 278) are published as PDFs.
         {" "}<a href="https://www.federalreserve.gov/aboutthefed/disclosures.htm" target="_blank" rel="noopener noreferrer" style={{ color: C.accent }}>Official disclosures ↗</a>
       </div>
 
@@ -295,7 +299,7 @@ export default function Fed() {
         <div>
           {/* Selected official bio */}
           {selectedOfficial && selectedOfficial.bio && (
-            <div style={{ background: C.surface, border: "1px solid #1e2533", borderRadius: 10, padding: "16px 18px", marginBottom: 16 }}>
+            <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 10, padding: "16px 18px", marginBottom: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                 <div>
                   <div style={{ color: C.textBright, fontWeight: 700, fontSize: 15 }}>{selectedOfficial.name}</div>
@@ -318,24 +322,24 @@ export default function Fed() {
               value={filter.ticker}
               onChange={(e) => setFilter((f) => ({ ...f, ticker: e.target.value.toUpperCase() }))}
               placeholder="Filter ticker…"
-              style={{ background: C.surface, border: "1px solid #1e2533", borderRadius: 6, color: C.textBright, padding: "6px 12px", fontSize: 13, width: 140 }}
+              style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, color: C.textBright, padding: "6px 12px", fontSize: 13, width: 140 }}
             />
             <select value={filter.type}
               onChange={(e) => setFilter((f) => ({ ...f, type: e.target.value }))}
-              style={{ background: C.surface, border: "1px solid #1e2533", borderRadius: 6, color: C.textSoft, padding: "6px 12px", fontSize: 13 }}>
+              style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, color: C.textSoft, padding: "6px 12px", fontSize: 13 }}>
               <option value="">All types</option>
               <option value="purchase">Purchase</option>
               <option value="sale">Sale</option>
             </select>
             {(filter.ticker || filter.type) && (
               <button onClick={() => setFilter({ ticker: "", type: "" })}
-                style={{ background: "none", color: C.textMuted, border: "1px solid #1e2533", borderRadius: 6, padding: "6px 12px", fontSize: 13, cursor: "pointer" }}>
+                style={{ background: "none", color: C.textMuted, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, padding: "6px 12px", fontSize: 13, cursor: "pointer" }}>
                 Clear
               </button>
             )}
             {trades.length > 0 && (
               <button onClick={() => exportFedCSV(trades)}
-                style={{ background: C.surfaceAlt, color: C.textSoft, border: "1px solid #334155", borderRadius: 6, padding: "6px 12px", fontSize: 13, cursor: "pointer", marginLeft: "auto" }}>
+                style={{ background: C.surfaceAlt, color: C.textSoft, border: "1px solid var(--c-divider)", borderRadius: 6, padding: "6px 12px", fontSize: 13, cursor: "pointer", marginLeft: "auto" }}>
                 ↓ CSV
               </button>
             )}
@@ -346,19 +350,19 @@ export default function Fed() {
               {[...Array(4)].map((_, i) => <SkeletonCard key={i} lines={2} height={52} />)}
             </div>
           ) : trades.length === 0 ? (
-            <div style={{ color: C.dividerStrong, textAlign: "center", padding: "60px 24px", background: C.surface, border: "1px solid #1e2533", borderRadius: 12 }}>
+            <div style={{ color: C.dividerStrong, textAlign: "center", padding: "60px 24px", background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 12 }}>
               <div style={{ fontSize: 32, marginBottom: 12 }}>📋</div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: C.textMuted, marginBottom: 8 }}>No disclosed trades yet</div>
-              <div style={{ fontSize: 13, color: C.divider, maxWidth: 320, margin: "0 auto", lineHeight: 1.6 }}>
-                Click <strong style={{ color: C.accent }}>↻ Sync</strong> to pull the latest disclosures from OGE and the Fed's ethics pages.
-                Board of Governors members have the most complete disclosure records.
+              <div style={{ fontSize: 15, fontWeight: 600, color: C.textMuted, marginBottom: 8 }}>No individual-stock transactions on record</div>
+              <div style={{ fontSize: 13, color: C.textMuted, maxWidth: 360, margin: "0 auto", lineHeight: 1.6 }}>
+                That is what the rules require. If a disclosed transaction ever appears in a Form 278 or 278-T,
+                it can be entered here; until then, use the roster and the official PDF disclosures.
               </div>
             </div>
           ) : (
-            <div style={{ background: C.surface, border: "1px solid #1e2533", borderRadius: 12, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+            <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 12, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
-                  <tr style={{ borderBottom: "1px solid #1e2533" }}>
+                  <tr style={{ borderBottom: "1px solid var(--c-surfaceAlt)" }}>
                     {["Trade Date", "Official", "Ticker", "Type", "Amount", "Disclosed", "Source"].map((h) => (
                       <th key={h} style={{ padding: "10px 12px", color: C.dividerStrong, fontWeight: 600, fontSize: 11, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
                     ))}
@@ -372,9 +376,9 @@ export default function Fed() {
           )}
 
           <div style={{ marginTop: 12, color: C.divider, fontSize: 11, lineHeight: 1.6 }}>
-            Trade disclosures required within 45 days per Fed ethics rules (post-2021 scandal) ·
-            Board of Governors file with <a href="https://efts.usethical.com/EOGE/" target="_blank" rel="noopener noreferrer" style={{ color: C.dividerStrong }}>OGE EFTS ↗</a> ·
-            Regional presidents file with individual bank ethics offices
+            Roster maintained by hand · Board of Governors file annual Form 278 with the{" "}
+            <a href="https://www.oge.gov/web/oge.nsf/Public%20Financial%20Disclosure" target="_blank" rel="noopener noreferrer" style={{ color: C.dividerStrong }}>Office of Government Ethics ↗</a>{" "}
+            · Reserve-bank presidents publish theirs on their bank's site
           </div>
         </div>
       </div>

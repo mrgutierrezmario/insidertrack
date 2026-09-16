@@ -1,9 +1,11 @@
 import { C } from "../lib/theme";
+import useDocumentTitle from "../hooks/useDocumentTitle";
+import useAdmin from "../hooks/useAdmin";
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import { isAxiosError } from "axios";
-import { getWhales, getWhaleFeed, syncWhales, ADMIN_TOKEN_KEY } from "../lib/api";
+import { getWhales, getWhaleFeed, syncWhales } from "../lib/api";
 import { exportCSV } from "../lib/csv";
 import WatchlistButton from "../components/WatchlistButton";
 
@@ -11,8 +13,8 @@ type ChangeType = "new" | "increased" | "decreased" | "closed" | "stable";
 
 const CHANGE_STYLE: Record<ChangeType, { color: string; bg: string; label: string }> = {
   new:       { color: C.success,  bg: C.successBg, label: "NEW" },
-  increased: { color: "#34d399",  bg: "#022c22", label: "↑ ADD" },
-  decreased: { color: C.warning,  bg: "#431407", label: "↓ TRIM" },
+  increased: { color: "#34d399",  bg: "var(--c-successBg)", label: "↑ ADD" },
+  decreased: { color: C.warning,  bg: "var(--c-warningBg)", label: "↓ TRIM" },
   closed:    { color: C.danger,  bg: C.dangerBg, label: "✕ CLOSED" },
   stable:    { color: C.textMuted,  bg: C.bgSunken, label: "— HOLD" },
 };
@@ -77,7 +79,7 @@ function fmtShares(n: number | null | undefined): string {
 
 const inputStyle: CSSProperties = {
   background: C.surface, color: C.text,
-  border: "1px solid #1e2533", borderRadius: 6,
+  border: "1px solid var(--c-surfaceAlt)", borderRadius: 6,
   padding: "0.4rem 0.75rem", fontSize: "0.85rem",
 };
 
@@ -120,7 +122,10 @@ function SyncButton({ onRefresh }: { onRefresh: () => void }) {
 }
 
 export default function Whales() {
+  const isAdmin = useAdmin();
+  useDocumentTitle("Whales");
   const [feed, setFeed] = useState<FeedRow[]>([]);
+  const latestQuarter = feed.reduce<string | null>((m, r) => (r.quarter && (!m || r.quarter > m) ? r.quarter : m), null);
   const [holders, setHolders] = useState<Holder[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<Filters>({ holder_id: "", change_type: "", ticker: "" });
@@ -163,19 +168,24 @@ export default function Whales() {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+      <div className="page-head">
         <div>
-          <h1 style={{ fontSize: "1.5rem", fontWeight: 700 }}>Whale Tracker</h1>
+          <h1>Whale Tracker</h1>
           <p style={{ color: C.textMuted, fontSize: "0.85rem", marginTop: 4 }}>
             Institutional & billionaire 13F filings — what the big money is moving.
           </p>
+          {latestQuarter && (
+            <p style={{ color: C.textMuted, fontSize: 12, margin: "4px 0 0" }}>
+              Data through <strong style={{ color: C.textSoft }}>{latestQuarter}</strong> — 13F filings are quarterly and due 45 days after quarter end, so holdings are always at least that stale.
+            </p>
+          )}
           {lastSynced && (
             <p style={{ color: C.divider, fontSize: 11, margin: "2px 0 0" }}>
               Last loaded: {lastSynced.toLocaleTimeString()}
             </p>
           )}
         </div>
-        {sessionStorage.getItem(ADMIN_TOKEN_KEY) && (
+        {isAdmin && (
           <SyncButton onRefresh={() => { getWhales().then((r) => setHolders(r.data)).catch(() => {}); loadFeed(); }} />
         )}
       </div>
@@ -186,7 +196,7 @@ export default function Whales() {
           <div
             key={h.id}
             style={{
-              background: filters.holder_id == h.id ? "#1e2d40" : C.surface,
+              background: filters.holder_id == h.id ? "var(--c-accentBg)" : C.surface,
               border: `1px solid ${filters.holder_id == h.id ? C.accentSolid : C.surfaceAlt}`,
               borderRadius: 8, overflow: "hidden",
             }}
@@ -208,7 +218,7 @@ export default function Whales() {
             <Link
               to={`/whale/${h.id}`}
               style={{
-                display: "block", borderTop: "1px solid #1e2533",
+                display: "block", borderTop: "1px solid var(--c-surfaceAlt)",
                 color: C.textMuted, fontSize: "0.72rem", textDecoration: "none",
                 padding: "0.4rem 0.875rem",
               }}
@@ -221,10 +231,10 @@ export default function Whales() {
 
       {/* Conviction buys banner */}
       {topMovers.length > 0 && !filters.holder_id && (
-        <div style={{ background: "#0c1a2e", border: "1px solid #1e3a5f", borderRadius: 8, padding: "0.875rem 1rem", marginBottom: "1.25rem", display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
+        <div style={{ background: "var(--c-accentBg)", border: "1px solid var(--c-accentBg)", borderRadius: 8, padding: "0.875rem 1rem", marginBottom: "1.25rem", display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ color: C.textSoft, fontSize: "0.78rem", fontWeight: 600 }}>Whale conviction buys:</span>
           {topMovers.map((t) => (
-            <Link key={t} to={`/ticker/${t}`} style={{ color: C.accent, fontWeight: 700, fontSize: "0.85rem", textDecoration: "none", background: "#0f2744", padding: "2px 10px", borderRadius: 4 }}>
+            <Link key={t} to={`/ticker/${t}`} style={{ color: C.accent, fontWeight: 700, fontSize: "0.85rem", textDecoration: "none", background: "var(--c-accentBg)", padding: "2px 10px", borderRadius: 4 }}>
               {t}
             </Link>
           ))}
@@ -232,7 +242,7 @@ export default function Whales() {
       )}
 
       {/* Filter bar */}
-      <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "flex-end", marginBottom: "1.25rem", padding: "0.75rem 1rem", background: C.surface, borderRadius: 8, border: "1px solid #1e2533" }}>
+      <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "flex-end", marginBottom: "1.25rem", padding: "0.75rem 1rem", background: C.surface, borderRadius: 8, border: "1px solid var(--c-surfaceAlt)" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
           <label style={{ color: C.textDim, fontSize: "0.7rem" }}>Move type</label>
           <select value={filters.change_type} onChange={(e) => set("change_type", e.target.value as ChangeType | "")} style={inputStyle}>
@@ -254,14 +264,14 @@ export default function Whales() {
           />
         </div>
         {activeFilers > 0 && (
-          <button onClick={clearAll} style={{ background: "none", color: C.textMuted, border: "1px solid #1e2533", borderRadius: 6, padding: "0.4rem 0.75rem", cursor: "pointer", fontSize: "0.8rem", alignSelf: "flex-end" }}>
+          <button onClick={clearAll} style={{ background: "none", color: C.textMuted, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, padding: "0.4rem 0.75rem", cursor: "pointer", fontSize: "0.8rem", alignSelf: "flex-end" }}>
             Clear ({activeFilers})
           </button>
         )}
         <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "flex-end" }}>
           {feed.length > 0 && (
             <button onClick={() => exportWhalesCSV(feed)}
-              style={{ background: C.surfaceAlt, color: C.textSoft, border: "1px solid #334155", borderRadius: 6, padding: "6px 12px", fontSize: 13, cursor: "pointer" }}>
+              style={{ background: C.surfaceAlt, color: C.textSoft, border: "1px solid var(--c-divider)", borderRadius: 6, padding: "6px 12px", fontSize: 13, cursor: "pointer" }}>
               ↓ CSV
             </button>
           )}
@@ -280,7 +290,7 @@ export default function Whales() {
         <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
           {feed.map((p) => (
             <div key={p.id} style={{
-              background: C.surface, border: "1px solid #1e2533", borderRadius: 8,
+              background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8,
               padding: "0.875rem 1rem",
               display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem",
               flexWrap: "wrap",

@@ -1,4 +1,5 @@
 import { C } from "../lib/theme";
+import useDocumentTitle from "../hooks/useDocumentTitle";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
@@ -67,7 +68,7 @@ function MoverCard({ m, showVol }: { m: Mover; showVol?: boolean }) {
       padding: "10px 14px",
       background: C.bg,
       borderRadius: 8,
-      border: "1px solid #1e2533",
+      border: "1px solid var(--c-surfaceAlt)",
     }}>
       <div>
         <Link to={`/ticker/${m.ticker}`} style={{ textDecoration: "none" }}>
@@ -94,7 +95,7 @@ function MoverPanel({ title, icon, items, showVol = false, loading }: { title: s
   return (
     <div style={{
       background: C.surface,
-      border: "1px solid #1e2533",
+      border: "1px solid var(--c-surfaceAlt)",
       borderRadius: 12,
       padding: "20px",
       flex: 1,
@@ -232,6 +233,7 @@ interface MacroEntry {
 }
 
 export default function Markets() {
+  useDocumentTitle("Markets");
   const [movers, setMovers] = useState<MoversData | null>(null);
   const [signals, setSignals] = useState<MarketSignal[]>([]);
   const [macro, setMacro] = useState<Record<string, MacroEntry> | null>(null);
@@ -256,8 +258,8 @@ export default function Markets() {
 
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <h1 style={{ color: C.textBright, margin: 0, fontSize: "1.4rem" }}>Markets</h1>
+      <div className="page-head">
+        <h1>Markets</h1>
         {movers?._demo && (
           <span style={{ background: "rgba(251,191,36,0.1)", color: C.warningSolid, border: "1px solid rgba(251,191,36,0.25)", borderRadius: 6, padding: "3px 10px", fontSize: 11 }}>
             demo data — no tracked tickers with price history yet
@@ -283,7 +285,7 @@ export default function Markets() {
               const color = isVix ? (d.price > 25 ? C.danger : d.price > 18 ? C.warning : C.success)
                 : (pos ? C.success : C.danger);
               return (
-                <div key={sym} style={{ background: C.surface, border: "1px solid #1e2533", borderRadius: 8, padding: "12px 14px" }}>
+                <div key={sym} style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, padding: "12px 14px" }}>
                   <div style={{ color: C.dividerStrong, fontSize: 11, marginBottom: 4 }}>{d.label}</div>
                   <div style={{ color: C.textBright, fontWeight: 700, fontSize: 16 }}>
                     {sym === "^TNX" ? `${d.price.toFixed(2)}%` : sym === "FED_RATE" ? `${d.price.toFixed(2)}%` : `$${d.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}

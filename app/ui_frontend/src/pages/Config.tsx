@@ -4,6 +4,9 @@ import { useNavigate } from "react-router-dom";
 import { isAxiosError } from "axios";
 import { getMySubscription, updateSubscriber, deleteSubscriber } from "../lib/api";
 import ConfirmModal from "../components/ConfirmModal";
+import useTheme from "../hooks/useTheme";
+import type { ThemePref } from "../hooks/useTheme";
+import useDocumentTitle from "../hooks/useDocumentTitle";
 
 type Period = "morning" | "midday" | "evening";
 const PERIODS: Period[] = ["morning", "midday", "evening"];
@@ -87,6 +90,9 @@ export default function Config() {
     });
   };
 
+  const { theme, setTheme } = useTheme();
+  useDocumentTitle("Settings");
+
   return (
     <div style={{ maxWidth: 640 }}>
       {confirm && (
@@ -102,7 +108,7 @@ export default function Config() {
         <div style={{
           position: "fixed", top: 24, right: 24, zIndex: 999,
           background: C.successBg, color: C.success,
-          border: "1px solid #166534", borderRadius: 8,
+          border: "1px solid var(--c-successDeep)", borderRadius: 8,
           padding: "12px 20px", fontSize: "0.9rem",
         }}>
           {toast}
@@ -112,13 +118,13 @@ export default function Config() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "2rem" }}>
         <div>
           <h1 style={{ fontSize: "1.5rem", fontWeight: 700, marginBottom: "0.25rem" }}>Settings</h1>
-          <p style={{ color: C.textMuted, fontSize: "0.88rem" }}>Manage your email-report subscription.</p>
+          <p style={{ color: C.textMuted, fontSize: "0.88rem" }}>Appearance and your email-report subscription.</p>
         </div>
         <button
           onClick={() => navigate("/admin")}
           style={{
             background: C.surface, color: C.textMuted,
-            border: "1px solid #334155", borderRadius: 7,
+            border: "1px solid var(--c-divider)", borderRadius: 7,
             padding: "0.45rem 1rem", cursor: "pointer",
             fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "0.4rem",
           }}
@@ -127,7 +133,21 @@ export default function Config() {
         </button>
       </div>
 
-      <section style={{ background: C.surface, border: "1px solid #1e2533", borderRadius: 10, padding: "1.5rem", marginBottom: "1.5rem" }}>
+      <section style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 10, padding: "1.5rem", marginBottom: "1.5rem" }}>
+        <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>Appearance</div>
+        <p style={{ color: C.textMuted, fontSize: "0.82rem", marginBottom: "1rem" }}>
+          Follows your device by default. Saved in this browser.
+        </p>
+        <div className="segmented" role="group" aria-label="Theme">
+          {(["system", "light", "dark"] as ThemePref[]).map((t) => (
+            <button key={t} type="button" aria-pressed={theme === t} onClick={() => setTheme(t)}>
+              {t === "system" ? "System" : t === "light" ? "Light" : "Dark"}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 10, padding: "1.5rem", marginBottom: "1.5rem" }}>
         <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>Manage My Email Subscription</div>
         <p style={{ color: C.textMuted, fontSize: "0.82rem", marginBottom: "1rem" }}>
           Enter the email you used when you agreed to the terms.
@@ -141,7 +161,7 @@ export default function Config() {
             placeholder="you@example.com"
             style={{
               flex: 1, background: C.bg, color: C.text,
-              border: emailError ? "1px solid #ef4444" : "1px solid #334155",
+              border: emailError ? "1px solid var(--c-dangerSolid)" : "1px solid var(--c-divider)",
               borderRadius: 7, padding: "0.6rem 0.875rem", fontSize: "0.9rem", outline: "none",
             }}
           />
@@ -156,7 +176,7 @@ export default function Config() {
         {emailError && <p style={{ color: C.dangerSolid, fontSize: "0.78rem", marginTop: "0.4rem" }}>{emailError}</p>}
 
         {mySub && (
-          <div style={{ marginTop: "1.25rem", paddingTop: "1.25rem", borderTop: "1px solid #1e2533" }}>
+          <div style={{ marginTop: "1.25rem", paddingTop: "1.25rem", borderTop: "1px solid var(--c-surfaceAlt)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
               <div>
                 <div style={{ color: C.text, fontWeight: 600 }}>{mySub.email}</div>
@@ -166,7 +186,7 @@ export default function Config() {
               </div>
               <button
                 onClick={toggleActive}
-                style={{ background: "transparent", color: mySub.is_active ? C.textMuted : C.success, border: "1px solid #334155", borderRadius: 6, padding: "0.35rem 0.875rem", cursor: "pointer", fontSize: "0.8rem" }}
+                style={{ background: "transparent", color: mySub.is_active ? C.textMuted : C.success, border: "1px solid var(--c-divider)", borderRadius: 6, padding: "0.35rem 0.875rem", cursor: "pointer", fontSize: "0.8rem" }}
               >
                 {mySub.is_active ? "Pause" : "Resume"}
               </button>
@@ -180,7 +200,7 @@ export default function Config() {
                     key={period}
                     onClick={() => togglePeriod(period)}
                     style={{
-                      background: active ? "#1e3a5f" : C.bg,
+                      background: active ? "var(--c-accentBg)" : C.bg,
                       color: active ? C.accent : C.textDim,
                       border: `1px solid ${active ? C.accentSolid : C.surfaceAlt}`,
                       borderRadius: 6, padding: "0.4rem 1rem",
@@ -195,7 +215,7 @@ export default function Config() {
             </div>
             <button
               onClick={unsubscribe}
-              style={{ background: "transparent", color: C.danger, border: "1px solid #7f1d1d", borderRadius: 6, padding: "0.4rem 1rem", cursor: "pointer", fontSize: "0.82rem" }}
+              style={{ background: "transparent", color: C.danger, border: "1px solid var(--c-dangerDeep)", borderRadius: 6, padding: "0.4rem 1rem", cursor: "pointer", fontSize: "0.82rem" }}
             >
               Unsubscribe
             </button>

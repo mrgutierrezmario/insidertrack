@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getPolitician, getPoliticianTrades, toggleTrack, getTechnicalSignals } from "../lib/api";
 import { LABEL_COLORS , C} from "../lib/theme";
+import useDocumentTitle from "../hooks/useDocumentTitle";
+import useAdmin from "../hooks/useAdmin";
 import TradeCard from "../components/TradeCard";
 import ActivityChart from "../components/ActivityChart";
 import WatchlistButton from "../components/WatchlistButton";
@@ -41,6 +43,8 @@ function SignalPill({ ticker, signals }: { ticker: string; signals: SignalRow[] 
 export default function Politician() {
   const { id } = useParams<{ id: string }>();
   const [politician, setPolitician] = useState<PoliticianDetail | null>(null);
+  useDocumentTitle(politician?.name ?? "Politician");
+  const isAdmin = useAdmin();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [signals, setSignals] = useState<SignalRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,21 +112,25 @@ export default function Politician() {
             {[politician.chamber, politician.state].filter(Boolean).join(" · ")}
           </p>
         </div>
-        <button
-          onClick={handleTrack}
-          style={{
-            background: politician.is_tracked ? "#7c3aed" : C.surfaceAlt,
-            color: C.text, border: "none",
-            padding: "0.5rem 1.25rem", borderRadius: 6, cursor: "pointer", fontWeight: 600,
-          }}
-        >
-          {politician.is_tracked ? "✓ Tracking" : "Track"}
-        </button>
+        {isAdmin ? (
+          <button
+            onClick={handleTrack}
+            style={{
+              background: politician.is_tracked ? "#7c3aed" : C.surfaceAlt,
+              color: C.text, border: "none",
+              padding: "0.5rem 1.25rem", borderRadius: 6, cursor: "pointer", fontWeight: 600,
+            }}
+          >
+            {politician.is_tracked ? "✓ Tracking" : "Track"}
+          </button>
+        ) : politician.is_tracked ? (
+          <span style={{ background: "rgba(124,58,237,0.15)", color: C.info, padding: "0.4rem 0.9rem", borderRadius: 6, fontSize: "0.8rem", fontWeight: 600 }}>Tracked</span>
+        ) : null}
       </div>
 
       {/* Bio / description */}
       {politician.description && (
-        <div style={{ background: C.surface, border: "1px solid #1e2533", borderRadius: 10, padding: "14px 18px", marginBottom: "1.5rem" }}>
+        <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 10, padding: "14px 18px", marginBottom: "1.5rem" }}>
           <p style={{ color: C.textSoft, fontSize: 13, margin: 0, lineHeight: 1.7 }}>{politician.description}</p>
           {politician.why_tracked && (
             <p style={{ color: C.dividerStrong, fontSize: 12, margin: "10px 0 0", fontStyle: "italic" }}>
@@ -135,19 +143,19 @@ export default function Politician() {
       {/* Summary stats */}
       {trades.length > 0 && (
         <div style={{ display: "flex", gap: "1rem", marginBottom: "1.5rem", flexWrap: "wrap" }}>
-          <div style={{ background: C.successBg, border: "1px solid #14532d", borderRadius: 8, padding: "0.75rem 1.25rem" }}>
+          <div style={{ background: C.successBg, border: "1px solid var(--c-successDeep)", borderRadius: 8, padding: "0.75rem 1.25rem" }}>
             <div style={{ color: C.success, fontSize: "1.25rem", fontWeight: 700 }}>{buys}</div>
             <div style={{ color: C.textMuted, fontSize: "0.75rem" }}>Purchases</div>
           </div>
-          <div style={{ background: C.dangerBg, border: "1px solid #7f1d1d", borderRadius: 8, padding: "0.75rem 1.25rem" }}>
+          <div style={{ background: C.dangerBg, border: "1px solid var(--c-dangerDeep)", borderRadius: 8, padding: "0.75rem 1.25rem" }}>
             <div style={{ color: C.danger, fontSize: "1.25rem", fontWeight: 700 }}>{sells}</div>
             <div style={{ color: C.textMuted, fontSize: "0.75rem" }}>Sales</div>
           </div>
-          <div style={{ background: C.surface, border: "1px solid #1e2533", borderRadius: 8, padding: "0.75rem 1.25rem" }}>
+          <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, padding: "0.75rem 1.25rem" }}>
             <div style={{ color: C.text, fontSize: "1.25rem", fontWeight: 700 }}>{trades.length}</div>
             <div style={{ color: C.textMuted, fontSize: "0.75rem" }}>Total Trades</div>
           </div>
-          <div style={{ background: C.surface, border: "1px solid #1e2533", borderRadius: 8, padding: "0.75rem 1.25rem" }}>
+          <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, padding: "0.75rem 1.25rem" }}>
             <div style={{ color: C.accent, fontSize: "1.25rem", fontWeight: 700 }}>{tickers.length}</div>
             <div style={{ color: C.textMuted, fontSize: "0.75rem" }}>Tickers</div>
           </div>
@@ -162,7 +170,7 @@ export default function Politician() {
           </h2>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {tickers.map((t) => (
-              <div key={t} style={{ display: "flex", alignItems: "center", background: C.surface, border: "1px solid #1e2533", borderRadius: 7, padding: "5px 10px", gap: 6 }}>
+              <div key={t} style={{ display: "flex", alignItems: "center", background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 7, padding: "5px 10px", gap: 6 }}>
                 <Link to={`/ticker/${t}`} style={{ color: C.accent, fontWeight: 700, textDecoration: "none", fontSize: 13 }}>{t}</Link>
                 <WatchlistButton ticker={t} />
                 <SignalPill ticker={t} signals={signals} />

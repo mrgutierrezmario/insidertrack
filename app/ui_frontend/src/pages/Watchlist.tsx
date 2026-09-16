@@ -9,6 +9,7 @@ import {
 } from "../lib/api";
 import { EMAIL_KEY, WATCHLIST_TOKEN_KEY } from "../lib/storage";
 import { card, LABEL_COLORS , C} from "../lib/theme";
+import useDocumentTitle from "../hooks/useDocumentTitle";
 import type { SignalLabel } from "../types/api";
 import SkeletonCard from "../components/SkeletonCard";
 
@@ -47,6 +48,7 @@ function ChangeChip({ pct }: { pct: number | null }) {
 }
 
 export default function Watchlist() {
+  useDocumentTitle("Watchlist");
   const [email, setEmail] = useState<string>(localStorage.getItem(EMAIL_KEY) || "");
   const [emailInput, setEmailInput] = useState<string>(localStorage.getItem(EMAIL_KEY) || "");
   const [items, setItems] = useState<WatchlistRow[]>([]);
@@ -144,7 +146,7 @@ export default function Watchlist() {
   if (!email) {
     return (
       <div style={{ maxWidth: 460, margin: "60px auto", textAlign: "center" }}>
-        <h1 style={{ color: C.textBright, fontSize: "1.4rem", marginBottom: 8 }}>My Watchlist</h1>
+        <h1>My Watchlist</h1>
         <p style={{ color: C.dividerStrong, fontSize: 13, marginBottom: 20 }}>
           Enter your email to create or load your watchlist. No password needed.
         </p>
@@ -153,7 +155,7 @@ export default function Watchlist() {
             type="email" placeholder="you@example.com" value={emailInput}
             onChange={(e) => { setEmailInput(e.target.value); setErr(""); }}
             onKeyDown={(e) => { if (e.key === "Enter") saveEmail(); }}
-            style={{ flex: 1, background: C.bg, color: C.text, border: "1px solid #334155", borderRadius: 7, padding: "10px 12px", fontSize: 14 }}
+            style={{ flex: 1, background: C.bg, color: C.text, border: "1px solid var(--c-divider)", borderRadius: 7, padding: "10px 12px", fontSize: 14 }}
           />
           <button onClick={saveEmail}
             style={{ background: C.accentSolid, color: "#fff", border: "none", borderRadius: 7, padding: "10px 18px", fontSize: 14, cursor: "pointer", fontWeight: 600 }}>
@@ -185,7 +187,7 @@ export default function Watchlist() {
           </button>
           <button
             onClick={switchEmail}
-            style={{ background: "transparent", color: C.textSoft, border: "1px solid #334155", borderRadius: 7, padding: "9px 16px", fontSize: 13, cursor: "pointer" }}>
+            style={{ background: "transparent", color: C.textSoft, border: "1px solid var(--c-divider)", borderRadius: 7, padding: "9px 16px", fontSize: 13, cursor: "pointer" }}>
             Use a different email
           </button>
         </div>
@@ -202,12 +204,12 @@ export default function Watchlist() {
             value={pasteToken}
             onChange={(e) => setPasteToken(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") applyPastedToken(); }}
-            style={{ flex: 1, background: C.bg, color: C.text, border: "1px solid #334155", borderRadius: 7, padding: "10px 12px", fontSize: 13, fontFamily: "monospace" }}
+            style={{ flex: 1, background: C.bg, color: C.text, border: "1px solid var(--c-divider)", borderRadius: 7, padding: "10px 12px", fontSize: 13, fontFamily: "monospace" }}
           />
           <button
             onClick={applyPastedToken}
             disabled={!pasteToken.trim()}
-            style={{ background: pasteToken.trim() ? C.accentSolid : "#1e293b", color: "#fff", border: "none", borderRadius: 7, padding: "10px 18px", fontSize: 13, cursor: pasteToken.trim() ? "pointer" : "not-allowed", fontWeight: 600 }}>
+            style={{ background: pasteToken.trim() ? C.accentSolid : "var(--c-surfaceAlt)", color: "#fff", border: "none", borderRadius: 7, padding: "10px 18px", fontSize: 13, cursor: pasteToken.trim() ? "pointer" : "not-allowed", fontWeight: 600 }}>
             Continue
           </button>
         </div>
@@ -218,7 +220,7 @@ export default function Watchlist() {
   // ── Main view ────────────────────────────────────────────────────────────────
   return (
     <div style={{ maxWidth: 860, margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24 }}>
+      <div className="page-head">
         <div>
           <h1 style={{ color: C.textBright, margin: "0 0 4px", fontSize: "1.4rem" }}>My Watchlist</h1>
           <p style={{ color: C.dividerStrong, margin: 0, fontSize: 13 }}>{email}</p>
@@ -231,7 +233,7 @@ export default function Watchlist() {
           </button>
           <button
             onClick={switchEmail}
-            style={{ background: C.surface, color: C.textMuted, border: "1px solid #334155", borderRadius: 6, padding: "6px 12px", fontSize: 12, cursor: "pointer" }}>
+            style={{ background: C.surface, color: C.textMuted, border: "1px solid var(--c-divider)", borderRadius: 6, padding: "6px 12px", fontSize: 12, cursor: "pointer" }}>
             Switch email
           </button>
         </div>
@@ -243,7 +245,7 @@ export default function Watchlist() {
           placeholder="Add a ticker (e.g. NVDA)" value={newTicker}
           onChange={(e) => setNewTicker(e.target.value.toUpperCase())}
           onKeyDown={(e) => { if (e.key === "Enter") add(); }}
-          style={{ background: C.bg, color: C.text, border: "1px solid #334155", borderRadius: 7, padding: "8px 12px", fontSize: 14, width: 220 }}
+          style={{ background: C.bg, color: C.text, border: "1px solid var(--c-divider)", borderRadius: 7, padding: "8px 12px", fontSize: 14, width: 220 }}
         />
         <button onClick={add}
           style={{ background: C.accentSolid, color: "#fff", border: "none", borderRadius: 7, padding: "8px 16px", fontSize: 13, cursor: "pointer", fontWeight: 600 }}>
@@ -286,7 +288,7 @@ export default function Watchlist() {
                   <div style={{ color: C.textSoft, fontSize: 13 }}>${it.current_price.toLocaleString()}</div>
                 )}
                 <button onClick={() => remove(it.id)}
-                  style={{ background: "transparent", color: C.dividerStrong, border: "1px solid #1e2533", borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer" }}>
+                  style={{ background: "transparent", color: C.dividerStrong, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer" }}>
                   Remove
                 </button>
               </div>
