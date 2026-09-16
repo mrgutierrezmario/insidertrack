@@ -1,0 +1,48 @@
+# Development helper only: a throwaway Postgres for start.sh when no local
+# PostgreSQL is running. The production stack (app + Postgres + Tailscale
+# Funnel) is deploy/compose.yml — start it with deploy/start.sh.
+services:
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    # No host port published — only the app container talks to it.
+    # Uncomment to allow psql from the host:
+    # ports:
+    #   - "5433:5432"
+
+  app:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    # Inside the compose network, Postgres is reachable as `db:5432`.
+    # Override DATABASE_URL so .env can keep pointing at localhost for start.sh.
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      # Backups land in /backups in the container; bound to ./backups on the host.
+      BACKUP_DIR: /backups
+    ports:
+      - "8003:8003"
+    volumes:
+      # Daily pg_dump output (services/db_backup.py). Bind-mounted so backups
+      # survive container recreation and are visible/copyable from the host.
+      - ./backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

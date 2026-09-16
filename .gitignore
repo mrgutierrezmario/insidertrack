@@ -1,0 +1,16 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+node_modules/
+dist/
+logs/
+*.egg-info/
+.DS_Store
+db_migration.dump
+
+# production stack (deploy/)
+deploy/.env
+deploy/state/
+backups/

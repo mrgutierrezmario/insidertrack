@@ -1,0 +1,168 @@
+import { safeHref } from "../lib/safeUrl";
+import { C } from "../lib/theme";
+import { useEffect, useState } from "react";
+import { getNewsFeed } from "../lib/api";
+
+type SentimentLabel = "Bullish" | "Somewhat-Bullish" | "Neutral" | "Somewhat-Bearish" | "Bearish";
+
+const LABEL_STYLE: Record<SentimentLabel, { color: string; bg: string }> = {
+  "Bullish":          { color: C.success, bg: C.successBg },
+  "Somewhat-Bullish": { color: "#86efac", bg: "#022c22" },
+  "Neutral":          { color: C.textSoft, bg: C.bgSunken },
+  "Somewhat-Bearish": { color: C.warning, bg: "#431407" },
+  "Bearish":          { color: C.danger, bg: C.dangerBg },
+};
+
+interface NewsItem {
+  url: string;
+  title: string;
+  summary?: string;
+  tickers?: string[];
+  source: string;
+  published: string;
+  overall_label: SentimentLabel;
+}
+
+interface NewsFeedData {
+  tickers: string[];
+  count: number;
+  has_key: boolean;
+  items: NewsItem[];
+}
+
+function SentimentBadge({ label }: { label: SentimentLabel }) {
+  const s = LABEL_STYLE[label] || LABEL_STYLE["Neutral"];
+  return (
+    <span style={{
+      background: s.bg, color: s.color,
+      fontSize: "0.68rem", fontWeight: 700,
+      padding: "2px 7px", borderRadius: 4, whiteSpace: "nowrap",
+    }}>
+      {label}
+    </span>
+  );
+}
+
+function fmtDate(iso: string): string {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  } catch { return iso; }
+}
+
+export default function News() {
+  const [data, setData] = useState<NewsFeedData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("");
+
+  const load = () => {
+    setLoading(true);
+    getNewsFeed()
+      .then((r) => setData(r.data as NewsFeedData))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const items = (data?.items || []).filter((n) => {
+    if (!filter) return true;
+    const f = filter.toUpperCase();
+    return (n.tickers || []).some((t) => t.includes(f)) ||
+      n.title.toUpperCase().includes(f);
+  });
+
+  return (
+    <div style={{ maxWidth: 900, margin: "0 auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24 }}>
+        <div>
+          <h1 style={{ color: C.textBright, margin: "0 0 4px", fontSize: "1.4rem" }}>News & Sentiment</h1>
+          <p style={{ color: C.dividerStrong, margin: 0, fontSize: 13 }}>
+            AI-scored sentiment for tracked tickers · Alpha Vantage NEWS_SENTIMENT · cached 4 hrs
+          </p>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {data && !data.has_key && (
+            <span style={{ color: C.warningSolid, fontSize: 12, border: "1px solid #78350f", background: C.warningBg, padding: "4px 10px", borderRadius: 6 }}>
+              No AV key — add ALPHA_VANTAGE_KEY to .env
+            </span>
+          )}
+          <button onClick={load} disabled={loading}
+            style={{ background: "rgba(56,189,248,0.1)", color: C.accent, border: "1px solid rgba(56,189,248,0.3)", borderRadius: 6, padding: "5px 12px", fontSize: 12, cursor: "pointer", opacity: loading ? 0.6 : 1 }}>
+            ↻ Refresh
+          </button>
+        </div>
+      </div>
+
+      {/* Filter bar */}
+      <div style={{ marginBottom: 16 }}>
+        <input
+          placeholder="Filter by ticker or keyword…"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          style={{
+            background: C.surface, color: C.text,
+            border: "1px solid #1e2533", borderRadius: 6,
+            padding: "0.45rem 0.85rem", fontSize: "0.85rem", width: 280,
+          }}
+        />
+        {data && data.tickers.length > 0 && (
+          <span style={{ color: C.dividerStrong, fontSize: 12, marginLeft: 12 }}>
+            Tracking: {data.tickers.join(", ")}
+          </span>
+        )}
+      </div>
+
+      {loading && (
+        <p style={{ color: C.textMuted, textAlign: "center", paddingTop: 40 }}>Loading news…</p>
+      )}
+
+      {!loading && items.length === 0 && (
+        <div style={{ textAlign: "center", color: C.textDim, paddingTop: 60 }}>
+          <p>{data?.has_key ? "No news found for these tickers." : "Configure your Alpha Vantage key in Config to enable news."}</p>
+        </div>
+      )}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {items.map((item) => (
+          <a
+            key={item.url}
+            href={safeHref(item.url)}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "block",
+              background: C.surface, border: "1px solid #1e2533", borderRadius: 10,
+              padding: "14px 16px", textDecoration: "none",
+              transition: "border-color 0.15s",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ color: C.textBright, fontWeight: 600, fontSize: 14, marginBottom: 6, lineHeight: 1.4 }}>
+                  {item.title}
+                </div>
+                {item.summary && (
+                  <div style={{ color: C.textMuted, fontSize: 12, lineHeight: 1.5, marginBottom: 6 }}>
+                    {item.summary}
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  {(item.tickers || []).slice(0, 6).map((t) => (
+                    <span key={t} style={{ background: "#0f2744", color: C.accent, fontSize: 11, padding: "1px 7px", borderRadius: 4, fontWeight: 700 }}>
+                      {t}
+                    </span>
+                  ))}
+                  <span style={{ color: C.divider, fontSize: 11 }}>{item.source}</span>
+                  <span style={{ color: C.divider, fontSize: 11 }}>{fmtDate(item.published)}</span>
+                </div>
+              </div>
+              <div style={{ flexShrink: 0 }}>
+                <SentimentBadge label={item.overall_label} />
+              </div>
+            </div>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}

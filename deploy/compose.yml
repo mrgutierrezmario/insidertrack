@@ -1,0 +1,102 @@
+# InsiderTrack — self-contained production stack (same shape as lecture-note-app).
+# Start with deploy/start.sh (builds, restores the DB on first run, starts everything).
+#
+# Public URL: Tailscale Funnel on the `tailscale` service. The app shares its
+# network namespace, so Funnel proxies to localhost:8003 and the app still
+# reaches postgres by name through that namespace.
+
+name: stock-tracker
+
+x-restart: &restart unless-stopped
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: *restart
+    # User/db names are fixed here (not read from the environment) so a shell
+    # that exports its own POSTGRES_USER/POSTGRES_DB cannot point the app at the
+    # wrong database. Only the password comes from deploy/.env.
+    environment:
+      POSTGRES_USER: stockuser
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in deploy/.env}
+      POSTGRES_DB: stocktracker
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stockuser -d stocktracker"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Writes the Funnel serve config into a volume (a file bind-mount would not
+  # work when compose is driven from inside another container).
+  tailscale-config:
+    image: busybox:stable
+    volumes:
+      - tailscale-config:/config
+    command:
+      - sh
+      - -c
+      - |
+        cat > /config/serve.json <<'EOF'
+        {"TCP":{"443":{"HTTPS":true}},"Web":{"$${TS_CERT_DOMAIN}:443":{"Handlers":{"/":{"Proxy":"http://127.0.0.1:8003"}}}},"AllowFunnel":{"$${TS_CERT_DOMAIN}:443":true}}
+        EOF
+
+  tailscale:
+    image: tailscale/tailscale:latest
+    restart: *restart
+    hostname: ${TS_HOSTNAME:-stock-tracker}
+    depends_on:
+      tailscale-config:
+        condition: service_completed_successfully
+    environment:
+      TS_HOSTNAME: ${TS_HOSTNAME:-stock-tracker}
+      TS_AUTHKEY: ${TS_AUTHKEY:-}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_USERSPACE: "true"
+      TS_SERVE_CONFIG: /config/serve.json
+      TS_EXTRA_ARGS: --accept-dns=false
+    volumes:
+      - tailscale-state:/var/lib/tailscale
+      - tailscale-config:/config:ro
+    ports:
+      # Local/LAN access to the app without going through Funnel.
+      - "${APP_PORT:-8013}:8003"
+
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: stock-tracker-app:latest
+    restart: *restart
+    network_mode: service:tailscale
+    depends_on:
+      postgres:
+        condition: service_healthy
+      tailscale:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://stockuser:${DB_PASSWORD}@postgres:5432/stocktracker
+      POSTGRES_HOST: postgres
+      # Funnel proxies from inside this network namespace, so the immediate
+      # peer is 127.0.0.1 and X-Forwarded-For carries the real client address.
+      TRUSTED_PROXIES: 127.0.0.1
+      COOKIE_SECURE: "true"
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in deploy/.env}
+      ALPHA_VANTAGE_KEY: ${ALPHA_VANTAGE_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-InsiderTrack}
+      # Daily pg_dump (services/db_backup.py) lands here; kept in a named volume.
+      BACKUP_DIR: /backups
+    volumes:
+      - backups:/backups
+
+volumes:
+  postgres-data:
+  tailscale-state:
+  tailscale-config:
+  backups:

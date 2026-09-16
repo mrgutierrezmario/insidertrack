@@ -1,0 +1,18 @@
+# Keep the build context small and avoid leaking secrets into image layers.
+**/node_modules
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+backend/tests
+frontend/dist
+logs/
+.git
+.gitignore
+.env
+.claude
+*.md
+db_migration.dump
+
+deploy/.env
+deploy/state
+backups

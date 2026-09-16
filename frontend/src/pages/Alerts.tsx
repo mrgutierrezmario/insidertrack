@@ -1,0 +1,301 @@
+import { useEffect, useState } from "react";
+import type { CSSProperties } from "react";
+import {
+  getAlertTypes, getAlertRules, createAlertRule, updateAlertRule, deleteAlertRule,
+  getAlertEvents, markAlertsSeen, runAlerts,
+} from "../lib/api";
+import { card as themeCard , C} from "../lib/theme";
+
+interface TypeMeta {
+  label: string;
+  thresholdLabel: string | null;
+  thresholdDefault: number | null;
+  color: string;
+}
+
+const TYPE_META: Record<string, TypeMeta> = {
+  high_signal:   { label: "High signal score", thresholdLabel: "Min composite score", thresholdDefault: 70, color: C.success },
+  momentum:      { label: "Bullish momentum",   thresholdLabel: null,                  thresholdDefault: null, color: C.accent },
+  insider_buy:   { label: "Politician buy",     thresholdLabel: "Look-back days",       thresholdDefault: 7,  color: C.info },
+  whale_new:     { label: "New whale position", thresholdLabel: null,                  thresholdDefault: null, color: C.warningSolid },
+  earnings_soon: { label: "Earnings soon",      thresholdLabel: "Within N days",        thresholdDefault: 7,  color: C.warning },
+  fed_trade:     { label: "Fed official trade", thresholdLabel: "Look-back days",       thresholdDefault: 30, color: C.warningSolid },
+};
+
+const EMPTY_META: TypeMeta = { label: "", thresholdLabel: null, thresholdDefault: null, color: C.dividerStrong };
+
+interface AlertRule {
+  id: number;
+  name: string;
+  alert_type: string;
+  ticker: string | null;
+  threshold: number | null;
+  notify_email: string | null;
+  is_active: boolean;
+  event_count: number;
+}
+
+interface AlertEvent {
+  id: number;
+  ticker: string;
+  message: string;
+  rule_name: string;
+  triggered_at: string;
+}
+
+interface AlertTypeOption {
+  value: string;
+  description?: string;
+}
+
+interface AlertForm {
+  name: string;
+  alert_type: string;
+  ticker: string;
+  threshold: number | string;
+  notify_email: string;
+}
+
+const card: CSSProperties = { ...themeCard, padding: "16px 18px" };
+const inputStyle: CSSProperties = { background: C.bg, color: C.text, border: "1px solid #334155", borderRadius: 6, padding: "7px 10px", fontSize: 13 };
+
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return "";
+  try { return new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); }
+  catch { return iso; }
+}
+
+function NewRuleForm({ types, onCreated }: { types: AlertTypeOption[]; onCreated: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState<AlertForm>({ name: "", alert_type: "high_signal", ticker: "", threshold: 70, notify_email: "" });
+  const [saving, setSaving] = useState(false);
+  const meta: TypeMeta = TYPE_META[form.alert_type] || EMPTY_META;
+
+  const submit = async () => {
+    setSaving(true);
+    try {
+      await createAlertRule({
+        name: form.name.trim() || meta.label,
+        alert_type: form.alert_type,
+        ticker: form.ticker.trim() || null,
+        threshold: meta.thresholdLabel ? Number(form.threshold) : null,
+        notify_email: form.notify_email.trim() || null,
+      });
+      setForm({ name: "", alert_type: "high_signal", ticker: "", threshold: 70, notify_email: "" });
+      setOpen(false);
+      onCreated();
+    } finally { setSaving(false); }
+  };
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)}
+        style={{ background: C.accentSolid, color: "#fff", border: "none", borderRadius: 7, padding: "8px 16px", fontSize: 13, cursor: "pointer", fontWeight: 600 }}>
+        + New Alert Rule
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ ...card, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ color: C.textBright, fontWeight: 600, fontSize: 14 }}>New Alert Rule</div>
+      <input style={inputStyle} placeholder="Rule name (optional)"
+        value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <select style={{ ...inputStyle, flex: 1, minWidth: 160 }} value={form.alert_type}
+          onChange={(e) => {
+            const m = TYPE_META[e.target.value];
+            setForm({ ...form, alert_type: e.target.value, threshold: m?.thresholdDefault ?? "" });
+          }}>
+          {(types.length ? types : Object.keys(TYPE_META).map((v) => ({ value: v }))).map((t) => (
+            <option key={t.value} value={t.value}>{TYPE_META[t.value]?.label || t.value}</option>
+          ))}
+        </select>
+        <input style={{ ...inputStyle, width: 110, textTransform: "uppercase" }} placeholder="Ticker (any)"
+          value={form.ticker} onChange={(e) => setForm({ ...form, ticker: e.target.value })} />
+        {meta.thresholdLabel && (
+          <input style={{ ...inputStyle, width: 130 }} type="number" placeholder={meta.thresholdLabel}
+            value={form.threshold} onChange={(e) => setForm({ ...form, threshold: e.target.value })} />
+        )}
+      </div>
+      {meta.thresholdLabel && <div style={{ color: C.dividerStrong, fontSize: 11 }}>{meta.thresholdLabel}</div>}
+      <input style={inputStyle} placeholder="Notify email (optional)"
+        value={form.notify_email} onChange={(e) => setForm({ ...form, notify_email: e.target.value })} />
+      <div style={{ display: "flex", gap: 8 }}>
+        <button onClick={submit} disabled={saving}
+          style={{ background: C.accentSolid, color: "#fff", border: "none", borderRadius: 6, padding: "7px 16px", fontSize: 13, cursor: "pointer" }}>
+          {saving ? "Saving…" : "Create"}
+        </button>
+        <button onClick={() => setOpen(false)}
+          style={{ background: C.surfaceAlt, color: C.textMuted, border: "none", borderRadius: 6, padding: "7px 12px", fontSize: 13, cursor: "pointer" }}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function RuleCard({ rule, onToggle, onDelete }: { rule: AlertRule; onToggle: (rule: AlertRule) => void; onDelete: (id: number) => void }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const meta: TypeMeta = TYPE_META[rule.alert_type] || EMPTY_META;
+
+  return (
+    <div style={{ ...card, display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px" }}>
+      <div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: rule.is_active ? (meta.color || C.success) : C.divider }} />
+          <span style={{ color: C.textBright, fontWeight: 600, fontSize: 14 }}>{rule.name}</span>
+          {rule.ticker && <span style={{ color: C.accent, fontSize: 12, fontWeight: 700 }}>{rule.ticker}</span>}
+        </div>
+        <div style={{ color: C.dividerStrong, fontSize: 12, marginTop: 3 }}>
+          {meta.label || rule.alert_type}
+          {rule.threshold != null && ` · threshold ${rule.threshold}`}
+          {rule.notify_email && ` · emails ${rule.notify_email}`}
+          {` · ${rule.event_count} fired`}
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        <button onClick={() => onToggle(rule)}
+          style={{ background: C.surfaceAlt, color: rule.is_active ? C.textMuted : C.success, border: "1px solid #334155", borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer" }}>
+          {rule.is_active ? "Pause" : "Resume"}
+        </button>
+        {confirmDelete ? (
+          <>
+            <span style={{ color: C.danger, fontSize: 12 }}>Delete?</span>
+            <button onClick={() => onDelete(rule.id)}
+              style={{ background: C.dangerDeep, color: "#fca5a5", border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer", fontWeight: 700 }}>
+              Yes
+            </button>
+            <button onClick={() => setConfirmDelete(false)}
+              style={{ background: C.surfaceAlt, color: C.textMuted, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer" }}>
+              No
+            </button>
+          </>
+        ) : (
+          <button onClick={() => setConfirmDelete(true)}
+            style={{ background: "transparent", color: C.dividerStrong, border: "1px solid #1e2533", borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer" }}>
+            Delete
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function Alerts() {
+  const [rules, setRules] = useState<AlertRule[]>([]);
+  const [events, setEvents] = useState<AlertEvent[]>([]);
+  const [types, setTypes] = useState<AlertTypeOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState("");
+  const [lastEvaluated, setLastEvaluated] = useState<string | null>(
+    () => localStorage.getItem("insidertrack_alerts_last_run") || null
+  );
+
+  const load = () => {
+    setLoading(true);
+    Promise.all([getAlertRules(), getAlertEvents({ limit: 100 }), getAlertTypes()])
+      .then(([r, e, t]) => {
+        setRules(r.data as unknown as AlertRule[]);
+        setEvents(e.data as unknown as AlertEvent[]);
+        setTypes(t.data as AlertTypeOption[]);
+      })
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    load();
+    markAlertsSeen().catch(() => {});
+  }, []);
+
+  const toggleRule = async (rule: AlertRule) => {
+    await updateAlertRule(rule.id, { is_active: !rule.is_active });
+    load();
+  };
+
+  const removeRule = async (id: number) => {
+    await deleteAlertRule(id);
+    load();
+  };
+
+  const runNow = async () => {
+    setMsg("Evaluating…");
+    try {
+      const r = await runAlerts();
+      const data = r.data as { new_events?: number; rules?: number };
+      setMsg(`Done — ${data.new_events ?? 0} new alert(s) from ${data.rules ?? 0} rule(s).`);
+      const ts = new Date().toISOString();
+      localStorage.setItem("insidertrack_alerts_last_run", ts);
+      setLastEvaluated(ts);
+      load();
+    } catch {
+      setMsg("Evaluation failed.");
+    }
+  };
+
+  return (
+    <div style={{ maxWidth: 900, margin: "0 auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24 }}>
+        <div>
+          <h1 style={{ color: C.textBright, margin: "0 0 4px", fontSize: "1.4rem" }}>Alerts</h1>
+          <p style={{ color: C.dividerStrong, margin: 0, fontSize: 13 }}>
+            Define conditions on signals, insiders, whales, and earnings — get notified when they fire.
+          </p>
+          {lastEvaluated && (
+            <p style={{ color: C.divider, margin: "4px 0 0", fontSize: 11 }}>
+              Last evaluated: {new Date(lastEvaluated).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+            </p>
+          )}
+        </div>
+        <button onClick={runNow}
+          style={{ background: "rgba(74,222,128,0.08)", color: C.success, border: "1px solid rgba(74,222,128,0.2)", borderRadius: 6, padding: "7px 14px", fontSize: 12, cursor: "pointer" }}>
+          ↻ Evaluate Now
+        </button>
+      </div>
+
+      {msg && (
+        <div style={{ ...card, marginBottom: 16, color: C.textSoft, fontSize: 13, padding: "10px 14px" }}>{msg}</div>
+      )}
+
+      <div style={{ marginBottom: 16 }}>
+        <NewRuleForm types={types} onCreated={load} />
+      </div>
+
+      <h2 style={{ color: C.textSoft, fontSize: 13, fontWeight: 600, margin: "20px 0 10px" }}>
+        Rules ({rules.length})
+      </h2>
+      {loading ? (
+        <p style={{ color: C.dividerStrong }}>Loading…</p>
+      ) : rules.length === 0 ? (
+        <p style={{ color: C.dividerStrong, fontSize: 13 }}>No rules yet. Create one above.</p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {rules.map((r) => (
+            <RuleCard key={r.id} rule={r} onToggle={toggleRule} onDelete={removeRule} />
+          ))}
+        </div>
+      )}
+
+      <h2 style={{ color: C.textSoft, fontSize: 13, fontWeight: 600, margin: "26px 0 10px" }}>
+        Triggered Alerts ({events.length})
+      </h2>
+      {events.length === 0 ? (
+        <p style={{ color: C.dividerStrong, fontSize: 13 }}>Nothing has triggered yet. Try "Evaluate Now".</p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {events.map((e) => (
+            <div key={e.id} style={{ ...card, padding: "10px 14px", display: "flex", gap: 12, alignItems: "flex-start" }}>
+              <span style={{ color: C.accent, fontWeight: 700, fontSize: 13, minWidth: 52 }}>{e.ticker}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ color: C.text, fontSize: 13 }}>{e.message}</div>
+                <div style={{ color: C.dividerStrong, fontSize: 11, marginTop: 2 }}>
+                  {e.rule_name} · {fmtDate(e.triggered_at)}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
