@@ -221,6 +221,15 @@ if DIST_DIR.exists():
 
     @app.get("/{full_path:path}")
     def serve_frontend(full_path: str):
+        # Root-level static files from the build (favicons, manifest, logos,
+        # fonts) are served as-is; anything else is a client-side route and
+        # gets the SPA shell. The resolve() check keeps ".." inside dist.
+        if full_path:
+            candidate = (DIST_DIR / full_path).resolve()
+            if candidate.is_file() and DIST_DIR.resolve() in candidate.parents:
+                # python:slim lacks a few font/manifest MIME types.
+                media = {".woff2": "font/woff2", ".woff": "font/woff", ".webmanifest": "application/manifest+json"}.get(candidate.suffix)
+                return FileResponse(candidate, media_type=media, headers={"Cache-Control": "public, max-age=86400"})
         return FileResponse(
             DIST_DIR / "index.html",
             headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
