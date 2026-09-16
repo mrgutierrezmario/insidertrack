@@ -35,6 +35,19 @@ def _safe_from(addr: str) -> str:
     addr = (addr or "").replace("\r", "").replace("\n", "").strip()
     return formataddr((name, addr))
 
+
+def _new_message(subject: str, from_addr: str, recipient: str, html_body: str) -> MIMEMultipart:
+    """Build the message with the shared headers (From, optional Reply-To)."""
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = _safe_from(from_addr)
+    msg["To"] = recipient
+    reply_to = (settings.mail_reply_to or "").replace("\r", "").replace("\n", "").strip()
+    if reply_to:
+        msg["Reply-To"] = reply_to
+    msg.attach(MIMEText(html_body, "html"))
+    return msg
+
 SIGNAL_COLOR = {"BUY": "#4ade80", "SELL": "#f87171", "HOLD": "#fbbf24"}
 SIGNAL_BG = {"BUY": "#052e16", "SELL": "#450a0a", "HOLD": "#1c1917"}
 
@@ -123,11 +136,7 @@ def send_report(analysis: DailyAnalysis, recipients: list[str]) -> bool:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(settings.mail_username, settings.mail_password)
             for recipient in recipients:
-                msg = MIMEMultipart("alternative")
-                msg["Subject"] = subject
-                msg["From"] = _safe_from(from_addr)
-                msg["To"] = recipient
-                msg.attach(MIMEText(html, "html"))
+                msg = _new_message(subject, from_addr, recipient, html)
                 server.sendmail(from_addr, [recipient], msg.as_string())
         logger.info(f"Report sent to {len(recipients)} recipient(s) for {analysis.period}")
         return True
@@ -150,11 +159,7 @@ def send_simple_email(subject: str, html_body: str, recipients: list[str]) -> bo
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(settings.mail_username, settings.mail_password)
             for recipient in recipients:
-                msg = MIMEMultipart("alternative")
-                msg["Subject"] = subject
-                msg["From"] = _safe_from(from_addr)
-                msg["To"] = recipient
-                msg.attach(MIMEText(html_body, "html"))
+                msg = _new_message(subject, from_addr, recipient, html_body)
                 server.sendmail(from_addr, [recipient], msg.as_string())
         logger.info(f"Alert email sent to {len(recipients)} recipient(s)")
         return True

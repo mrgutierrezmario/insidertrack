@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     mail_password: str = ""
     mail_from: str = ""
     mail_from_name: str = "InsiderTrack"
+    # Optional Reply-To, for when MAIL_FROM is a do-not-reply account.
+    mail_reply_to: str = ""
 
     class Config:
         env_file = str(ENV_FILE)
