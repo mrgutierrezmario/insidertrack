@@ -27,7 +27,7 @@
       "Bash(curl -s 'http://localhost:8003/trades/?risk_level=HIGH&limit=3')",
       "Bash(curl -s -H \"X-Forwarded-For: 9.9.9.9\" http://localhost:8003/access/check)",
       "Bash(curl -s http://localhost:8003/access/check)",
-      "Bash(grep -rn \"BaseModel\\\\|: str$\\\\|: str = \" /workspaces/projects/stock-tracker/backend/routers --include=\"*.py\")",
+      "Bash(grep -rn \"BaseModel\\\\|: str$\\\\|: str = \" /workspaces/projects/stock-tracker/app/ui_backend/routers --include=\"*.py\")",
       "Bash(curl -s -w \" \\(status: %{http_code}\\)\\\\n\" \"http://localhost:8003/ai/summary/notarealticker_aaaaaa\")",
       "Bash(curl -s -o /dev/null -w \"AAPL status: %{http_code}\\\\n\" \"http://localhost:8003/ai/summary/AAPL\")",
       "Bash(curl -s -o /dev/null -w \"BRK.B status: %{http_code}\\\\n\" \"http://localhost:8003/ai/summary/BRK.B\")",

@@ -4,9 +4,9 @@
 # ── Stage 1: build the UI ─────────────────────────────────────────────────────
 FROM node:20-slim AS ui
 WORKDIR /ui
-COPY frontend/package.json frontend/package-lock.json ./
+COPY app/ui_frontend/package.json app/ui_frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
-COPY frontend/ ./
+COPY app/ui_frontend ./
 RUN npm run build
 
 # ── Stage 2: backend ──────────────────────────────────────────────────────────
@@ -18,14 +18,13 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends postgresql-client curl \
  && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
-COPY backend/requirements.txt ./
+WORKDIR /app/ui_backend
+COPY app/ui_backend/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY backend/ ./
-# main.py resolves Path(__file__).parent.parent / "frontend" / "dist".
-# With main.py at /app/main.py, that lands at /frontend/dist.
-COPY --from=ui /ui/dist /frontend/dist
+COPY app/ui_backend ./
+# main.py resolves Path(__file__).parent.parent / "ui_frontend" / "dist".
+COPY --from=ui /ui/dist /app/ui_frontend/dist
 COPY deploy/docker-entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 

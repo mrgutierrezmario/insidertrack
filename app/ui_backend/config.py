@@ -1,8 +1,9 @@
 from pathlib import Path
 from pydantic_settings import BaseSettings
 
-# .env lives one level up from the backend/ folder
-ENV_FILE = Path(__file__).parent.parent / ".env"
+# Dev config lives next to the code: app/ui_backend/.env (the deploy/ stack passes
+# everything as environment variables instead).
+ENV_FILE = Path(__file__).parent / ".env"
 
 
 class Settings(BaseSettings):

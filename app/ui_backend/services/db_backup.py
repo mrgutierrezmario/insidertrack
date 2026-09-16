@@ -22,7 +22,7 @@ from config import settings
 logger = logging.getLogger(__name__)
 
 # Bind-mount this in docker-compose so backups survive container recreation.
-BACKUP_DIR = Path(os.getenv("BACKUP_DIR", "/workspaces/projects/stock-tracker/logs/backups"))
+BACKUP_DIR = Path(os.getenv("BACKUP_DIR", str(Path(__file__).resolve().parents[3] / "logs" / "backups")))
 KEEP_LATEST = 7  # one week of dailies — adjust if you run more aggressive retention
 
 

@@ -41,11 +41,11 @@ cd stock-tracker
 Copy the template and fill in your values:
 
 ```bash
-cp .env.example .env   # if .env.example exists
+cp app/ui_backend/.env.example app/ui_backend/.env
 # — or create it manually:
 ```
 
-Create a file called `.env` in the `stock-tracker/` root (same folder as `docker-compose.yml`) with the following contents:
+The file lives at `app/ui_backend/.env` (next to `config.py`, same as the lecture app). Contents:
 
 ```env
 # ── Database ──────────────────────────────────────────────────────────────────
@@ -97,7 +97,7 @@ docker-compose ps
 ```
 
 The database will be available on port **5433** (mapped from the container's 5432).  
-Update `DATABASE_URL` in your `.env` to use port 5433:
+Update `DATABASE_URL` in `app/ui_backend/.env` to use port 5433:
 
 ```env
 DATABASE_URL=postgresql://stockuser:stockpass@localhost:5433/stocktracker
@@ -135,7 +135,7 @@ If you prefer to run each piece yourself:
 
 **1. Install Python packages**
 ```bash
-cd backend
+cd app/ui_backend
 pip install -r requirements.txt
 ```
 
@@ -152,7 +152,7 @@ cd ../backend
 uvicorn main:app --host 0.0.0.0 --port 8003 --reload
 ```
 
-The app and all its pages are served from **http://localhost:8003** — no separate frontend server is needed. The built frontend lives in `frontend/dist/` and FastAPI serves it as static files.
+The app and all its pages are served from **http://localhost:8003** — no separate frontend server is needed. The built frontend lives in `app/ui_frontend/dist/` and FastAPI serves it as static files.
 
 ---
 
@@ -204,7 +204,7 @@ Once running, the scheduler fires automatically:
 ## Troubleshooting
 
 **"Could not connect to database"**  
-Check that PostgreSQL is running and the credentials in `.env` match what you created in Step 3.
+Check that PostgreSQL is running and the credentials in `app/ui_backend/.env` match what you created in Step 3.
 
 **"No trades match these filters" / empty Trade Feed**  
 Click **⟳ Sync** on the Dashboard first to pull data.
@@ -223,14 +223,14 @@ Ensure `MAIL_USERNAME` and `MAIL_PASSWORD` (Gmail App Password) are set. `MAIL_F
 
 **Backend won't start / import errors**  
 ```bash
-cd backend
+cd app/ui_backend
 pip install -r requirements.txt
 ```
 
 **Frontend changes not showing**  
 Rebuild after any frontend edits:
 ```bash
-cd frontend
+cd app/ui_frontend
 npm run build
 ```
 
@@ -240,22 +240,24 @@ npm run build
 
 ```
 stock-tracker/
-├── .env                  ← Your credentials (never commit this)
-├── docker-compose.yml    ← PostgreSQL container
-├── start.sh              ← One-command startup
-├── backend/
-│   ├── main.py           ← FastAPI app entry point
-│   ├── config.py         ← Reads .env settings
-│   ├── database.py       ← SQLAlchemy setup + table init
-│   ├── models/           ← Database models
-│   ├── routers/          ← API endpoints
-│   └── services/         ← Data fetchers, scheduler, email, AI
-└── frontend/
-    ├── src/
-    │   ├── pages/        ← One file per page
-    │   ├── components/   ← Shared UI components
-    │   └── lib/api.js    ← All backend API calls
-    └── dist/             ← Built output (served by FastAPI)
+├── start.sh              ← One-command dev startup
+├── docker-compose.yml    ← Dev-only PostgreSQL container
+├── deploy/               ← Production stack (Docker + Tailscale Funnel)
+└── app/
+    ├── ui_backend/
+    │   ├── .env          ← Your credentials (never commit this)
+    │   ├── main.py       ← FastAPI app entry point
+    │   ├── config.py     ← Reads .env settings
+    │   ├── database.py   ← SQLAlchemy setup + table init
+    │   ├── models/       ← Database models
+    │   ├── routers/      ← API endpoints
+    │   └── services/     ← Data fetchers, scheduler, email, AI
+    └── ui_frontend/
+        ├── src/
+        │   ├── pages/        ← One file per page
+        │   ├── components/   ← Shared UI components
+        │   └── lib/api.js    ← All backend API calls
+        └── dist/             ← Built output (served by FastAPI)
 ```
 
 ---

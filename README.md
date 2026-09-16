@@ -93,7 +93,7 @@ docker compose -f deploy/compose.yml logs -f app
 
 ## Configuring API Keys
 
-Optional keys unlock additional features. Set them in the Admin panel (no restart needed) or in `.env`:
+Optional keys unlock additional features. Set them in the Admin panel (no restart needed) or in `app/ui_backend/.env`:
 
 | Key | Feature | Where to get it |
 |---|---|---|
@@ -183,12 +183,12 @@ Trigger any job manually from **API docs** at `/docs` or the relevant page in th
 ```
 stock-tracker/
 ├── start.sh                      ← Run this to start everything
-├── deploy/                  # production stack: compose.yml, Dockerfile, start.sh
-├── docker-compose.yml      # dev-only Postgres fallback for start.sh
-├── .env                          ← Config (DB credentials, optional API keys)
+├── deploy/                       ← Production stack: compose.yml, Dockerfile, start.sh
+├── docker-compose.yml            ← Dev-only Postgres fallback for start.sh
 ├── logs/                         ← backend.log, frontend-build.log
 │
-├── backend/
+├── app/ui_backend/
+│   ├── .env                      ← Dev config (DB credentials, optional API keys)
 │   ├── main.py                   ← FastAPI app + static frontend serving
 │   ├── database.py               ← PostgreSQL connection (SQLAlchemy)
 │   ├── config.py                 ← Pydantic settings from .env
@@ -244,7 +244,7 @@ stock-tracker/
 │       ├── ai_summary.py         ← Anthropic API research summaries
 │       └── scheduler.py          ← APScheduler cron jobs
 │
-└── frontend/
+└── app/ui_frontend/
     └── src/
         ├── pages/
         │   ├── Dashboard.jsx     ← Signals overview + performance chart

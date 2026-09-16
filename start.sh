@@ -7,8 +7,8 @@
 set -e
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
-BACKEND_DIR="$ROOT_DIR/backend"
-FRONTEND_DIR="$ROOT_DIR/frontend"
+BACKEND_DIR="$ROOT_DIR/app/ui_backend"
+FRONTEND_DIR="$ROOT_DIR/app/ui_frontend"
 LOG_DIR="$ROOT_DIR/logs"
 
 mkdir -p "$LOG_DIR"
@@ -68,15 +68,15 @@ command -v npm     >/dev/null 2>&1 || error "npm not found."
 success "Core prerequisites found."
 
 # ── .env check ────────────────────────────────────────────────────────────────
-if [ ! -f "$ROOT_DIR/.env" ]; then
-  error ".env not found. Copy .env.example to .env and fill in your credentials."
+if [ ! -f "$BACKEND_DIR/.env" ]; then
+  error "app/ui_backend/.env not found. Copy app/ui_backend/.env.example to app/ui_backend/.env and fill in your credentials."
 fi
 
 # Warn about optional keys
-if ! grep -q "ALPHA_VANTAGE_KEY=." "$ROOT_DIR/.env" 2>/dev/null; then
+if ! grep -q "ALPHA_VANTAGE_KEY=." "$BACKEND_DIR/.env" 2>/dev/null; then
   warn "ALPHA_VANTAGE_KEY not set — intraday charts will be disabled."
 fi
-if ! grep -q "MAIL_PASSWORD=." "$ROOT_DIR/.env" 2>/dev/null; then
+if ! grep -q "MAIL_PASSWORD=." "$BACKEND_DIR/.env" 2>/dev/null; then
   warn "MAIL_PASSWORD not set — email reports will be disabled."
 fi
 

@@ -3,8 +3,9 @@
 **/__pycache__
 **/*.pyc
 **/.pytest_cache
-backend/tests
-frontend/dist
+app/ui_backend/tests
+app/ui_frontend/dist
+app/ui_backend/.env
 logs/
 .git
 .gitignore

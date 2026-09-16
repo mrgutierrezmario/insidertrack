@@ -21,7 +21,7 @@ from services.scheduler import start_scheduler, stop_scheduler
 # Console handler (stderr → captured by start.sh into logs/backend.log via uvicorn).
 # File handler with rotation — bounds disk usage and survives long uptimes.
 # Both share one format so the rotated file matches what uvicorn captures live.
-LOG_DIR = Path(__file__).parent.parent / "logs"
+LOG_DIR = Path(__file__).parent.parent.parent / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 _LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 _log_root = logging.getLogger()
@@ -39,7 +39,7 @@ if not any(isinstance(h, logging.StreamHandler) and not isinstance(h, logging.Fi
     _console_handler.setFormatter(logging.Formatter(_LOG_FORMAT))
     _log_root.addHandler(_console_handler)
 
-DIST_DIR = Path(__file__).parent.parent / "frontend" / "dist"
+DIST_DIR = Path(__file__).parent.parent / "ui_frontend" / "dist"
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
