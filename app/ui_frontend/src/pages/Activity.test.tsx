@@ -69,7 +69,7 @@ describe("<Activity />", () => {
 
   it("renders the header and fans out to all three sources on mount", async () => {
     renderPage();
-    expect(screen.getByRole("heading", { name: /Activity Feed/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^Activity$/i })).toBeInTheDocument();
     await waitFor(() => {
       expect(getTrades).toHaveBeenCalledTimes(1);
       expect(getInsiderTransactions).toHaveBeenCalledTimes(1);

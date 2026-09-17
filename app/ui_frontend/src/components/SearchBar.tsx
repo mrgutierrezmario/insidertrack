@@ -330,8 +330,9 @@ function DesktopSearch() {
             background: C.surface, color: C.text,
             border: "1px solid var(--c-surfaceAlt)", borderRadius: 6,
             padding: "0.4rem 2.5rem 0.4rem 0.9rem", fontSize: "0.82rem",
-            width: 200, outline: "none",
+            outline: "none",
           }}
+          className="searchbox"
         />
         {!query && (
           <span style={{

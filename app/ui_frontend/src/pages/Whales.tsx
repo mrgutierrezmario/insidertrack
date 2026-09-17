@@ -170,7 +170,7 @@ export default function Whales() {
     <div>
       <div className="page-head">
         <div>
-          <h1>Whale Tracker</h1>
+          <h1>Whales</h1>
           <p style={{ color: C.textMuted, fontSize: "0.85rem", marginTop: 4 }}>
             Institutional & billionaire 13F filings — what the big money is moving.
           </p>

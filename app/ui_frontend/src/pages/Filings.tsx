@@ -218,7 +218,7 @@ export default function Filings() {
     <div style={{ maxWidth: 900, margin: "0 auto" }}>
       <div className="page-head">
         <div>
-          <h1>Institutional Filings</h1>
+          <h1>SEC Filings</h1>
           <p style={{ color: C.dividerStrong, margin: 0, fontSize: 13 }}>
             SEC 13F-HR filings — required quarterly from funds managing &gt;$100M in US equities.
             Data pulled live from{" "}

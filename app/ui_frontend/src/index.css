@@ -144,7 +144,7 @@ img, svg { max-width: 100%; }
 .appbar__wordmark { display: flex; flex-direction: column; line-height: 1.1; }
 .appbar__wordmark b { color: var(--c-accent); font-weight: 700; }
 .appbar__wordmark small { color: var(--c-textMuted); font-size: 0.62rem; font-weight: 500; letter-spacing: 0.02em; margin-top: 2px; }
-@media (max-width: 960px) { .appbar__wordmark small { display: none; } }
+@media (max-width: 1120px) { .appbar__wordmark small { display: none; } }
 .appbar__nav { display: flex; align-items: center; gap: 0.15rem; margin-left: 0.75rem; min-width: 0; }
 .appbar__right { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; flex-shrink: 0; }
 
@@ -157,9 +157,14 @@ img, svg { max-width: 100%; }
   white-space: nowrap;
 }
 .navgroup__btn:hover, .navlink:hover { background: var(--c-surfaceAlt); color: var(--c-text); }
-.navgroup__btn[aria-expanded="true"], .navgroup--active > .navgroup__btn, .navlink.active {
-  color: var(--c-accent); background: var(--c-accentBg);
-}
+/* Current section: accent text. Open menu: accent text on a tinted pill. */
+.navgroup--active > .navgroup__btn, .navlink.active { color: var(--c-accent); font-weight: 600; }
+.navgroup__btn[aria-expanded="true"] { color: var(--c-accent); background: var(--c-accentBg); }
+/* Desktop search box: full width on wide screens, narrower when the bar gets tight. */
+.searchbox { width: 200px; transition: width 0.15s; }
+.searchbox:focus { width: 240px; }
+@media (max-width: 1320px) { .searchbox { width: 140px; } .appbar__wordmark small { display: none; } }
+.appbar__sep { width: 1px; height: 20px; background: var(--c-divider); margin: 0 0.35rem; }
 .navgroup__btn .chev { font-size: 0.65rem; opacity: 0.7; transition: transform 0.15s; }
 .navgroup__btn[aria-expanded="true"] .chev { transform: rotate(180deg); }
 .navgroup__menu {
@@ -207,7 +212,7 @@ a.iconbtn { text-decoration: none; }
 /* Show/hide by width */
 .only-desktop { display: flex; }
 .only-mobile { display: none; }
-@media (max-width: 960px) {
+@media (max-width: 1120px) {
   .only-desktop { display: none !important; }
   .only-mobile { display: inline-flex; }
   .appbar { padding: 0 0.75rem; }

@@ -223,7 +223,7 @@ export default function Activity() {
     <div style={{ maxWidth: 900, margin: "0 auto" }}>
       <div className="page-head">
         <div>
-          <h1>Activity Feed</h1>
+          <h1>Activity</h1>
           <p style={{ color: C.dividerStrong, margin: 0, fontSize: 13 }}>
             Congressional trades · Corporate Form 4 insiders · Federal Reserve disclosures — unified timeline.
           </p>

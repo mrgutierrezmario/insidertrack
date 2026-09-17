@@ -36,27 +36,33 @@ const NotFound    = lazy(() => import("./pages/NotFound"));
 interface NavEntry { to: string; label: string; hint?: string; }
 interface NavGroup { label: string; items: NavEntry[]; }
 
-// Sixteen pages grouped into five menus. Order inside a group = importance.
+// Two plain links for the pages people open most, then groups by what the
+// data *is* (who filed it), then analysis, context, and the visitor's own.
+const TOP_LINKS: ReadonlyArray<NavEntry> = [
+  { to: "/",         label: "Dashboard" },
+  { to: "/activity", label: "Activity" },
+];
+
 const NAV_GROUPS: ReadonlyArray<NavGroup> = [
+  { label: "Congress", items: [
+    { to: "/feed",        label: "Congressional Trades", hint: "STOCK Act disclosures" },
+    { to: "/politicians", label: "Politicians", hint: "Who we track and why" },
+  ]},
+  { label: "Institutions", items: [
+    { to: "/insiders", label: "Corporate Insiders", hint: "SEC Form 4" },
+    { to: "/whales",   label: "Whales", hint: "13F holdings of big funds" },
+    { to: "/filings",  label: "SEC Filings", hint: "Recent filings by institution" },
+    { to: "/fed",      label: "Fed Officials", hint: "FOMC roster & disclosures" },
+  ]},
   { label: "Signals", items: [
-    { to: "/",          label: "Dashboard", hint: "Today at a glance" },
     { to: "/signals",   label: "Signal Scores", hint: "Composite score per ticker" },
     { to: "/outcomes",  label: "Outcomes", hint: "How past signals played out" },
     { to: "/simulator", label: "Simulator", hint: "Paper portfolio vs SPY" },
   ]},
-  { label: "Who's trading", items: [
-    { to: "/feed",        label: "Trade Feed", hint: "Congressional disclosures" },
-    { to: "/politicians", label: "Politicians", hint: "Who we track and why" },
-    { to: "/insiders",    label: "Corporate Insiders", hint: "SEC Form 4" },
-    { to: "/whales",      label: "Whales", hint: "13F institutional holdings" },
-    { to: "/fed",         label: "Fed Officials", hint: "FOMC roster & disclosures" },
-    { to: "/activity",    label: "Activity", hint: "Everything, newest first" },
-  ]},
   { label: "Markets", items: [
-    { to: "/markets",  label: "Markets", hint: "Indices, movers, Fed rate" },
+    { to: "/markets",  label: "Market Overview", hint: "Indices, movers, Fed rate" },
     { to: "/news",     label: "News", hint: "Sentiment-tagged headlines" },
     { to: "/earnings", label: "Earnings", hint: "Upcoming reports" },
-    { to: "/filings",  label: "SEC Filings", hint: "Recent filings by institution" },
   ]},
   { label: "My Watch", items: [
     { to: "/watchlist", label: "Watchlist", hint: "Your tickers" },
@@ -64,7 +70,6 @@ const NAV_GROUPS: ReadonlyArray<NavGroup> = [
   ]},
 ];
 
-/** Unseen-alert badge. "Seen" is a global admin flag, so visitors get no badge. */
 function useUnseenAlerts(enabled: boolean): number {
   const [count, setCount] = useState<number>(0);
   useEffect(() => {
@@ -148,6 +153,10 @@ function Drawer({ open, onClose, alerts }: { open: boolean; onClose: () => void;
           <button type="button" className="iconbtn" aria-label="Close menu" onClick={onClose}>✕</button>
         </div>
         <div className="drawer__body">
+          <div className="drawer__group">Overview</div>
+          {TOP_LINKS.map((l) => (
+            <NavLink key={l.to} to={l.to} end={l.to === "/"} className={({ isActive }) => "drawer__link" + (isActive ? " active" : "")}>{l.label}</NavLink>
+          ))}
           {NAV_GROUPS.map((g) => (
             <div key={g.label}>
               <div className="drawer__group">{g.label}</div>
@@ -185,6 +194,10 @@ export default function App() {
         </Link>
 
         <nav className="appbar__nav only-desktop" aria-label="Primary">
+          {TOP_LINKS.map((l) => (
+            <NavLink key={l.to} to={l.to} end={l.to === "/"} className={({ isActive }) => "navlink" + (isActive ? " active" : "")}>{l.label}</NavLink>
+          ))}
+          <span className="appbar__sep" aria-hidden="true" />
           {NAV_GROUPS.map((g) => <NavGroupMenu key={g.label} group={g} alerts={alerts} />)}
         </nav>
 

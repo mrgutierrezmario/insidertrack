@@ -42,7 +42,7 @@ const inputStyle = {
 };
 
 export default function Feed() {
-  useDocumentTitle("Trade Feed");
+  useDocumentTitle("Congressional Trades");
   const [trades, setTrades] = useState<Trade[]>([]);
   const [politicians, setPoliticians] = useState<Politician[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,7 +107,7 @@ export default function Feed() {
   return (
     <div>
       <div className="page-head">
-        <h1>Trade Feed</h1>
+        <h1>Congressional Trades</h1>
         <div style={{ display: "flex", gap: "0.5rem" }}>
           {trades.length > 0 && (
             <button

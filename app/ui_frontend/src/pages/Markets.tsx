@@ -233,7 +233,7 @@ interface MacroEntry {
 }
 
 export default function Markets() {
-  useDocumentTitle("Markets");
+  useDocumentTitle("Market Overview");
   const [movers, setMovers] = useState<MoversData | null>(null);
   const [signals, setSignals] = useState<MarketSignal[]>([]);
   const [macro, setMacro] = useState<Record<string, MacroEntry> | null>(null);
@@ -259,7 +259,7 @@ export default function Markets() {
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto" }}>
       <div className="page-head">
-        <h1>Markets</h1>
+        <h1>Market Overview</h1>
         {movers?._demo && (
           <span style={{ background: "rgba(251,191,36,0.1)", color: C.warningSolid, border: "1px solid rgba(251,191,36,0.25)", borderRadius: 6, padding: "3px 10px", fontSize: 11 }}>
             demo data — no tracked tickers with price history yet

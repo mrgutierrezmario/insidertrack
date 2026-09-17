@@ -122,8 +122,11 @@ review list in order:
 1. **Terms gate** — removed the "10% of $100,000 service fee" clause; now a
    welcome + not-financial-advice notice + optional email signup, one
    Continue button.
-2. **Navigation** — 16 flat links → app bar with 5 grouped menus (Signals ·
-   Who's trading · Markets · My Watch · ⚙), hints per item, phone drawer.
+2. **Navigation** — 16 flat links → app bar: Dashboard · Activity as plain
+   links, then five noun groups by data source (Congress · Institutions ·
+   Signals · Markets · My Watch), hints per item, phone drawer below 1120 px.
+   (Revised 2026-09-17 from an earlier "Signals / Who's trading / Markets /
+   Mine" split that buried Dashboard and mixed sources with views.)
 3. **Mobile** — shared `.page-head` (title/subtitle/actions wrap), Politicians
    card no longer overflows, dense grids collapse, 16 px inputs (no iOS zoom).
 4. **Brand / theme / PWA** — MG Network icons + logo mark, self-hosted Plus

@@ -47,7 +47,7 @@ describe("<Whales />", () => {
 
   it("renders the header and fetches holders + feed on mount", async () => {
     renderPage();
-    expect(screen.getByRole("heading", { name: /Whale Tracker/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^Whales$/i })).toBeInTheDocument();
     await waitFor(() => {
       expect(getWhales).toHaveBeenCalledTimes(1);
       expect(getWhaleFeed).toHaveBeenCalledTimes(1);
