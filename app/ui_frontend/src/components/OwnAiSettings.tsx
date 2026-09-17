@@ -5,11 +5,22 @@ import type { AiSettings, ModelOption } from "../lib/api";
 import { readOwnAi, writeOwnAi } from "../lib/storage";
 import type { AiProvider } from "../lib/storage";
 
-const PROVIDERS: Array<{ id: AiProvider; label: string; placeholder: string; link: string; defaultModel: string }> = [
-  { id: "claude", label: "Claude", placeholder: "sk-ant-…", link: "https://console.anthropic.com/settings/keys", defaultModel: "claude-opus-5" },
-  { id: "gemini", label: "Gemini", placeholder: "AIza…", link: "https://aistudio.google.com/apikey", defaultModel: "gemini-flash-latest" },
-  { id: "openai", label: "OpenAI", placeholder: "sk-…", link: "https://platform.openai.com/api-keys", defaultModel: "gpt-4o-mini" },
+const PROVIDERS: Array<{ id: AiProvider; label: string; placeholder: string; link: string; defaultModel: string; known: ModelOption[] }> = [
+  { id: "claude", label: "Claude", placeholder: "sk-ant-…", link: "https://console.anthropic.com/settings/keys", defaultModel: "claude-opus-5",
+    known: [
+      { id: "claude-opus-5", label: "Claude Opus 5" }, { id: "claude-sonnet-5", label: "Claude Sonnet 5" }, { id: "claude-haiku-4-5", label: "Claude Haiku 4.5" },
+      { id: "claude-opus-4-6", label: "Claude Opus 4.6" }, { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
+    ] },
+  { id: "gemini", label: "Gemini", placeholder: "AIza…", link: "https://aistudio.google.com/apikey", defaultModel: "gemini-flash-latest",
+    known: [
+      { id: "gemini-flash-latest", label: "Gemini Flash Latest" }, { id: "gemini-flash-lite-latest", label: "Gemini Flash-Lite Latest" }, { id: "gemini-pro-latest", label: "Gemini Pro Latest" },
+    ] },
+  { id: "openai", label: "OpenAI", placeholder: "sk-…", link: "https://platform.openai.com/api-keys", defaultModel: "gpt-4o-mini",
+    known: [
+      { id: "gpt-4o-mini", label: "GPT-4o mini" }, { id: "gpt-4o", label: "GPT-4o" }, { id: "gpt-4.1", label: "GPT-4.1" }, { id: "gpt-4.1-mini", label: "GPT-4.1 mini" },
+    ] },
 ];
+const CUSTOM = "__custom__";
 
 const inputStyle = { background: C.bg, color: C.text, border: "1px solid var(--c-divider)", borderRadius: 6, padding: "0.5rem 0.75rem", fontSize: "0.88rem" } as const;
 const btn = { border: "none", borderRadius: 6, padding: "0.5rem 1rem", cursor: "pointer", fontSize: "0.85rem" } as const;
@@ -26,7 +37,8 @@ export default function OwnAiSettings({ onToast }: { onToast: (m: string) => voi
   const [model, setModel] = useState(saved?.model ?? "");
   const [site, setSite] = useState<AiSettings | null>(null);
   const [testMsg, setTestMsg] = useState("");
-  const [models, setModels] = useState<ModelOption[] | null>(null);   // null = not loaded, [] = unavailable
+  const [models, setModels] = useState<ModelOption[] | null>(null);   // live list for the pasted key; null = not loaded
+  const [custom, setCustom] = useState(false);                          // "Custom…" chosen: show a text field
   const [modelsFor, setModelsFor] = useState("");                       // "provider:key" the list belongs to
   const meta = PROVIDERS.find((p) => p.id === provider)!;
   const isSaved = !!saved;
@@ -80,7 +92,7 @@ export default function OwnAiSettings({ onToast }: { onToast: (m: string) => voi
       <div style={{ color: C.textMuted, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Provider</div>
       <div className="segmented" role="group" aria-label="AI provider" style={{ marginBottom: "1rem" }}>
         {PROVIDERS.map((p) => (
-          <button key={p.id} type="button" aria-pressed={provider === p.id} onClick={() => { setProvider(p.id); setModel(""); setModels(null); setModelsFor(""); setTestMsg(""); }}>{p.label}</button>
+          <button key={p.id} type="button" aria-pressed={provider === p.id} onClick={() => { setProvider(p.id); setModel(""); setModels(null); setModelsFor(""); setCustom(false); setTestMsg(""); }}>{p.label}</button>
         ))}
       </div>
 
@@ -91,20 +103,32 @@ export default function OwnAiSettings({ onToast }: { onToast: (m: string) => voi
         onChange={(e) => setKey(e.target.value)} style={{ ...inputStyle, width: "100%", marginBottom: "0.75rem" }} />
 
       <label style={{ color: C.textMuted, fontSize: "0.72rem", display: "block", marginBottom: 4 }}>Model <span style={{ color: C.textDim }}>(optional — default {meta.defaultModel})</span></label>
-      {models && models.length > 0 ? (
-        <select value={model} onChange={(e) => setModel(e.target.value)} style={{ ...inputStyle, width: "100%", marginBottom: "1rem" }}>
-          <option value="">Default ({meta.defaultModel})</option>
-          {model && !models.some((m) => m.id === model) && <option value={model}>{model} (not in the provider's current list)</option>}
-          {models.map((m) => <option key={m.id} value={m.id}>{m.label === m.id ? m.id : `${m.label} (${m.id})`}</option>)}
-        </select>
-      ) : (
-        <div style={{ marginBottom: "1rem" }}>
-          <input type="text" value={model} placeholder={meta.defaultModel} onChange={(e) => setModel(e.target.value)} style={{ ...inputStyle, width: "100%" }} />
-          <div style={{ color: C.textDim, fontSize: "0.72rem", marginTop: 4 }}>
-            {key.trim().length >= 8 ? (models === null ? "Loading the model list for this key…" : "Couldn't load the list for this key — type a model ID.") : "Paste a key and the list of models it can use appears here."}
+      {(() => {
+        // Built-in list until a key is pasted; the provider's live list after.
+        const live = models && models.length > 0;
+        const options = live ? models! : meta.known;
+        const inList = !model || options.some((m) => m.id === model);
+        const showCustom = custom || (!!model && !inList);
+        return (
+          <div style={{ marginBottom: "1rem" }}>
+            <select
+              value={showCustom ? CUSTOM : model}
+              onChange={(e) => { if (e.target.value === CUSTOM) { setCustom(true); } else { setCustom(false); setModel(e.target.value); } }}
+              style={{ ...inputStyle, width: "100%" }}
+            >
+              <option value="">Default ({meta.defaultModel})</option>
+              {options.map((m) => <option key={m.id} value={m.id}>{m.label === m.id ? m.id : `${m.label} (${m.id})`}</option>)}
+              <option value={CUSTOM}>Custom model ID…</option>
+            </select>
+            {showCustom && (
+              <input type="text" value={model} placeholder="e.g. claude-opus-5" autoFocus onChange={(e) => setModel(e.target.value)} style={{ ...inputStyle, width: "100%", marginTop: 6 }} />
+            )}
+            <div style={{ color: C.textDim, fontSize: "0.72rem", marginTop: 4 }}>
+              {live ? `${models!.length} models available to this key.` : key.trim().length >= 8 ? (models === null ? "Checking which models this key can use…" : "Couldn't fetch the list for this key — showing common models.") : "Common models shown; paste a key to see everything it can use."}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
         <button type="button" onClick={save} disabled={!key.trim() || !dirty} style={{ ...btn, background: C.accentSolid, color: "#fff", opacity: !key.trim() || !dirty ? 0.5 : 1 }}>Save</button>

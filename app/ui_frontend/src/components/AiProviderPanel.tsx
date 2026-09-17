@@ -14,6 +14,19 @@ export interface KeyRowData {
 const PROVIDERS = ["claude", "gemini", "openai"] as const;
 type Provider = (typeof PROVIDERS)[number];
 const KEY_FOR: Record<Provider, string> = { claude: "anthropic_api_key", gemini: "gemini_api_key", openai: "openai_api_key" };
+const KNOWN: Record<Provider, ModelOption[]> = {
+  claude: [
+    { id: "claude-opus-5", label: "Claude Opus 5" }, { id: "claude-sonnet-5", label: "Claude Sonnet 5" }, { id: "claude-haiku-4-5", label: "Claude Haiku 4.5" },
+    { id: "claude-opus-4-6", label: "Claude Opus 4.6" }, { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
+  ],
+  gemini: [
+    { id: "gemini-flash-latest", label: "Gemini Flash Latest" }, { id: "gemini-flash-lite-latest", label: "Gemini Flash-Lite Latest" }, { id: "gemini-pro-latest", label: "Gemini Pro Latest" },
+  ],
+  openai: [
+    { id: "gpt-4o-mini", label: "GPT-4o mini" }, { id: "gpt-4o", label: "GPT-4o" }, { id: "gpt-4.1", label: "GPT-4.1" }, { id: "gpt-4.1-mini", label: "GPT-4.1 mini" },
+  ],
+};
+const CUSTOM = "__custom__";
 const MODEL_FOR: Record<Provider, string> = { claude: "claude_model", gemini: "gemini_model", openai: "openai_model" };
 
 const inputStyle = { background: C.bg, color: C.text, border: "1px solid var(--c-divider)", borderRadius: 5, padding: "0.4rem 0.75rem", fontSize: "0.85rem" } as const;
@@ -132,19 +145,30 @@ export default function AiProviderPanel({ keys, onChanged, onError }: { keys: Ke
 
               {/* Model */}
               <div style={{ color: C.textMuted, fontSize: "0.72rem", marginBottom: 3 }}>Model</div>
-              {models[p] && models[p]!.length > 0 ? (
-                <select value={m.masked_value || ""} style={{ ...inputStyle, width: "100%", marginBottom: 10 }} onChange={(e) => save(m.key, e.target.value)}>
-                  {!models[p]!.some((g) => g.id === m.masked_value) && <option value={m.masked_value || ""}>{m.masked_value} (not in the provider's current list)</option>}
-                  {models[p]!.map((g) => <option key={g.id} value={g.id}>{g.label === g.id ? g.id : `${g.label} (${g.id})`}</option>)}
-                </select>
-              ) : (
-                <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-                  <input type="text" value={modelDraft ?? m.masked_value ?? ""} placeholder={m.placeholder} style={{ ...inputStyle, flex: 1, minWidth: 0 }}
-                    onChange={(e) => setDraft((d) => ({ ...d, [m.key]: e.target.value }))}
-                    onBlur={() => { if (modelDraft !== undefined && modelDraft !== m.masked_value) save(m.key, modelDraft); }}
-                    onKeyDown={(e) => { if (e.key === "Enter" && modelDraft !== undefined) save(m.key, modelDraft); }} />
-                </div>
-              )}
+              {(() => {
+                const live = models[p] && models[p]!.length > 0;
+                const options = live ? models[p]! : KNOWN[p];
+                const current = m.masked_value || "";
+                const isCustom = modelDraft !== undefined || (!!current && !options.some((g) => g.id === current));
+                return (
+                  <div style={{ marginBottom: 10 }}>
+                    <select value={isCustom ? CUSTOM : current} style={{ ...inputStyle, width: "100%" }}
+                      onChange={(e) => { if (e.target.value === CUSTOM) setDraft((d) => ({ ...d, [m.key]: current })); else { setDraft((d) => { const n = { ...d }; delete n[m.key]; return n; }); save(m.key, e.target.value); } }}>
+                      {options.map((g) => <option key={g.id} value={g.id}>{g.label === g.id ? g.id : `${g.label} (${g.id})`}</option>)}
+                      <option value={CUSTOM}>Custom model ID…</option>
+                    </select>
+                    {isCustom && (
+                      <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                        <input type="text" value={modelDraft ?? current} placeholder={m.placeholder} style={{ ...inputStyle, flex: 1, minWidth: 0 }}
+                          onChange={(e) => setDraft((d) => ({ ...d, [m.key]: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === "Enter" && modelDraft !== undefined) save(m.key, modelDraft); }} />
+                        <button type="button" style={{ ...btn, background: C.accentSolid, color: "#fff" }} disabled={modelDraft === undefined || busy[m.key]} onClick={() => modelDraft !== undefined && save(m.key, modelDraft)}>Save</button>
+                      </div>
+                    )}
+                    <div style={{ color: C.textDim, fontSize: "0.7rem", marginTop: 4 }}>{live ? `${models[p]!.length} models available to the saved key.` : k.is_set ? "Fetching the live list…" : "Common models; save a key to see everything it can use."}</div>
+                  </div>
+                );
+              })()}
 
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 <button type="button" style={{ ...btn, background: C.surfaceAlt, color: C.textSoft }} disabled={!k.is_set} onClick={() => test(p)}>Test</button>
