@@ -1,4 +1,4 @@
-"""AI-generated research summaries (Anthropic Claude)."""
+"""AI-generated research summaries (Claude / Gemini / OpenAI, chosen in Settings)."""
 
 import hmac
 import re
@@ -43,7 +43,14 @@ def _check_ai_rate(request: Request):
 
 @router.get("/status")
 def ai_status():
-    return {"configured": bool(settings.anthropic_api_key)}
+    from services.providers import active_provider, LABELS, model_for
+    active = active_provider()
+    return {
+        "configured": active is not None,
+        "provider": active,
+        "label": LABELS.get(active) if active else None,
+        "model": model_for(active) if active else None,
+    }
 
 
 @router.get("/summary/{ticker}")

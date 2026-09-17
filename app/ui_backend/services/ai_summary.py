@@ -1,10 +1,11 @@
 """
-AI-generated research summaries via the Anthropic Claude API.
+AI-generated research summaries.
 
 Produces a plain-language bull case / bear case / risk note for a ticker,
 grounded in the data the app already has (signal score, insider trades,
-whale positions, news sentiment, earnings). Results are cached in memory
-because each call costs money.
+whale positions, news sentiment, earnings). The provider (Claude, Gemini or
+OpenAI) is chosen in Settings — see services/providers.py. Results are cached
+in memory because each call costs money.
 
 Falls back gracefully when no API key is configured.
 """
@@ -23,7 +24,6 @@ from models.whale import WhaleHolder, WhalePosition
 
 logger = logging.getLogger(__name__)
 
-MODEL = "claude-sonnet-4-6"
 CACHE_TTL = 21_600  # 6 hours
 _cache: dict[str, tuple[float, dict]] = {}
 
@@ -102,7 +102,7 @@ def _fallback(ticker: str, context: dict) -> dict:
     return {
         "ticker": ticker,
         "available": False,
-        "message": "AI summaries are not configured. Add an Anthropic API key in Settings to enable them.",
+        "message": "AI research notes are not configured. Add a Claude, Gemini or OpenAI API key in the Admin panel to enable them.",
         "context": context,
     }
 
@@ -117,13 +117,9 @@ def generate_stock_summary(ticker: str, db: Session, force: bool = False) -> dic
 
     context = _gather_context(ticker, db)
 
-    if not settings.anthropic_api_key:
-        return _fallback(ticker, context)
+    from services.providers import ProviderError, active_provider, generate_text
 
-    try:
-        from anthropic import Anthropic
-    except ImportError:
-        logger.warning("anthropic package not installed")
+    if active_provider() is None:
         return _fallback(ticker, context)
 
     prompt = f"""You are a careful investment research assistant. Using ONLY the data below, write a brief, balanced research note for the stock {ticker}.
@@ -140,15 +136,8 @@ Write a JSON object with exactly these keys:
 Rules: Never say a trade is guaranteed. Never tell the user to buy or sell. Note that congressional and 13F data is delayed/lagging. Be factual and concise. Output ONLY the raw JSON object, no markdown fencing."""
 
     try:
-        # Explicit timeout — the SDK default is 10 minutes, which would block
-        # a uvicorn worker for the full duration if Anthropic is slow.
-        client = Anthropic(api_key=settings.anthropic_api_key, timeout=30.0)
-        resp = client.messages.create(
-            model=MODEL,
-            max_tokens=700,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        text = resp.content[0].text.strip()
+        gen = generate_text(prompt, max_tokens=700, timeout=45.0)
+        text = gen.text
         if text.startswith("```"):
             text = text.split("```")[1].lstrip("json").strip()
 
@@ -158,18 +147,20 @@ Rules: Never say a trade is guaranteed. Never tell the user to buy or sell. Note
             "ticker": ticker,
             "available": True,
             "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
-            "model": MODEL,
+            "model": gen.provider,
+            "fallback": gen.fallback,
+            "fallback_reason": gen.fallback_reason,
             **{k: parsed.get(k, "") for k in ("why_today", "bull_case", "bear_case", "risk_note")},
             "context": context,
         }
         _cache_set(cache_key, result)
-        logger.info(f"Generated AI summary for {ticker}")
+        logger.info(f"Generated AI summary for {ticker} via {gen.provider}")
         return result
     except Exception as e:
         logger.warning(f"AI summary generation failed for {ticker}: {e}")
         return {
             "ticker": ticker,
             "available": False,
-            "message": f"Could not generate AI summary: {e}",
+            "message": f"Could not generate AI summary: {e}" if not isinstance(e, ProviderError) else f"Could not generate AI summary — {e}",
             "context": context,
         }

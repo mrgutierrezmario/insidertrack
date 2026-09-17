@@ -14,6 +14,7 @@ import {
 } from "../lib/api";
 import { ADMIN_SESSION_KEY } from "../lib/storage";
 import { notifyAdminChange } from "../hooks/useAdmin";
+import AiProviderPanel from "../components/AiProviderPanel";
 import ConfirmModal from "../components/ConfirmModal";
 
 type Period = "morning" | "midday" | "evening";
@@ -42,6 +43,8 @@ interface ApiKey {
   masked_value?: string;
   placeholder?: string;
   link?: string;
+  group?: string;
+  choices?: string[] | null;
 }
 
 interface AccessLogRow {
@@ -301,11 +304,14 @@ function AdminPanel() {
 
       <div style={{ height: 1, background: C.surfaceAlt, margin: "1.25rem 0 2rem" }} />
 
-      {/* API Keys */}
+      {/* AI research notes: provider, keys, models */}
+      <AiProviderPanel keys={apiKeys} onChanged={async () => { await loadKeys(); }} onError={(m) => setError(m)} />
+
+      {/* Other credentials */}
       <section style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, padding: "1.25rem", marginBottom: "1.5rem" }}>
-        <div style={{ fontWeight: 600, marginBottom: "1rem" }}>API Keys &amp; Credentials</div>
+        <div style={{ fontWeight: 600, marginBottom: "1rem" }}>Data &amp; Email Credentials</div>
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-          {apiKeys.map(k => {
+          {apiKeys.filter(k => !(k.group ?? "general").startsWith("ai")).map(k => {
             const isEditing = keyEditing[k.key];
             return (
               <div key={k.key} style={{ borderBottom: "1px solid var(--c-bgSunken)", paddingBottom: "1rem" }}>

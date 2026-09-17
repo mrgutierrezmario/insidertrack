@@ -11,6 +11,15 @@ interface SummaryData {
   risk_note?: string | null;
   model?: string;
   generated_at?: string;
+  fallback?: string | null;
+  fallback_reason?: string | null;
+}
+
+const PROVIDER_LABEL: Record<string, string> = { claude: "Claude", gemini: "Gemini", openai: "OpenAI" };
+function providerLabel(model?: string): string {
+  if (!model) return "";
+  const [p, m] = model.split("/");
+  return m ? `${PROVIDER_LABEL[p] ?? p} · ${m}` : model;
 }
 
 function Section({ label, color, text }: { label: string; color: string; text: string | null | undefined }) {
@@ -89,7 +98,8 @@ export default function AiSummaryPanel({ symbol }: { symbol: string }) {
               <Section label="Bear Case" color={C.danger} text={data.bear_case} />
               <Section label="Key Risk" color={C.warning} text={data.risk_note} />
               <div style={{ color: C.divider, fontSize: 10, marginTop: 8 }}>
-                {data.model} · {data.generated_at} · Not financial advice — informational only.
+                {providerLabel(data.model)} · {data.generated_at} · Not financial advice — informational only.
+                {data.fallback && <> · {PROVIDER_LABEL[data.fallback] ?? data.fallback} was {data.fallback_reason ?? "unavailable"}, so another provider answered.</>}
               </div>
             </>
           ) : (

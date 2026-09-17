@@ -223,7 +223,16 @@ export const runAlerts = (): Resp<{ status: string }> => api.post("/alerts/run")
 
 // ── AI summaries ──────────────────────────────────────────────────────────────
 
-export const getAiStatus = (): Resp<{ configured: boolean }> => api.get("/ai/status");
+export interface AiStatus { configured: boolean; provider: string | null; label: string | null; model: string | null; }
+export const getAiStatus = (): Resp<AiStatus> => api.get("/ai/status");
+export interface AiSettings {
+  configured: boolean; active: string | null; chosen: string;
+  providers: Record<string, { label: string; configured: boolean; model: string }>;
+}
+export const getAiSettings = (): Resp<AiSettings> => api.get("/settings/ai");
+export const getGeminiModels = (): Resp<Array<{ id: string; label: string }>> => api.get("/settings/ai/gemini-models");
+export const testAiProvider = (provider: string): Resp<{ provider: string; ok: boolean; message: string }> =>
+  api.post("/settings/ai/test", null, { params: { provider } });
 export const getAiSummary = (ticker: string, refresh = false): Resp<unknown> =>
   api.get(`/ai/summary/${ticker}`, { params: { refresh } });
 

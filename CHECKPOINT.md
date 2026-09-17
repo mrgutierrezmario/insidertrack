@@ -153,6 +153,19 @@ review list in order:
 
 Tests: 70 frontend (vitest) + 149 backend pass.
 
+## AI providers — 2026-09-17
+
+Research notes now work like the lecture app's AI settings: `services/
+providers.py` (Claude via the Anthropic SDK; Gemini and OpenAI via httpx),
+`ai_provider` picks who writes the note, every other provider with a saved key
+is a fallback, and the note records `provider/model` plus any fallback reason.
+Keys/models are admin-editable in the Admin panel (`AiProviderPanel`) via the
+existing `/settings/keys` store, with `GET /settings/ai` (public status),
+`GET /settings/ai/gemini-models` (live list from Google) and
+`POST /settings/ai/test?provider=`. Defaults: `claude-opus-5`,
+`gemini-flash-latest`, `gpt-4o-mini`. Currently active: Gemini, using the same
+key as the lecture app. Clearing a model field restores the config default.
+
 ## Still open
 
 - Off-site backups (lecture-note-app has `deploy/backup.sh` + rclone; this

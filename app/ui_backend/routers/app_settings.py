@@ -1,10 +1,10 @@
 """
-User-configurable API keys and credentials.
+User-configurable API keys, credentials and the AI provider choice.
 Values are stored in the `app_settings` DB table and applied to the live
 `settings` object immediately — no restart required.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -26,12 +26,68 @@ KEYS = {
         "placeholder": "e.g. AB12CD34EF56GH78",
     },
     "anthropic_api_key": {
-        "label": "Anthropic API Key",
-        "description": "Enables AI-generated bull/bear research summaries on ticker pages.",
-        "help": "Get one at console.anthropic.com — pay-as-you-go, summaries are cached 6h.",
+        "label": "Claude API Key",
+        "description": "AI research notes via Anthropic Claude.",
+        "help": "console.anthropic.com — pay-as-you-go; notes are cached 6h so a ticker costs one call per refresh.",
         "link": "https://console.anthropic.com/settings/keys",
         "sensitive": True,
         "placeholder": "sk-ant-...",
+        "group": "ai",
+    },
+    "gemini_api_key": {
+        "label": "Gemini API Key",
+        "description": "AI research notes via Google Gemini.",
+        "help": "aistudio.google.com — has a free tier.",
+        "link": "https://aistudio.google.com/apikey",
+        "sensitive": True,
+        "placeholder": "AIza...",
+        "group": "ai",
+    },
+    "openai_api_key": {
+        "label": "OpenAI API Key",
+        "description": "AI research notes via OpenAI.",
+        "help": "platform.openai.com — pay-as-you-go.",
+        "link": "https://platform.openai.com/api-keys",
+        "sensitive": True,
+        "placeholder": "sk-...",
+        "group": "ai",
+    },
+    "ai_provider": {
+        "label": "Research notes provider",
+        "description": "Which provider writes the bull/bear notes. Any other provider with a key saved is used as a fallback.",
+        "help": "claude | gemini | openai",
+        "link": None,
+        "sensitive": False,
+        "placeholder": "claude",
+        "group": "ai_model",
+        "choices": ["claude", "gemini", "openai"],
+    },
+    "claude_model": {
+        "label": "Claude model",
+        "description": "Model ID used when Claude writes the note.",
+        "help": "e.g. claude-opus-5, claude-sonnet-5",
+        "link": "https://docs.anthropic.com/en/docs/about-claude/models",
+        "sensitive": False,
+        "placeholder": "claude-opus-5",
+        "group": "ai_model",
+    },
+    "gemini_model": {
+        "label": "Gemini model",
+        "description": "Model ID used when Gemini writes the note. The list is fetched live from Google for your key.",
+        "help": "gemini-flash-latest tracks the newest Flash release.",
+        "link": None,
+        "sensitive": False,
+        "placeholder": "gemini-flash-latest",
+        "group": "ai_model",
+    },
+    "openai_model": {
+        "label": "OpenAI model",
+        "description": "Model ID used when OpenAI writes the note.",
+        "help": "e.g. gpt-4o-mini",
+        "link": None,
+        "sensitive": False,
+        "placeholder": "gpt-4o-mini",
+        "group": "ai_model",
     },
     "mail_username": {
         "label": "Gmail Address",
@@ -73,11 +129,21 @@ def _mask(value: str) -> str:
     return value[:4] + "●" * (len(value) - 8) + value[-4:]
 
 
+# Non-secret settings that must never be blank: clearing them restores the
+# config.py default instead of leaving an empty model name behind.
+_DEFAULTED = {"ai_provider", "claude_model", "gemini_model", "openai_model", "mail_from_name"}
+
+
 def _apply_to_settings(key: str, value: str):
     """Push a new value into the live settings object."""
+    if not value and key in _DEFAULTED:
+        value = type(settings).model_fields[key].default
     if hasattr(settings, key):
         object.__setattr__(settings, key, value)
     # Bust caches that depend on this key
+    if key in ("ai_provider", "claude_model", "gemini_model", "openai_model", "anthropic_api_key", "gemini_api_key", "openai_api_key"):
+        from services.ai_summary import _cache as _summary_cache
+        _summary_cache.clear()
     if key == "alpha_vantage_key":
         from services.market_data import _cache, _history_cache
         for k in list(_cache.keys()):
@@ -107,6 +173,8 @@ def list_keys(_: None = Depends(require_admin), db: Session = Depends(get_db)):
             "link": meta["link"],
             "sensitive": meta["sensitive"],
             "placeholder": meta["placeholder"],
+            "group": meta.get("group", "general"),
+            "choices": meta.get("choices"),
             "is_set": is_set,
             "source": source,
             "masked_value": _mask(live) if meta["sensitive"] else live,
@@ -120,6 +188,9 @@ def update_key(key: str, body: UpdateSetting, _: None = Depends(require_admin), 
         raise HTTPException(status_code=404, detail=f"Unknown key '{key}'")
 
     value = body.value.strip()
+    choices = KEYS[key].get("choices")
+    if choices and value and value not in choices:
+        raise HTTPException(status_code=400, detail=f"'{key}' must be one of: {', '.join(choices)}")
 
     # Upsert into DB
     row = db.query(AppSetting).filter(AppSetting.key == key).first()
@@ -150,6 +221,42 @@ def clear_key(key: str, _: None = Depends(require_admin), db: Session = Depends(
     db.query(AppSetting).filter(AppSetting.key == key).delete()
     db.commit()
     _apply_to_settings(key, "")
+
+
+# ── AI provider helpers ───────────────────────────────────────────────────────
+
+@router.get("/ai")
+def ai_status():
+    """Public: which provider writes research notes right now (no secrets)."""
+    from services import providers
+    active = providers.active_provider()
+    return {
+        "configured": active is not None,
+        "active": active,
+        "chosen": settings.ai_provider,
+        "providers": {
+            p: {"label": providers.LABELS[p], "configured": providers.configured(p), "model": providers.model_for(p)}
+            for p in providers.PROVIDERS
+        },
+    }
+
+
+@router.get("/ai/gemini-models")
+def gemini_models(_: None = Depends(require_admin)):
+    """Chat-capable Gemini models available to the saved key, from Google's live list."""
+    from services import providers
+    try:
+        return providers.list_gemini_models()
+    except Exception as e:  # noqa: BLE001 — surfaced to the settings UI
+        raise HTTPException(status_code=502, detail=str(e)[:200])
+
+
+@router.post("/ai/test")
+def test_ai_provider(provider: str = Query(...), _: None = Depends(require_admin)):
+    """Cheap connectivity check for one provider."""
+    from services import providers
+    ok, message = providers.test_provider(provider)
+    return {"provider": provider, "ok": ok, "message": message}
 
 
 def load_db_settings(db: Session):
