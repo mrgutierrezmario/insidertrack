@@ -28,7 +28,7 @@ export default function ChartModal({ title, onClose, children }: ChartModalProps
     <div
       style={{
         position: "fixed", inset: 0, zIndex: 1000,
-        background: "rgba(7,11,17,0.97)",
+        background: C.bg,
         display: "flex", flexDirection: "column",
       }}
     >

@@ -144,7 +144,7 @@ export default function LineChart({ series, height = 300, normalized = false, in
 
       chart = createChart(containerRef.current, {
         height,
-        layout: { background: { color: R.bg }, textColor: R.textSoft },
+        layout: { background: { color: R.bg }, textColor: R.textSoft, attributionLogo: false },
         grid: { vertLines: { color: R.surfaceAlt }, horzLines: { color: R.surfaceAlt } },
         timeScale: { borderColor: R.surfaceAlt, timeVisible: false },
         rightPriceScale: { borderColor: R.surfaceAlt },
@@ -299,8 +299,8 @@ export default function LineChart({ series, height = 300, normalized = false, in
           onClick={() => setExpanded(true)}
           title="Expand chart"
           style={{
-            position: "absolute", top: 8, right: 8,
-            background: "rgba(30,37,51,0.85)",
+            position: "absolute", top: 8, left: 8,
+            background: C.surface,
             border: "1px solid var(--c-divider)",
             borderRadius: 6, color: C.textSoft,
             width: 32, height: 32,
