@@ -1,6 +1,9 @@
 import { C } from "../lib/theme";
 import { useState } from "react";
 import { getAiSummary } from "../lib/api";
+import { Link } from "react-router-dom";
+import { readOwnAi } from "../lib/storage";
+import useAdmin from "../hooks/useAdmin";
 
 interface SummaryData {
   available: boolean;
@@ -13,6 +16,7 @@ interface SummaryData {
   generated_at?: string;
   fallback?: string | null;
   fallback_reason?: string | null;
+  source?: "own" | "site";
 }
 
 const PROVIDER_LABEL: Record<string, string> = { claude: "Claude", gemini: "Gemini", openai: "OpenAI" };
@@ -38,6 +42,7 @@ export default function AiSummaryPanel({ symbol }: { symbol: string }) {
   const [data, setData] = useState<SummaryData | null>(null);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const isAdmin = useAdmin();
 
   const generate = async (refresh = false) => {
     setLoading(true);
@@ -66,7 +71,8 @@ export default function AiSummaryPanel({ symbol }: { symbol: string }) {
             Bull/bear thesis generated from this app's signal, insider, and whale data.
           </div>
         </div>
-        {loaded && data?.available ? (
+        {/* Regenerating costs a call: allowed with your own key, or for the admin on the site key. */}
+        {loaded && data?.available && (readOwnAi() || isAdmin) ? (
           <button
             onClick={() => generate(true)}
             disabled={loading}
@@ -98,13 +104,14 @@ export default function AiSummaryPanel({ symbol }: { symbol: string }) {
               <Section label="Bear Case" color={C.danger} text={data.bear_case} />
               <Section label="Key Risk" color={C.warning} text={data.risk_note} />
               <div style={{ color: C.divider, fontSize: 10, marginTop: 8 }}>
-                {providerLabel(data.model)} · {data.generated_at} · Not financial advice — informational only.
+                {providerLabel(data.model)}{data.source === "own" ? " (your key)" : ""} · {data.generated_at} · Not financial advice — informational only.
                 {data.fallback && <> · {PROVIDER_LABEL[data.fallback] ?? data.fallback} was {data.fallback_reason ?? "unavailable"}, so another provider answered.</>}
               </div>
             </>
           ) : (
             <div style={{ color: C.warningSolid, fontSize: 12 }}>
-              {data.message || "AI summaries are not available."}
+              {data.message || "AI summaries are not available."}{" "}
+              <Link to="/config" style={{ color: C.accent }}>Open Settings →</Link>
             </div>
           )}
         </div>

@@ -34,6 +34,16 @@ class ProviderError(Exception):
 
 
 @dataclass
+class Credential:
+    """A provider + key (+ optional model) supplied per request — a visitor's
+    own key from their browser. Never stored server-side."""
+
+    provider: str
+    key: str
+    model: str | None = None
+
+
+@dataclass
 class Generation:
     """A text result and the ``provider/model`` label that produced it.
 
@@ -110,11 +120,10 @@ def active_provider() -> str | None:
 # ── Implementations ───────────────────────────────────────────────────────────
 
 
-def _claude(prompt: str, max_tokens: int, timeout: float) -> Generation:
+def _claude(prompt: str, max_tokens: int, timeout: float, key: str, model: str) -> Generation:
     from anthropic import Anthropic
 
-    model = settings.claude_model
-    client = Anthropic(api_key=key_for("claude"), timeout=timeout, max_retries=1)
+    client = Anthropic(api_key=key, timeout=timeout, max_retries=1)
     response = client.messages.create(
         model=model,
         max_tokens=max_tokens,
@@ -153,10 +162,9 @@ def _gemini_text(data: dict) -> str:
     return text
 
 
-def _gemini(prompt: str, max_tokens: int, timeout: float) -> Generation:
-    model = settings.gemini_model
+def _gemini(prompt: str, max_tokens: int, timeout: float, key: str, model: str) -> Generation:
     url = GEMINI_URL.format(model=model)
-    headers = {"x-goog-api-key": key_for("gemini")}
+    headers = {"x-goog-api-key": key}
     options = [_gemini_thinking_cfg[model]] if model in _gemini_thinking_cfg else list(_THINKING_OPTIONS)
     last = None
     with httpx.Client(timeout=timeout) as client:
@@ -183,12 +191,11 @@ def _gemini(prompt: str, max_tokens: int, timeout: float) -> Generation:
     )
 
 
-def _openai(prompt: str, max_tokens: int, timeout: float) -> Generation:
-    model = settings.openai_model
+def _openai(prompt: str, max_tokens: int, timeout: float, key: str, model: str) -> Generation:
     with httpx.Client(timeout=timeout) as client:
         r = client.post(
             OPENAI_URL,
-            headers={"Authorization": f"Bearer {key_for('openai')}"},
+            headers={"Authorization": f"Bearer {key}"},
             json={
                 "model": model,
                 "messages": [{"role": "user", "content": prompt}],
@@ -210,22 +217,43 @@ def _openai(prompt: str, max_tokens: int, timeout: float) -> Generation:
 _IMPL = {"claude": _claude, "gemini": _gemini, "openai": _openai}
 
 
+def _run(provider: str, prompt: str, max_tokens: int, timeout: float, cred: Credential | None = None) -> Generation:
+    """Call one provider with either the visitor's credential or the site key."""
+    if cred is not None:
+        key, model = cred.key, cred.model or model_for(provider)
+    else:
+        key, model = key_for(provider), model_for(provider)
+    if not key:
+        raise ProviderError(f"No API key for {LABELS.get(provider, provider)}")
+    if not model:
+        raise ProviderError(f"No model set for {LABELS.get(provider, provider)}")
+    return _IMPL[provider](prompt, max_tokens, timeout, key, model)
+
+
 def _cascade(primary: str) -> list[str]:
     """The chosen provider first, then every other provider with a key saved."""
     return [primary] + [p for p in PROVIDERS if p != primary and configured(p)]
 
 
-def generate_text(prompt: str, *, max_tokens: int = 800, timeout: float = 60.0) -> Generation:
+def generate_text(
+    prompt: str, *, max_tokens: int = 800, timeout: float = 60.0, cred: Credential | None = None
+) -> Generation:
     """Generate with the configured provider, falling through to the other
-    configured providers on failure. Raises ProviderError only when no provider
-    is configured or all of them failed."""
+    configured providers on failure. With ``cred`` (a visitor's own key) only
+    that provider is used — we never spend the site's keys on a request that
+    brought its own, and never mix the two. Raises ProviderError when nothing
+    is configured or everything failed."""
+    if cred is not None:
+        if cred.provider not in PROVIDERS:
+            raise ProviderError("Unknown provider")
+        return _run(cred.provider, prompt, max_tokens, timeout, cred)
     primary = active_provider()
     if primary is None:
         raise ProviderError("No AI provider configured")
     first_error: Exception | None = None
     for candidate in _cascade(primary):
         try:
-            result = _IMPL[candidate](prompt, max_tokens, timeout)
+            result = _run(candidate, prompt, max_tokens, timeout)
             if candidate != primary:
                 result.fallback = primary
                 result.fallback_reason = describe_failure(first_error)
@@ -236,14 +264,14 @@ def generate_text(prompt: str, *, max_tokens: int = 800, timeout: float = 60.0) 
     raise ProviderError(f"All providers failed: {describe_failure(first_error)}")
 
 
-def test_provider(provider: str) -> tuple[bool, str]:
-    """Cheap connectivity check used by the Settings panel."""
+def test_provider(provider: str, cred: Credential | None = None) -> tuple[bool, str]:
+    """Cheap connectivity check used by the Settings panels (site key or a visitor's)."""
     if provider not in PROVIDERS:
         return False, "Unknown provider"
-    if not configured(provider):
+    if cred is None and not configured(provider):
         return False, "No API key saved"
     try:
-        g = _IMPL[provider]("Reply with the single word OK.", 16, 30.0)
+        g = _run(provider, "Reply with the single word OK.", 16, 30.0, cred)
         return True, f"Connected ({g.provider})"
     except Exception as e:  # noqa: BLE001 — reported to the UI
         return False, f"{type(e).__name__}: {str(e)[:200]}"
@@ -254,13 +282,14 @@ def test_provider(provider: str) -> tuple[bool, str]:
 _EXCLUDE = ("image", "tts", "customtools", "deep-research", "lyria", "omni", "embedding", "aqa", "live", "audio")
 
 
-def list_gemini_models() -> list[dict]:
+def list_gemini_models(key: str | None = None) -> list[dict]:
     """Chat-capable Gemini models this key can use, newest first, from Google's
     live list — so the Settings dropdown never goes stale."""
-    if not key_for("gemini"):
+    key = key or key_for("gemini")
+    if not key:
         raise ProviderError("No Gemini API key saved")
     with httpx.Client(timeout=30.0) as client:
-        r = client.get(GEMINI_MODELS_URL, headers={"x-goog-api-key": key_for("gemini")}, params={"pageSize": 200})
+        r = client.get(GEMINI_MODELS_URL, headers={"x-goog-api-key": key}, params={"pageSize": 200})
     if r.status_code != 200:
         raise ProviderError(f"Gemini error {r.status_code}: {r.text[:200]}")
     out = []

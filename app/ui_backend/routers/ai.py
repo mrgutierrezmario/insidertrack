@@ -41,6 +41,20 @@ def _check_ai_rate(request: Request):
             del _ai_hits[k]
 
 
+def _visitor_cred(request: Request):
+    """A visitor's own key, if the browser sent one. Headers are set by the
+    frontend from localStorage; nothing here is persisted or logged."""
+    from services.providers import Credential, PROVIDERS
+    provider = (request.headers.get("X-AI-Provider") or "").strip().lower()
+    key = (request.headers.get("X-AI-Key") or "").strip()
+    model = (request.headers.get("X-AI-Model") or "").strip() or None
+    if not provider or not key:
+        return None
+    if provider not in PROVIDERS or len(key) > 512 or (model and len(model) > 100):
+        raise HTTPException(status_code=400, detail="Invalid AI provider settings.")
+    return Credential(provider=provider, key=key, model=model)
+
+
 @router.get("/status")
 def ai_status():
     from services.providers import active_provider, LABELS, model_for
@@ -69,10 +83,38 @@ def stock_summary(
     if not _TICKER_RE.match(ticker):
         raise HTTPException(status_code=400, detail="Invalid ticker. Expected 1-10 chars: A-Z, 0-9, '.', '-'.")
     _check_ai_rate(request)
-    if refresh:
+    cred = _visitor_cred(request)
+    # A visitor with their own key pays for the regeneration, so they may force it.
+    if refresh and cred is None:
         from routers.access import _make_token
         expected = _make_token(settings.admin_password)
         if not x_admin_token or not hmac.compare_digest(x_admin_token, expected):
             raise HTTPException(status_code=403, detail="Admin token required to force-refresh AI summaries.")
     from services.ai_summary import generate_stock_summary
-    return generate_stock_summary(ticker, db, force=refresh)
+    return generate_stock_summary(ticker, db, force=refresh, cred=cred)
+
+
+@router.post("/test")
+def test_own_key(request: Request):
+    """Connectivity check for the key the visitor pasted in Settings."""
+    _check_ai_rate(request)
+    cred = _visitor_cred(request)
+    if cred is None:
+        raise HTTPException(status_code=400, detail="Send X-AI-Provider and X-AI-Key.")
+    from services.providers import test_provider
+    ok, message = test_provider(cred.provider, cred)
+    return {"provider": cred.provider, "ok": ok, "message": message}
+
+
+@router.get("/gemini-models")
+def own_gemini_models(request: Request):
+    """Gemini models available to the visitor's own key."""
+    _check_ai_rate(request)
+    cred = _visitor_cred(request)
+    if cred is None or cred.provider != "gemini":
+        raise HTTPException(status_code=400, detail="Send a Gemini key in X-AI-Key.")
+    from services.providers import list_gemini_models
+    try:
+        return list_gemini_models(cred.key)
+    except Exception as e:  # noqa: BLE001 — surfaced to the settings UI
+        raise HTTPException(status_code=502, detail=str(e)[:200])

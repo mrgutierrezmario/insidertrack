@@ -102,14 +102,25 @@ def _fallback(ticker: str, context: dict) -> dict:
     return {
         "ticker": ticker,
         "available": False,
-        "message": "AI research notes are not configured. Add a Claude, Gemini or OpenAI API key in the Admin panel to enable them.",
+        "message": "No AI provider is set up for this site. Add your own Claude, Gemini or OpenAI key under Settings → AI research notes.",
         "context": context,
     }
 
 
-def generate_stock_summary(ticker: str, db: Session, force: bool = False) -> dict:
+def generate_stock_summary(ticker: str, db: Session, force: bool = False, cred=None) -> dict:
+    """``cred`` is a visitor's own provider key (services.providers.Credential);
+    without it the site's configured provider is used."""
+    from services.providers import ProviderError, active_provider, generate_text, model_for
+
     ticker = ticker.upper()
-    cache_key = f"summary:{ticker}"
+    # Notes differ by who wrote them, so cache per provider/model. A note paid
+    # for by a visitor's key is public data like everything else here and is
+    # served from the same cache.
+    if cred is not None:
+        cache_key = f"summary:{ticker}:{cred.provider}:{cred.model or model_for(cred.provider)}"
+    else:
+        active = active_provider()
+        cache_key = f"summary:{ticker}:{active}:{model_for(active) if active else ''}"
     if not force:
         cached = _cache_get(cache_key)
         if cached is not None:
@@ -117,9 +128,7 @@ def generate_stock_summary(ticker: str, db: Session, force: bool = False) -> dic
 
     context = _gather_context(ticker, db)
 
-    from services.providers import ProviderError, active_provider, generate_text
-
-    if active_provider() is None:
+    if cred is None and active_provider() is None:
         return _fallback(ticker, context)
 
     prompt = f"""You are a careful investment research assistant. Using ONLY the data below, write a brief, balanced research note for the stock {ticker}.
@@ -136,7 +145,7 @@ Write a JSON object with exactly these keys:
 Rules: Never say a trade is guaranteed. Never tell the user to buy or sell. Note that congressional and 13F data is delayed/lagging. Be factual and concise. Output ONLY the raw JSON object, no markdown fencing."""
 
     try:
-        gen = generate_text(prompt, max_tokens=700, timeout=45.0)
+        gen = generate_text(prompt, max_tokens=700, timeout=45.0, cred=cred)
         text = gen.text
         if text.startswith("```"):
             text = text.split("```")[1].lstrip("json").strip()
@@ -148,6 +157,7 @@ Rules: Never say a trade is guaranteed. Never tell the user to buy or sell. Note
             "available": True,
             "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
             "model": gen.provider,
+            "source": "own" if cred is not None else "site",
             "fallback": gen.fallback,
             "fallback_reason": gen.fallback_reason,
             **{k: parsed.get(k, "") for k in ("why_today", "bull_case", "bear_case", "risk_note")},

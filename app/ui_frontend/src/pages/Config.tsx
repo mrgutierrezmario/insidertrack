@@ -7,6 +7,7 @@ import ConfirmModal from "../components/ConfirmModal";
 import useTheme from "../hooks/useTheme";
 import type { ThemePref } from "../hooks/useTheme";
 import useDocumentTitle from "../hooks/useDocumentTitle";
+import OwnAiSettings from "../components/OwnAiSettings";
 
 type Period = "morning" | "midday" | "evening";
 const PERIODS: Period[] = ["morning", "midday", "evening"];
@@ -118,7 +119,7 @@ export default function Config() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "2rem" }}>
         <div>
           <h1 style={{ fontSize: "1.5rem", fontWeight: 700, marginBottom: "0.25rem" }}>Settings</h1>
-          <p style={{ color: C.textMuted, fontSize: "0.88rem" }}>Appearance and your email-report subscription.</p>
+          <p style={{ color: C.textMuted, fontSize: "0.88rem" }}>Appearance, your AI key, and your email-report subscription.</p>
         </div>
         <button
           onClick={() => navigate("/admin")}
@@ -146,6 +147,8 @@ export default function Config() {
           ))}
         </div>
       </section>
+
+      <OwnAiSettings onToast={(m) => showToast(m)} />
 
       <section style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 10, padding: "1.5rem", marginBottom: "1.5rem" }}>
         <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>Manage My Email Subscription</div>

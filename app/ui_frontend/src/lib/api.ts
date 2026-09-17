@@ -14,10 +14,25 @@ import type {
 } from "../types/api";
 
 export { ADMIN_TOKEN_KEY } from "./storage";
-import { WATCHLIST_TOKEN_KEY } from "./storage";
+import { WATCHLIST_TOKEN_KEY, readOwnAi } from "./storage";
 
 // withCredentials ensures the httpOnly admin_token cookie is sent on every request.
 const api = axios.create({ baseURL: "", withCredentials: true });
+
+// A visitor's own AI key (Settings → AI research notes) rides along only on
+// /ai/* requests, as headers the server uses for that one call and never stores.
+api.interceptors.request.use((config) => {
+  if ((config.url || "").startsWith("/ai/")) {
+    const own = readOwnAi();
+    if (own) {
+      config.headers = config.headers ?? {};
+      config.headers["X-AI-Provider"] = own.provider;
+      config.headers["X-AI-Key"] = own.key;
+      if (own.model) config.headers["X-AI-Model"] = own.model;
+    }
+  }
+  return config;
+});
 
 // `Resp<T>` is a tiny alias so the per-endpoint signatures read at a glance.
 type Resp<T> = Promise<AxiosResponse<T>>;
@@ -230,6 +245,9 @@ export interface AiSettings {
   providers: Record<string, { label: string; configured: boolean; model: string }>;
 }
 export const getAiSettings = (): Resp<AiSettings> => api.get("/settings/ai");
+// Visitor's own key (headers added by the interceptor)
+export const testOwnAiKey = (): Resp<{ provider: string; ok: boolean; message: string }> => api.post("/ai/test");
+export const getOwnGeminiModels = (): Resp<Array<{ id: string; label: string }>> => api.get("/ai/gemini-models");
 export const getGeminiModels = (): Resp<Array<{ id: string; label: string }>> => api.get("/settings/ai/gemini-models");
 export const testAiProvider = (provider: string): Resp<{ provider: string; ok: boolean; message: string }> =>
   api.post("/settings/ai/test", null, { params: { provider } });
