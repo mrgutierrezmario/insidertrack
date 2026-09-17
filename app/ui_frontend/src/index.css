@@ -140,8 +140,11 @@ img, svg { max-width: 100%; }
   color: var(--c-textBright); font-weight: 700; font-size: 1rem;
   text-decoration: none; white-space: nowrap; flex-shrink: 0;
 }
-.appbar__brand img { width: 30px; height: 30px; display: block; }
-.appbar__brand span b { color: var(--c-accent); font-weight: 700; }
+.appbar__brand img { width: 34px; height: 34px; display: block; }
+.appbar__wordmark { display: flex; flex-direction: column; line-height: 1.1; }
+.appbar__wordmark b { color: var(--c-accent); font-weight: 700; }
+.appbar__wordmark small { color: var(--c-textMuted); font-size: 0.62rem; font-weight: 500; letter-spacing: 0.02em; margin-top: 2px; }
+@media (max-width: 960px) { .appbar__wordmark small { display: none; } }
 .appbar__nav { display: flex; align-items: center; gap: 0.15rem; margin-left: 0.75rem; min-width: 0; }
 .appbar__right { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; flex-shrink: 0; }
 
@@ -185,6 +188,8 @@ img, svg { max-width: 100%; }
   background: var(--c-surface); color: var(--c-textSoft); cursor: pointer; font-size: 16px;
 }
 .iconbtn:hover { background: var(--c-surfaceAlt); color: var(--c-text); }
+.iconbtn.active { color: var(--c-accent); border-color: var(--c-accent); background: var(--c-accentBg); }
+a.iconbtn { text-decoration: none; }
 
 /* Drawer (phone) */
 .drawer-backdrop { position: fixed; inset: 0; z-index: 200; background: var(--backdrop); }
