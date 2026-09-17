@@ -313,3 +313,53 @@ def list_gemini_models(key: str | None = None) -> list[dict]:
 
     out.sort(key=sort_key)
     return out
+
+
+def list_claude_models(key: str | None = None) -> list[dict]:
+    """Models the key can use, from Anthropic's Models API (newest first)."""
+    from anthropic import Anthropic
+
+    key = key or key_for("claude")
+    if not key:
+        raise ProviderError("No Claude API key saved")
+    client = Anthropic(api_key=key, timeout=30.0, max_retries=1)
+    out = []
+    for m in client.models.list():
+        out.append({"id": m.id, "label": getattr(m, "display_name", None) or m.id, "created": str(getattr(m, "created_at", "") or "")})
+    out.sort(key=lambda x: x["created"], reverse=True)
+    return [{"id": x["id"], "label": x["label"]} for x in out]
+
+
+_OPENAI_EXCLUDE = ("embedding", "tts", "whisper", "dall-e", "realtime", "audio", "image", "transcribe", "moderation", "search", "davinci", "babbage", "codex", "computer-use")
+
+
+def list_openai_models(key: str | None = None) -> list[dict]:
+    """Chat-capable models the key can use, from OpenAI's live list (newest first)."""
+    key = key or key_for("openai")
+    if not key:
+        raise ProviderError("No OpenAI API key saved")
+    with httpx.Client(timeout=30.0) as client:
+        r = client.get("https://api.openai.com/v1/models", headers={"Authorization": f"Bearer {key}"})
+    if r.status_code != 200:
+        raise ProviderError(f"OpenAI error {r.status_code}: {r.text[:200]}")
+    rows = []
+    for m in r.json().get("data", []):
+        mid = m.get("id", "")
+        if not (mid.startswith("gpt-") or mid.startswith("o")):
+            continue
+        if any(x in mid for x in _OPENAI_EXCLUDE):
+            continue
+        rows.append({"id": mid, "label": mid, "created": m.get("created", 0)})
+    rows.sort(key=lambda x: x["created"], reverse=True)
+    return [{"id": x["id"], "label": x["label"]} for x in rows]
+
+
+def list_models(provider: str, key: str | None = None) -> list[dict]:
+    """Live model list for a provider (site key by default, or a visitor's)."""
+    if provider == "claude":
+        return list_claude_models(key)
+    if provider == "gemini":
+        return list_gemini_models(key)
+    if provider == "openai":
+        return list_openai_models(key)
+    raise ProviderError("Unknown provider")

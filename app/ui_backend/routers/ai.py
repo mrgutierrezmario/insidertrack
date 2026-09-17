@@ -106,15 +106,15 @@ def test_own_key(request: Request):
     return {"provider": cred.provider, "ok": ok, "message": message}
 
 
-@router.get("/gemini-models")
-def own_gemini_models(request: Request):
-    """Gemini models available to the visitor's own key."""
+@router.get("/models")
+def own_models(request: Request):
+    """Models available to the visitor's own key, from the provider's live list."""
     _check_ai_rate(request)
     cred = _visitor_cred(request)
-    if cred is None or cred.provider != "gemini":
-        raise HTTPException(status_code=400, detail="Send a Gemini key in X-AI-Key.")
-    from services.providers import list_gemini_models
+    if cred is None:
+        raise HTTPException(status_code=400, detail="Send X-AI-Provider and X-AI-Key.")
+    from services.providers import list_models
     try:
-        return list_gemini_models(cred.key)
+        return list_models(cred.provider, cred.key)
     except Exception as e:  # noqa: BLE001 — surfaced to the settings UI
         raise HTTPException(status_code=502, detail=str(e)[:200])

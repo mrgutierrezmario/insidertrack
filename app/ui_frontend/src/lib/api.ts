@@ -247,8 +247,11 @@ export interface AiSettings {
 export const getAiSettings = (): Resp<AiSettings> => api.get("/settings/ai");
 // Visitor's own key (headers added by the interceptor)
 export const testOwnAiKey = (): Resp<{ provider: string; ok: boolean; message: string }> => api.post("/ai/test");
-export const getOwnGeminiModels = (): Resp<Array<{ id: string; label: string }>> => api.get("/ai/gemini-models");
-export const getGeminiModels = (): Resp<Array<{ id: string; label: string }>> => api.get("/settings/ai/gemini-models");
+// Explicit headers so the list can load for a key that is typed but not yet saved.
+export const getOwnModels = (provider: string, key: string): Resp<ModelOption[]> =>
+  api.get("/ai/models", { headers: { "X-AI-Provider": provider, "X-AI-Key": key } });
+export interface ModelOption { id: string; label: string }
+export const getAiModels = (provider: string): Resp<ModelOption[]> => api.get("/settings/ai/models", { params: { provider } });
 export const testAiProvider = (provider: string): Resp<{ provider: string; ok: boolean; message: string }> =>
   api.post("/settings/ai/test", null, { params: { provider } });
 export const getAiSummary = (ticker: string, refresh = false): Resp<unknown> =>

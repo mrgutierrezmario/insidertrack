@@ -1,7 +1,7 @@
 import { C } from "../lib/theme";
 import { useEffect, useState } from "react";
-import { getAiSettings, getGeminiModels, testAiProvider, updateSettingKey, clearSettingKey } from "../lib/api";
-import type { AiSettings } from "../lib/api";
+import { getAiSettings, getAiModels, testAiProvider, updateSettingKey, clearSettingKey } from "../lib/api";
+import type { AiSettings, ModelOption } from "../lib/api";
 import { safeHref } from "../lib/safeUrl";
 
 /** One row of /settings/keys, as AdminConfig already types it. */
@@ -29,23 +29,28 @@ export default function AiProviderPanel({ keys, onChanged, onError }: { keys: Ke
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [testMsg, setTestMsg] = useState<Record<string, string>>({});
-  const [geminiModels, setGeminiModels] = useState<Array<{ id: string; label: string }> | null>(null);
+  const [models, setModels] = useState<Partial<Record<Provider, ModelOption[]>>>({});
   const byKey = Object.fromEntries(keys.map((k) => [k.key, k])) as Record<string, KeyRowData | undefined>;
 
   const refresh = () => getAiSettings().then((r) => setAi(r.data)).catch(() => {});
   useEffect(() => { refresh(); }, [keys]);
   useEffect(() => {
-    if (ai?.providers.gemini.configured && geminiModels === null) {
-      getGeminiModels().then((r) => setGeminiModels(r.data)).catch(() => setGeminiModels([]));
-    }
-  }, [ai, geminiModels]);
+    // Live model list for every provider that has a key saved.
+    if (!ai) return;
+    PROVIDERS.forEach((p) => {
+      if (ai.providers[p].configured && models[p] === undefined) {
+        getAiModels(p).then((r) => setModels((m) => ({ ...m, [p]: r.data }))).catch(() => setModels((m) => ({ ...m, [p]: [] })));
+      }
+    });
+  }, [ai, models]);
 
   const save = async (key: string, value: string) => {
     setBusy((b) => ({ ...b, [key]: true }));
     try {
       await updateSettingKey(key, value.trim());
       setDraft((d) => { const n = { ...d }; delete n[key]; return n; });
-      if (key === "gemini_api_key") setGeminiModels(null); // re-list for the new key
+      const p = (Object.keys(KEY_FOR) as Provider[]).find((x) => KEY_FOR[x] === key);
+      if (p) setModels((m) => { const n = { ...m }; delete n[p]; return n; }); // re-list for the new key
       await onChanged(); await refresh();
     } catch (e) {
       const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
@@ -127,10 +132,10 @@ export default function AiProviderPanel({ keys, onChanged, onError }: { keys: Ke
 
               {/* Model */}
               <div style={{ color: C.textMuted, fontSize: "0.72rem", marginBottom: 3 }}>Model</div>
-              {p === "gemini" && geminiModels && geminiModels.length > 0 ? (
+              {models[p] && models[p]!.length > 0 ? (
                 <select value={m.masked_value || ""} style={{ ...inputStyle, width: "100%", marginBottom: 10 }} onChange={(e) => save(m.key, e.target.value)}>
-                  {!geminiModels.some((g) => g.id === m.masked_value) && <option value={m.masked_value || ""}>{m.masked_value}</option>}
-                  {geminiModels.map((g) => <option key={g.id} value={g.id}>{g.label} ({g.id})</option>)}
+                  {!models[p]!.some((g) => g.id === m.masked_value) && <option value={m.masked_value || ""}>{m.masked_value} (not in the provider's current list)</option>}
+                  {models[p]!.map((g) => <option key={g.id} value={g.id}>{g.label === g.id ? g.id : `${g.label} (${g.id})`}</option>)}
                 </select>
               ) : (
                 <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>

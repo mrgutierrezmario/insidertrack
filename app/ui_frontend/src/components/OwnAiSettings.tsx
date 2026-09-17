@@ -1,7 +1,7 @@
 import { C } from "../lib/theme";
 import { useEffect, useState } from "react";
-import { getAiSettings, getOwnGeminiModels, testOwnAiKey } from "../lib/api";
-import type { AiSettings } from "../lib/api";
+import { getAiSettings, getOwnModels, testOwnAiKey } from "../lib/api";
+import type { AiSettings, ModelOption } from "../lib/api";
 import { readOwnAi, writeOwnAi } from "../lib/storage";
 import type { AiProvider } from "../lib/storage";
 
@@ -26,28 +26,34 @@ export default function OwnAiSettings({ onToast }: { onToast: (m: string) => voi
   const [model, setModel] = useState(saved?.model ?? "");
   const [site, setSite] = useState<AiSettings | null>(null);
   const [testMsg, setTestMsg] = useState("");
-  const [gemini, setGemini] = useState<Array<{ id: string; label: string }> | null>(null);
+  const [models, setModels] = useState<ModelOption[] | null>(null);   // null = not loaded, [] = unavailable
+  const [modelsFor, setModelsFor] = useState("");                       // "provider:key" the list belongs to
   const meta = PROVIDERS.find((p) => p.id === provider)!;
   const isSaved = !!saved;
   const dirty = !saved || saved.provider !== provider || saved.key !== key || (saved.model ?? "") !== model;
 
   useEffect(() => { getAiSettings().then((r) => setSite(r.data)).catch(() => {}); }, []);
   useEffect(() => {
-    // The live Gemini model list needs the saved key on the request headers.
-    if (provider === "gemini" && saved?.provider === "gemini" && saved.key === key && gemini === null) {
-      getOwnGeminiModels().then((r) => setGemini(r.data)).catch(() => setGemini([]));
-    }
-  }, [provider, saved, key, gemini]);
+    // Live model list from the provider, for whatever key is in the box —
+    // debounced so we don't hit the provider on every keystroke.
+    const k = key.trim();
+    const tag = `${provider}:${k}`;
+    if (!k || k.length < 8) { setModels(null); setModelsFor(""); return; }
+    if (tag === modelsFor) return;
+    const t = setTimeout(() => {
+      getOwnModels(provider, k).then((r) => { setModels(r.data); setModelsFor(tag); }).catch(() => { setModels([]); setModelsFor(tag); });
+    }, 600);
+    return () => clearTimeout(t);
+  }, [provider, key, modelsFor]);
 
   const save = () => {
     const k = key.trim();
     if (!k) { onToast("Paste an API key first."); return; }
     writeOwnAi({ provider, key: k, model: model.trim() || undefined });
-    setGemini(null);
     setTestMsg("");
     onToast("Saved in this browser.");
   };
-  const clear = () => { writeOwnAi(null); setKey(""); setModel(""); setGemini(null); setTestMsg(""); onToast("Your AI key was removed from this browser."); };
+  const clear = () => { writeOwnAi(null); setKey(""); setModel(""); setModels(null); setModelsFor(""); setTestMsg(""); onToast("Your AI key was removed from this browser."); };
   const test = async () => {
     if (dirty) { onToast("Save first, then test."); return; }
     setTestMsg("Testing…");
@@ -74,7 +80,7 @@ export default function OwnAiSettings({ onToast }: { onToast: (m: string) => voi
       <div style={{ color: C.textMuted, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Provider</div>
       <div className="segmented" role="group" aria-label="AI provider" style={{ marginBottom: "1rem" }}>
         {PROVIDERS.map((p) => (
-          <button key={p.id} type="button" aria-pressed={provider === p.id} onClick={() => { setProvider(p.id); setModel(""); setGemini(null); setTestMsg(""); }}>{p.label}</button>
+          <button key={p.id} type="button" aria-pressed={provider === p.id} onClick={() => { setProvider(p.id); setModel(""); setModels(null); setModelsFor(""); setTestMsg(""); }}>{p.label}</button>
         ))}
       </div>
 
@@ -85,13 +91,19 @@ export default function OwnAiSettings({ onToast }: { onToast: (m: string) => voi
         onChange={(e) => setKey(e.target.value)} style={{ ...inputStyle, width: "100%", marginBottom: "0.75rem" }} />
 
       <label style={{ color: C.textMuted, fontSize: "0.72rem", display: "block", marginBottom: 4 }}>Model <span style={{ color: C.textDim }}>(optional — default {meta.defaultModel})</span></label>
-      {provider === "gemini" && gemini && gemini.length > 0 ? (
+      {models && models.length > 0 ? (
         <select value={model} onChange={(e) => setModel(e.target.value)} style={{ ...inputStyle, width: "100%", marginBottom: "1rem" }}>
           <option value="">Default ({meta.defaultModel})</option>
-          {gemini.map((g) => <option key={g.id} value={g.id}>{g.label} ({g.id})</option>)}
+          {model && !models.some((m) => m.id === model) && <option value={model}>{model} (not in the provider's current list)</option>}
+          {models.map((m) => <option key={m.id} value={m.id}>{m.label === m.id ? m.id : `${m.label} (${m.id})`}</option>)}
         </select>
       ) : (
-        <input type="text" value={model} placeholder={meta.defaultModel} onChange={(e) => setModel(e.target.value)} style={{ ...inputStyle, width: "100%", marginBottom: "1rem" }} />
+        <div style={{ marginBottom: "1rem" }}>
+          <input type="text" value={model} placeholder={meta.defaultModel} onChange={(e) => setModel(e.target.value)} style={{ ...inputStyle, width: "100%" }} />
+          <div style={{ color: C.textDim, fontSize: "0.72rem", marginTop: 4 }}>
+            {key.trim().length >= 8 ? (models === null ? "Loading the model list for this key…" : "Couldn't load the list for this key — type a model ID.") : "Paste a key and the list of models it can use appears here."}
+          </div>
+        </div>
       )}
 
       <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>

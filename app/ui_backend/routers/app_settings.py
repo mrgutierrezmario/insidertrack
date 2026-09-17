@@ -241,12 +241,12 @@ def ai_status():
     }
 
 
-@router.get("/ai/gemini-models")
-def gemini_models(_: None = Depends(require_admin)):
-    """Chat-capable Gemini models available to the saved key, from Google's live list."""
+@router.get("/ai/models")
+def ai_models(provider: str = Query(...), _: None = Depends(require_admin)):
+    """Models available to the saved key for a provider, from that provider's live list."""
     from services import providers
     try:
-        return providers.list_gemini_models()
+        return providers.list_models(provider)
     except Exception as e:  # noqa: BLE001 — surfaced to the settings UI
         raise HTTPException(status_code=502, detail=str(e)[:200])
 

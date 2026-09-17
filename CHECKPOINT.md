@@ -161,7 +161,7 @@ providers.py` (Claude via the Anthropic SDK; Gemini and OpenAI via httpx),
 is a fallback, and the note records `provider/model` plus any fallback reason.
 Keys/models are admin-editable in the Admin panel (`AiProviderPanel`) via the
 existing `/settings/keys` store, with `GET /settings/ai` (public status),
-`GET /settings/ai/gemini-models` (live list from Google) and
+`GET /settings/ai/models?provider=` (live list from each provider) and
 `POST /settings/ai/test?provider=`. Defaults: `claude-opus-5`,
 `gemini-flash-latest`, `gpt-4o-mini`. Currently active: Gemini, using the same
 key as the lecture app. Clearing a model field restores the config default.
@@ -173,7 +173,7 @@ localStorage (`insidertrack_ai`) and are attached by the axios interceptor as
 server (`routers/ai.py::_visitor_cred`) uses them for that call and never
 stores or logs them; with a visitor key only that provider is used (no
 cascade onto site keys) and the visitor may force-refresh. Public helpers:
-`POST /ai/test`, `GET /ai/gemini-models` (rate-limited like summaries). Notes
+`POST /ai/test`, `GET /ai/models` (rate-limited like summaries). Notes
 are cached per ticker+provider+model and record `source: own|site`.
 
 ## Still open
