@@ -68,10 +68,17 @@ _HOUSE_TXN_RE = re.compile(
     r"(\d{2}/\d{2}/\d{4})\s*"                  # notification (disclosure) date
     r"\$([\d,]+)\s*-\s*\$?([\d,]+)?"           # amount low - high
 )
-# The owner code (SP spouse / DC dependent child / JT joint; blank = self)
-# opens each row, right before the asset name. We look for it at the start of
-# the text between the previous transaction and this one.
-_HOUSE_OWNER_RE = re.compile(r"^\s*(?:\d+\s+)?(SP|DC|JT)\b")
+# Each row opens with an optional 10-digit transaction ID and an optional
+# owner code (SP spouse / DC dependent child / JT joint; blank = self), often
+# glued together ("2000166568SP California ..."). The text before a row also
+# holds the previous row's trailer, so we take the LAST id / code before the
+# asset name rather than anchoring at the start.
+_HOUSE_TXID_RE = re.compile(r"(?<!\d)(20\d{8})(?!\d)")
+_HOUSE_OWNER_RE = re.compile(r"(?:^|\d|\s)(SP|DC|JT)(?=\s+[A-Z0-9])")
+# Every row carries "Filing Status: New" or "Filing Status: Amended" in its
+# trailer (the label letters come out garbled; the value doesn't). An Amended
+# row re-files a transaction under the same ID and replaces it.
+_HOUSE_STATUS_RE = re.compile(r":\s*(New|Amended)\b")
 # Option contracts describe themselves after the amount: "... call options
 # with a strike price ..." / "... put option ...". Only the segment up to the
 # next transaction belongs to this row.
@@ -212,6 +219,7 @@ def _refresh_trade(t: Trade, tx: dict, disclosure_date: Optional[date], raw: dic
     t.disclosure_date = disclosure_date or t.disclosure_date
     t.filing_id = filing_id or t.filing_id
     t.amends = amends
+    t.house_tx_id = tx.get("tx_id") or t.house_tx_id
     t.raw_data = json.dumps(raw)
 
 
@@ -261,6 +269,7 @@ def _new_trade(politician_id: int, tx: dict, tx_type: str, trade_date: date,
         source=source,
         filing_id=filing_id,
         amends=amends,
+        house_tx_id=tx.get("tx_id"),
         raw_data=json.dumps(raw),
     )
 
@@ -599,7 +608,14 @@ def _parse_house_text(text: str) -> list[dict]:
         # call/put description in its tail.
         head = flat[matches[i - 1].end() if i else 0 : m.start()]
         tail = flat[m.end() : matches[i + 1].start() if i + 1 < len(matches) else len(flat)]
-        owner_m = _HOUSE_OWNER_RE.match(head)
+        # Only the last ~160 chars of head belong to this row's prefix; the
+        # previous row's trailer ("... O: Some Trust ...") sits before that.
+        prefix = head[-160:]
+        ids = _HOUSE_TXID_RE.findall(prefix)
+        tx_id = ids[-1] if ids else None
+        owners = _HOUSE_OWNER_RE.findall(prefix[prefix.rfind(tx_id) if tx_id else 0:] if tx_id else prefix)
+        owner_code = owners[-1] if owners else ""
+        status_m = _HOUSE_STATUS_RE.search(tail)
         kind_m = _HOUSE_OPTION_KIND_RE.search(tail) if is_option else None
         kind = kind_m.group(1).lower() if kind_m else None
         txns.append({
@@ -610,8 +626,10 @@ def _parse_house_text(text: str) -> list[dict]:
             "amount": f"${lo} - ${hi}" if hi else f"${lo}",
             "asset_type": "option" if is_option else "stock",
             "asset_name": (f"{tk} {kind} option" if kind else f"{tk} (option)") if is_option else "",
-            "owner": sem.normalize_owner(owner_m.group(1) if owner_m else ""),
-            "amended": amended,
+            "owner": sem.normalize_owner(owner_code),
+            "tx_id": tx_id,
+            "status": (status_m.group(1).lower() if status_m else "new"),
+            "amended": amended or (status_m is not None and status_m.group(1) == "Amended"),
         })
     return txns
 
@@ -715,11 +733,28 @@ def sync_house_trades(db: Session, start_date: Optional[date] = None,
                         logger.warning(f"House PTR {doc_id}: skipping {tx['ticker']} with implausible trade date {trade_date} (filed {filed})")
                         continue
                     raw = {**tx, "ptr_doc_id": doc_id, "filing_date": row.get("FilingDate")}
-                    existing = _find_trade(db, politician.id, tx["ticker"], trade_date, tx["type"], tx["amount"])
+                    # The transaction ID is the real identity of a House row.
+                    # An "Amended" row with a known ID replaces the earlier
+                    # version in place (same trade id); a "New" row with a
+                    # known ID is a re-download of the same filing.
+                    existing = None
+                    if tx.get("tx_id"):
+                        existing = db.query(Trade).filter(
+                            Trade.politician_id == politician.id, Trade.house_tx_id == tx["tx_id"]).first()
+                    if existing is None:
+                        existing = _find_trade(db, politician.id, tx["ticker"], trade_date, tx["type"], tx["amount"])
                     if existing:
-                        if reparse:
-                            _refresh_trade(existing, tx, filed, raw, doc_id, None)
-                            kept.add(existing.id)
+                        if tx.get("status") == "amended" and existing.filing_id != doc_id:
+                            original_filed = existing.disclosure_date
+                            existing.ticker = tx["ticker"]
+                            existing.transaction_type = tx["type"]
+                            existing.trade_date = trade_date
+                            existing.amount_range = tx["amount"]
+                            _refresh_trade(existing, tx, original_filed, raw, doc_id, original_filed)
+                            logger.info(f"House PTR {doc_id}: amended transaction {tx.get('tx_id')} replaced in place")
+                        elif reparse:
+                            _refresh_trade(existing, tx, filed, raw, doc_id, existing.amends)
+                        kept.add(existing.id)
                         continue
                     t = _new_trade(politician.id, tx, tx["type"], trade_date, filed, "house", raw, filing_id=doc_id)
                     db.add(t)

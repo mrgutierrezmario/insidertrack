@@ -80,6 +80,8 @@ def _apply_migrations():
         # Filing provenance + Senate amendment linkage
         "ALTER TABLE trades ADD COLUMN IF NOT EXISTS filing_id VARCHAR(64)",
         "ALTER TABLE trades ADD COLUMN IF NOT EXISTS amends DATE",
+        "ALTER TABLE trades ADD COLUMN IF NOT EXISTS house_tx_id VARCHAR(12)",
+        "CREATE INDEX IF NOT EXISTS ix_trades_house_tx_id ON trades (house_tx_id)",
         "CREATE INDEX IF NOT EXISTS ix_trades_filing_id ON trades (filing_id)",
         # raw_data is json.dumps output, so the cast is safe; rows written
         # after this column existed already have it set.

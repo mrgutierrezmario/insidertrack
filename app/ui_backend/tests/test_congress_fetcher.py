@@ -87,6 +87,8 @@ class TestParseHouseText:
             "asset_type": "stock",
             "asset_name": "",
             "owner": "self",
+            "tx_id": None,
+            "status": "new",
             "amended": False,
         }
 
@@ -476,3 +478,65 @@ class TestMarkProcessedOnce:
         _mark_processed_once(db, "senate", "uuid-1"); db.flush()
         _mark_processed_once(db, "senate", "uuid-1"); db.flush()   # would raise on the unique index otherwise
         assert db.query(ProcessedFiling).filter(ProcessedFiling.doc_id == "uuid-1").count() == 1
+
+
+# ── House transaction IDs, status and glued owner codes ───────────────────────
+
+class TestHouseRowIdentity:
+    TEXT = (
+        "ID Owner Asset Transaction Type Date Notification Date Amount Cap. Gains > $200? "
+        "2000140445 Alphabet Inc. - Class A Common Stock (GOOGL) [ST] S 06/03/202506/04/2025$250,001 - $500,000 "
+        "F S: Amended O: Raymond James Brokerage Account "
+        "2000140446 JT Microsoft (MSFT) [ST] P 06/03/202506/04/2025$1,001 - $15,000 F S: New O: Trust "
+        "2000166568SP Tesla Inc (TSLA) [ST] P 07/17/202608/12/2026$50,001 - $100,000 F S: Amended O: Victoria Kelly Trust"
+    )
+
+    def test_ids_status_and_owners(self):
+        rows = _parse_house_text(self.TEXT)
+        assert [(r["ticker"], r["tx_id"], r["status"], r["owner"]) for r in rows] == [
+            ("GOOGL", "2000140445", "amended", "self"),
+            ("MSFT", "2000140446", "new", "joint"),
+            ("TSLA", "2000166568", "amended", "spouse"),   # id glued to the owner code
+        ]
+
+    def test_owner_without_id_and_header_noise(self):
+        (r,) = _parse_house_text("ID Owner Asset ... Cap. Gains > $200? SP Abbott Laboratories (ABT) [ST] S 07/17/202608/12/2026$1,001 - $15,000 F S: New")
+        assert r["owner"] == "spouse" and r["tx_id"] is None and r["status"] == "new"
+
+
+class TestHouseAmendedRowReplaces:
+    def test_amended_row_replaces_same_tx_id(self, db, monkeypatch):
+        from datetime import date
+        from models.politician import Politician
+        from models.trade import Trade
+        from services import congress_fetcher as cf
+        p = Politician(name="Rep TxId", chamber="house"); db.add(p); db.flush()
+        orig = Trade(politician_id=p.id, ticker="GOOGL", transaction_type="sale", amount_range="$100,001 - $250,000",
+                     trade_date=date(2025, 6, 3), disclosure_date=date(2025, 6, 4), source="house",
+                     filing_id="20031000", house_tx_id="2000140445", raw_data="{}")
+        db.add(orig); db.flush(); oid = orig.id
+
+        # Simulate the House loop on an amendment filing carrying the same tx id with a corrected amount.
+        index_row = {"DocID": "20035444", "FilingDate": "9/12/2026", "First": "Rep", "Last": "TxId", "FilingType": "P", "StateDst": "TN06"}
+        pdf_text = ("2000140445 Alphabet Inc. - Class A Common Stock (GOOGL) [ST] S 06/03/202506/04/2025$250,001 - $500,000 "
+                    "F S: Amended O: Raymond James Brokerage Account")
+        monkeypatch.setattr(cf, "_fetch_house_index", lambda client, year: [index_row])
+        monkeypatch.setattr(cf, "_parse_house_ptr", lambda pdf_bytes: cf._parse_house_text(pdf_text))
+        monkeypatch.setattr(cf, "_enrich", lambda first, last: ("R", "TN"))
+        monkeypatch.setattr(cf, "_get_or_create_politician", lambda db_, name, chamber, party="", state="": p)
+        class _Resp: status_code = 200; content = b"%PDF"
+        class _Client:
+            def __init__(self, *a, **k): pass
+            def get(self, url): return _Resp()
+            def close(self): pass
+        monkeypatch.setattr(cf.httpx, "Client", _Client)
+        monkeypatch.setattr(cf.time, "sleep", lambda s: None)
+
+        n = cf.sync_house_trades(db, start_date=date(2026, 9, 1), end_date=date(2026, 9, 19))
+        assert n == 0                                   # replaced, not added
+        rows = db.query(Trade).filter(Trade.politician_id == p.id).all()
+        assert len(rows) == 1 and rows[0].id == oid      # same row, same id
+        r = rows[0]
+        assert r.amount_range == "$250,001 - $500,000" and r.amount_high == 500000
+        assert r.filing_id == "20035444" and r.amends == date(2025, 6, 4)
+        assert r.disclosure_date == date(2025, 6, 4)     # public since the original filing

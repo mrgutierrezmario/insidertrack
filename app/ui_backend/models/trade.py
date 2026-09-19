@@ -31,6 +31,9 @@ class Trade(Base):
     source = Column(String)            # house | senate
     # The filing this row came from: Senate PTR uuid or House DocID.
     filing_id = Column(String(64), index=True)
+    # House PTR rows carry a stable 10-digit transaction ID; an "Amended" row
+    # re-files under the same ID and replaces the earlier row in place.
+    house_tx_id = Column(String(12), index=True)
     # Senate amendments are full re-filings of an earlier report. When set,
     # this row came from an amendment and `amends` is the filing date of the
     # report it replaced (whose rows were deleted). Consumers don't need to
