@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 # With every member tracked, a rule with no ticker ("any politician buy")
 # matches dozens of trades per run. Cap new events per rule per evaluation;
-# the overflow is summarised in one extra event so nothing is silently lost.
+# the overflow is summarized in one extra event so nothing is silently lost.
 MAX_EVENTS_PER_RULE = 15
 _emitted: dict[int, int] = {}
 _overflow: dict[int, int] = {}

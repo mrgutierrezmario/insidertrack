@@ -18,7 +18,7 @@ class Politician(Base):
     # Identity across the spellings the House index and EFD use for one
     # person ("Scott Franklin" / "Scott Mr Franklin" / "C. Scott Franklin"):
     # the congress-legislators bioguide id when the roster knows them, and a
-    # normalised "first last" key either way. See congress_fetcher._name_key.
+    # normalized "first last" key either way. See congress_fetcher._name_key.
     bioguide_id = Column(String(12), index=True)
     name_key = Column(String(80), index=True)
     description = Column(Text, default="")

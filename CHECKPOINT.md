@@ -65,7 +65,7 @@ Skill refresh: interrupted by deploys four times today; the final run started
 
 ### Late additions (same evening)
 - **UI consistency pass**: one date format (`lib/format.ts`), chamber labels, sentence-case labels, Dashboard tile reads "N bullish · M bearish", chip lists capped at 18 with "+N more", plainer nav hints.
-- **Duplicate members merged**: the Clerk's index spells one person several ways; identity is now the bioguide id (roster, incl. nicknames) or a normalised name key; `merge_duplicate_politicians()` runs after every sync. 14 records folded on 2026-09-19; 188/284 members carry a bioguide id (the rest left Congress).
+- **Duplicate members merged**: the Clerk's index spells one person several ways; identity is now the bioguide id (roster, incl. nicknames) or a normalized name key; `merge_duplicate_politicians()` runs after every sync. 14 records folded on 2026-09-19; 188/284 members carry a bioguide id (the rest left Congress).
 
 ### Still open after this batch
 - Senate paper readings unverified end-to-end (quota); House paper verified (22 rows, spot-checked).

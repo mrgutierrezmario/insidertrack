@@ -380,7 +380,7 @@ export default function Dashboard() {
       {/* ── 30-day performance ────────────────────────────────────────── */}
       <div style={{ marginBottom: "1rem" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem", gap: 8, flexWrap: "wrap" }}>
-          <h2 style={{ fontSize: "0.95rem", fontWeight: 600, color: C.textSoft, margin: 0 }}>30-day performance of signalled tickers</h2>
+          <h2 style={{ fontSize: "0.95rem", fontWeight: 600, color: C.textSoft, margin: 0 }}>30-day performance of signaled tickers</h2>
           {perfDemo && (
             <span style={{ background: C.warningBg, color: C.warningSolid, border: "1px solid var(--c-warningDeep)", fontSize: "0.68rem", padding: "1px 8px", borderRadius: 4 }}>
               demo data

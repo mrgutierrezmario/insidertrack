@@ -102,7 +102,7 @@ def _parse_json(text: str) -> Optional[dict]:
 
 
 def _year4(d: Optional[str]) -> Optional[str]:
-    """'4/16/26' → '04/16/2026'; passes MM/DD/YYYY through; None when unparseable."""
+    """'4/16/26' → '04/16/2026'; passes MM/DD/YYYY through; None when unparsable."""
     if not d:
         return None
     m = re.match(r"\s*(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})\s*$", d)

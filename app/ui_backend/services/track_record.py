@@ -221,7 +221,7 @@ def compute_track_record(db: Session, politician_id: int, force: bool = False,
             rows.append(row)
         return rows, demo
 
-    def summarise(rows: list[dict], good_when_negative: bool = False) -> dict:
+    def summarize(rows: list[dict], good_when_negative: bool = False) -> dict:
         """Per-window aggregates. For sells a *negative* return/excess is the
         good outcome (the stock went down after they sold), so 'win' and
         'beat SPY' flip sign; averages are reported as-is."""
@@ -242,13 +242,13 @@ def compute_track_record(db: Session, politician_id: int, force: bool = False,
 
     rows, demo = measure(buys)
     result["skipped_demo"] += demo
-    result["windows"] = summarise(rows)
+    result["windows"] = summarize(rows)
     result["trades"] = rows
     result["evaluated"] = len(rows)
 
     sell_rows, demo = measure(sells)
     result["skipped_demo"] += demo
-    result["sells"] = {"windows": summarise(sell_rows, good_when_negative=True),
+    result["sells"] = {"windows": summarize(sell_rows, good_when_negative=True),
                        "trades": sell_rows, "evaluated": len(sell_rows)}
     cache_set(key, result, CACHE_TTL)
     return result
