@@ -172,7 +172,7 @@ def _norm_name(first: str, last: str) -> str:
 
 
 def _load_legislators() -> dict[str, tuple[str, str]]:
-    global _legislators, _legislators_loaded_on
+    global _legislators, _legislators_loaded_on, _roster
     if _legislators and _legislators_loaded_on == date.today():
         return _legislators
     try:

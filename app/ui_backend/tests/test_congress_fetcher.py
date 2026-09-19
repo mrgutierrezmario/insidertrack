@@ -628,3 +628,19 @@ class TestMergeDuplicates:
         p = cf._get_or_create_politician(db, "Laurel Lee", "house")
         q = cf._get_or_create_politician(db, "Laurel Mrs Lee", "house")
         assert p.id == q.id and p.name == "Laurel Lee"
+
+
+class TestRosterLoad:
+    def test_roster_is_populated_from_csv(self, monkeypatch):
+        from services import congress_fetcher as cf
+        csv_text = ("last_name,first_name,middle_name,suffix,nickname,full_name,birthday,gender,type,state,district,senate_class,party,bioguide_id\n"
+                    "Crenshaw,Daniel,,,Dan,Daniel Crenshaw,1984-03-14,M,rep,TX,2,,Republican,C001120\n")
+        class _R:
+            text = csv_text
+            def raise_for_status(self): pass
+        monkeypatch.setattr(cf.httpx, "get", lambda *a, **k: _R())
+        cf._legislators, cf._roster, cf._legislators_loaded_on = {}, {}, None
+        cf._load_legislators()
+        assert cf._roster["dan crenshaw"]["bioguide"] == "C001120"
+        assert cf.resolve_identity("Dan Crenshaw") == ("Daniel Crenshaw", "daniel crenshaw", "C001120", "R", "TX")
+        cf._legislators, cf._roster, cf._legislators_loaded_on = {}, {}, None
