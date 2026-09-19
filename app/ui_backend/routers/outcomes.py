@@ -42,31 +42,35 @@ def run_backfill(
 
 
 @router.get("/stats")
-def outcome_stats(db: Session = Depends(get_db)):
+def outcome_stats(
+    score_version: int | None = Query(default=None, description="Restrict to one scoring regime; default = current"),
+    all_versions: bool = Query(default=False, description="Blend every regime (not comparable — for reference only)"),
+    db: Session = Depends(get_db),
+):
     """
     Win-rate summary grouped by label and timeframe.
     Returns counts + hit rate (% UP) for 30/60/90d.
+
+    Snapshots from different scoring regimes are not comparable, so by default
+    only the current SCORE_VERSION is counted.
     """
+    from routers.signals import SCORE_VERSION
+    version = None if all_versions else (score_version or SCORE_VERSION)
     labels = ["Strong Watch", "Watch", "Neutral", "High Risk", "Avoid for Now"]
     result = []
+
+    def base(*conds):
+        q = db.query(func.count(SignalOutcome.id)).filter(*conds)
+        if version is not None:
+            q = q.filter(SignalOutcome.score_version == version)
+        return q.scalar() or 0
 
     for label in labels:
         row: dict = {"label": label}
         for days, col in [(30, "outcome_30d"), (60, "outcome_60d"), (90, "outcome_90d")]:
-            total = db.query(func.count(SignalOutcome.id)).filter(
-                SignalOutcome.label == label,
-                getattr(SignalOutcome, col) != None,  # noqa: E711
-            ).scalar() or 0
-
-            up = db.query(func.count(SignalOutcome.id)).filter(
-                SignalOutcome.label == label,
-                getattr(SignalOutcome, col) == "UP",
-            ).scalar() or 0
-
-            down = db.query(func.count(SignalOutcome.id)).filter(
-                SignalOutcome.label == label,
-                getattr(SignalOutcome, col) == "DOWN",
-            ).scalar() or 0
+            total = base(SignalOutcome.label == label, getattr(SignalOutcome, col) != None)  # noqa: E711
+            up = base(SignalOutcome.label == label, getattr(SignalOutcome, col) == "UP")
+            down = base(SignalOutcome.label == label, getattr(SignalOutcome, col) == "DOWN")
 
             row[f"d{days}"] = {
                 "total":    total,
@@ -77,15 +81,27 @@ def outcome_stats(db: Session = Depends(get_db)):
             }
         result.append(row)
 
-    total_snaps  = db.query(func.count(SignalOutcome.id)).scalar() or 0
-    oldest = db.query(func.min(SignalOutcome.signal_date)).scalar()
-    newest = db.query(func.max(SignalOutcome.signal_date)).scalar()
+    scope = db.query(SignalOutcome)
+    if version is not None:
+        scope = scope.filter(SignalOutcome.score_version == version)
+    total_snaps = scope.with_entities(func.count(SignalOutcome.id)).scalar() or 0
+    oldest = scope.with_entities(func.min(SignalOutcome.signal_date)).scalar()
+    newest = scope.with_entities(func.max(SignalOutcome.signal_date)).scalar()
+    versions = [
+        {"version": v, "snapshots": n, "since": s.isoformat() if s else None, "until": u.isoformat() if u else None}
+        for v, n, s, u in db.query(SignalOutcome.score_version, func.count(SignalOutcome.id),
+                                   func.min(SignalOutcome.signal_date), func.max(SignalOutcome.signal_date))
+        .group_by(SignalOutcome.score_version).order_by(SignalOutcome.score_version).all()
+    ]
 
     return {
         "labels": result,
         "total_snapshots": total_snaps,
         "tracking_since": oldest.isoformat() if oldest else None,
         "latest_snapshot": newest.isoformat() if newest else None,
+        "score_version": version,          # None = all regimes blended
+        "current_version": SCORE_VERSION,
+        "versions": versions,
     }
 
 
@@ -94,10 +110,13 @@ def list_outcomes(
     ticker: str = "",
     label: str = "",
     resolved: bool | None = None,
+    score_version: int | None = Query(default=None, description="Restrict to one scoring regime"),
     limit: int = Query(default=200, ge=1, le=500),
     db: Session = Depends(get_db),
 ):
     q = db.query(SignalOutcome).order_by(SignalOutcome.signal_date.desc())
+    if score_version is not None:
+        q = q.filter(SignalOutcome.score_version == score_version)
     if ticker:
         q = q.filter(SignalOutcome.ticker == ticker.upper())
     if label:
@@ -120,6 +139,7 @@ def list_outcomes(
             "politician_id":   r.politician_id,
             "politician_name": r.politician_name,
             "is_backfilled":   bool(r.is_backfilled),
+            "score_version":   r.score_version,
             "sub_scores": {
                 "smart_money": r.smart_money_score,
                 "insider":     r.insider_score,

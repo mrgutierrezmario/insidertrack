@@ -31,10 +31,10 @@ interface SignalRow {
 
 function exportSignalsCSV(signals: SignalRow[]) {
   exportCSV(
-    ["ticker", "label", "signal", "composite_score", "smart_money", "congress", "corporate_insiders", "momentum", "sentiment", "rsi", "current_price"],
+    ["ticker", "label", "signal", "composite_score", "smart_money", "congress", "corporate_insiders", "momentum", "rsi", "current_price"],
     signals.map((s) => {
       const sub = s.sub_scores || {};
-      return [s.ticker, s.label, s.signal, s.composite_score ?? "", sub.smart_money ?? "", sub.insider ?? "", sub.corporate ?? "", sub.momentum ?? "", sub.sentiment ?? "", s.rsi ?? "", s.current_price ?? ""];
+      return [s.ticker, s.label, s.signal, s.composite_score ?? "", sub.smart_money ?? "", sub.insider ?? "", sub.corporate ?? "", sub.momentum ?? "", s.rsi ?? "", s.current_price ?? ""];
     }),
     "insidertrack-signals",
   );
@@ -61,10 +61,9 @@ function ScoreBar({ score }: { score: number | null | undefined }) {
 
 const SUB_TIPS: Record<string, string> = {
   "Smart Money": "Institutional 13F holders in this ticker — new or growing positions score higher. Max 20.",
-  "Congress": "Congressional buys vs. sells in the last 45 days, weighted by the disclosed dollar bracket. Options count by contract direction; unknown contracts and bonds are neutral. Max 25.",
-  "Insiders": "Company officers and directors (SEC Form 4) in the last 90 days: open-market buys vs. sells by dollar value. Buying counts more than selling, and several insiders buying together earns a bonus. Max 20.",
+  "Congress": "Congressional buys vs. sells in the last 45 days, weighted by the disclosed dollar bracket. Options count by contract direction; unknown contracts and bonds are neutral. Max 30.",
+  "Insiders": "Company officers and directors (SEC Form 4) in the last 90 days: open-market buys vs. sells by dollar value. Buying counts more than selling, and several insiders buying together earns a bonus. Max 25.",
   "Momentum": "Price vs. 20/50-day averages and RSI. Oversold with an uptrend scores best. Max 25.",
-  "Sentiment": "Tone of recent news headlines for the ticker. Max 10.",
   "Risk penalty": "Deducted for stale disclosures (old trades or long disclosure lag). Up to −20.",
 };
 
@@ -268,10 +267,9 @@ export default function Signals() {
                 {/* Sub-scores */}
                 <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: 10 }}>
                   <SubScore label="Smart Money" value={sub.smart_money} max={20} />
-                  <SubScore label="Congress" value={sub.insider} max={25} />
-                  <SubScore label="Insiders" value={sub.corporate} max={20} />
+                  <SubScore label="Congress" value={sub.insider} max={30} />
+                  <SubScore label="Insiders" value={sub.corporate} max={25} />
                   <SubScore label="Momentum" value={sub.momentum} max={25} />
-                  <SubScore label="Sentiment" value={sub.sentiment} max={10} />
                   {(sub.risk_penalty ?? 0) > 0 && (
                     <SubScore label="Risk penalty" value={-(sub.risk_penalty ?? 0)} max={20} />
                   )}

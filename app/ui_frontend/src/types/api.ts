@@ -99,10 +99,10 @@ export type SignalDirection = "BULLISH" | "NEUTRAL" | "BEARISH";
 
 export interface SubScores {
   smart_money: number;       // 13F whales, max 20
-  insider: number;           // Congress, max 25
-  corporate?: number | null; // Form 4, max 20 (null on snapshots older than 2026-09)
+  insider: number;           // Congress, max 30
+  corporate?: number | null; // Form 4, max 25 (null on snapshots older than 2026-09)
   momentum: number;
-  sentiment: number;
+  sentiment?: number | null; // v1 only — dropped in v2
   risk_penalty: number;
 }
 
@@ -167,6 +167,9 @@ export interface OutcomeStats {
   total_snapshots: number;
   tracking_since: string | null;
   latest_snapshot: string | null;
+  score_version: number | null;   // regime these stats cover; null = all blended
+  current_version: number;
+  versions: { version: number | null; snapshots: number; since: string | null; until: string | null }[];
 }
 
 // ── Whales ────────────────────────────────────────────────────────────────────

@@ -102,10 +102,11 @@ def snapshot_signals(db: Session, target_date: date | None = None) -> int:
     index + ON CONFLICT DO NOTHING makes this idempotent — re-running on the same
     day is a no-op.
 
-    When `target_date` is in the past, rows are flagged `is_backfilled=True` and
-    sentiment is reconstructed as neutral (50) — see `_compute_technical_signals`.
+    When `target_date` is in the past, rows are flagged `is_backfilled=True`
+    (see `_compute_technical_signals`). Every row records the SCORE_VERSION
+    that produced it.
     """
-    from routers.signals import technical_signals, _compute_technical_signals
+    from routers.signals import technical_signals, _compute_technical_signals, SCORE_VERSION
 
     today = date.today()
     target_date = target_date or today
@@ -115,9 +116,11 @@ def snapshot_signals(db: Session, target_date: date | None = None) -> int:
         # Live path uses the cached `technical_signals`; backfill goes straight
         # to the time-aware computation so it can pass a date.
         if is_backfilled:
-            signals = _compute_technical_signals(db, target_date=target_date).get("signals", [])
+            signals_payload = _compute_technical_signals(db, target_date=target_date)
         else:
-            signals = technical_signals(db).get("signals", [])
+            signals_payload = technical_signals(db)
+        signals = signals_payload.get("signals", [])
+        signals_payload = {"score_version": signals_payload.get("score_version", SCORE_VERSION)}
     except Exception as e:
         logger.error(f"Could not compute signals for snapshot ({target_date}): {e}")
         return 0
@@ -149,6 +152,7 @@ def snapshot_signals(db: Session, target_date: date | None = None) -> int:
             "smart_money_score": sub.get("smart_money"),
             "insider_score":     sub.get("insider"),
             "corporate_score":   sub.get("corporate"),
+            "score_version":     signals_payload.get("score_version"),
             "momentum_score":    sub.get("momentum"),
             "sentiment_score":   sub.get("sentiment"),
             "risk_penalty":      sub.get("risk_penalty"),

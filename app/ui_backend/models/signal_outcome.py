@@ -25,6 +25,9 @@ class SignalOutcome(Base):
     smart_money_score = Column(Integer)
     insider_score     = Column(Integer)   # congressional
     corporate_score   = Column(Integer)   # Form 4 (added 2026-09; NULL on older rows)
+    # Which scoring regime produced composite_score (routers.signals.SCORE_VERSION).
+    # Hit-rates are only comparable within one version.
+    score_version     = Column(Integer)
     momentum_score    = Column(Integer)
     sentiment_score   = Column(Integer)
     risk_penalty      = Column(Integer)

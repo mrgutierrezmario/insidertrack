@@ -121,10 +121,10 @@ function SubScoreTooltip({ sub }: { sub: Partial<import("../types/api").SubScore
         }}>
           {[
             ["Smart Money", sub.smart_money, 20],
-            ["Congress", sub.insider, 25],
-            ["Insiders", sub.corporate, 20],
+            ["Congress", sub.insider, 30],
+            ["Insiders", sub.corporate, 25],
             ["Momentum", sub.momentum, 25],
-            ["Sentiment", sub.sentiment, 10],
+            ["Sentiment (v1 only)", sub.sentiment, 10],
             ["Risk penalty", sub.risk_penalty ? `-${sub.risk_penalty}` : null, 20],
           ].map(([label, val, max]) => val != null && (
             <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 16, marginBottom: 4, fontSize: 11 }}>
@@ -212,6 +212,12 @@ export default function Outcomes() {
               {stats.total_snapshots} snapshots
               {stats.tracking_since ? ` · since ${stats.tracking_since}` : ""}
               {stats.latest_snapshot ? ` · latest ${stats.latest_snapshot}` : ""}
+              {stats.score_version != null && (
+                <span data-tip="The scoring weights changed on 2026-09-19 (Form 4 added, sentiment dropped). Hit-rates are only comparable within one version, so older snapshots are left out of these stats.">
+                  {" "}· scoring v{stats.score_version}
+                  {stats.versions.filter((v) => v.version !== stats.score_version).map((v) => ` (${v.snapshots} older v${v.version ?? "?"} snapshots excluded)`).join("")}
+                </span>
+              )}
             </span>
             <span style={{ color: C.divider, fontSize: 11 }}>UP = ≥+2% · DOWN = ≤−2% · FLAT = within ±2%</span>
           </div>
@@ -289,7 +295,7 @@ export default function Outcomes() {
                     {r.signal_date}
                     {r.is_backfilled && (
                       <span
-                        title="Backfilled retroactively — sentiment used neutral 50 (Alpha Vantage doesn't expose historical news)"
+                        title="Backfilled retroactively from price history and filings dated on or before the signal date"
                         style={{ marginLeft: 6, fontSize: 9, color: C.warning, border: "1px solid var(--c-warningDeep)", borderRadius: 3, padding: "0 4px", verticalAlign: "middle" }}
                       >
                         BF

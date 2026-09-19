@@ -1,16 +1,20 @@
 """
 Technical + composite signal scores per ticker.
 
-Composite score (0-100):
+Composite score (0-100), SCORE_VERSION 2:
   Smart Money  (0-20): whale 13F position changes
-  Congress     (0-25): congressional buy/sell conviction, dollar-weighted
-  Corporate    (0-20): Form 4 open-market buys vs sells by company insiders
+  Congress     (0-30): congressional buy/sell conviction, dollar-weighted
+  Corporate    (0-25): Form 4 open-market buys vs sells by company insiders
   Momentum     (0-25): SMA20/50 crossover + RSI
-  Sentiment    (0-10): news sentiment via AV
   Risk penalty (0-20): reduces score for HIGH-risk recent trades
 
 The "insider" sub-score key is the congressional one (kept for the stored
-snapshots); "corporate" is the Form 4 one.
+snapshots); "corporate" is the Form 4 one. News sentiment was dropped in v2:
+the Alpha Vantage free tier can't cover the ticker universe, so it returned
+a constant neutral 5/10 for every ticker — 10% of the score doing nothing.
+
+Bump SCORE_VERSION whenever weights or inputs change: snapshots record it so
+the Outcomes hit-rates can be read per regime instead of blending them.
 
 Labels:
   70-100 → Strong Watch
@@ -36,7 +40,6 @@ from models.trade import Trade
 from models.whale import WhaleHolder, WhalePosition
 from services import trade_semantics as sem
 from services.market_data import get_price_history
-from services.news_fetcher import average_sentiment
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/signals", tags=["signals"])
@@ -45,6 +48,11 @@ router = APIRouter(prefix="/signals", tags=["signals"])
 # share one computed result per 5-minute window, eliminating redundant price-API fan-out.
 _signals_cache: dict = {}
 _SIGNALS_TTL = 300  # 5 minutes
+
+# 1 = original weights (through 2026-09-19 AM): smart 30 / congress 25 /
+#     momentum 25 / sentiment 10 / fundamentals stub 10.
+# 2 = Form 4 added, dollar-weighted Congress, sentiment and stub removed.
+SCORE_VERSION = 2
 
 
 # ── Indicator math ─────────────────────────────────────────────────────────────
@@ -125,12 +133,12 @@ def _fmt_dollars(n: float) -> str:
 
 
 def _insider_score(buys: int, sells: int, buy_dollars: float = 0, sell_dollars: float = 0) -> tuple[int, list[str]]:
-    """Congressional conviction, 0–25. The buy/sell split is weighted by the
+    """Congressional conviction, 0–30. The buy/sell split is weighted by the
     bracket midpoint so one $5M purchase outweighs five $1K ones; counts are
     only used when no dollar figures are known."""
     reasons = []
     if buys == 0 and sells == 0:
-        return 12, ["No recent congressional activity"]
+        return 15, ["No recent congressional activity"]
 
     if buy_dollars + sell_dollars > 0:
         buy_ratio = buy_dollars / (buy_dollars + sell_dollars)
@@ -141,16 +149,16 @@ def _insider_score(buys: int, sells: int, buy_dollars: float = 0, sell_dollars: 
         buy_txt, sell_txt = f"{buys} buy(s)", f"{sells} sell(s)"
 
     if buy_ratio >= 1.0:
-        score = 25
+        score = 30
         reasons.append(f"Congress: {buy_txt}, no recent sells — strong conviction")
     elif buy_ratio >= 0.7:
-        score = 20
+        score = 24
         reasons.append(f"Congress: {buy_txt} vs {sell_txt} — bullish lean")
     elif buy_ratio >= 0.4:
-        score = 12
+        score = 15
         reasons.append(f"Congress: mixed — {buy_txt}, {sell_txt}")
     elif buy_ratio > 0:
-        score = 6
+        score = 7
         reasons.append(f"Congress: {sell_txt} outweigh {buy_txt}")
     else:
         score = 0
@@ -160,20 +168,20 @@ def _insider_score(buys: int, sells: int, buy_dollars: float = 0, sell_dollars: 
 
 
 def _corporate_score(txns: list) -> tuple[int, list[str]]:
-    """Form 4 conviction, 0–20, from open-market buys (P) and sells (S) by the
+    """Form 4 conviction, 0–25, from open-market buys (P) and sells (S) by the
     company's own officers, directors and 10% owners, weighted by dollar
     value. Insider *buying* is the informative side — executives sell for
     liquidity, taxes and 10b5-1 plans — so all-sells is discounted, and a
     cluster of distinct insiders buying earns a bonus."""
     if not txns:
-        return 10, ["No Form 4 insider activity"]
+        return 12, ["No Form 4 insider activity"]
 
     buy_val = sum((t.value or 0) for t in txns if t.transaction_type == "buy")
     sell_val = sum((t.value or 0) for t in txns if t.transaction_type == "sell")
     buys = [t for t in txns if t.transaction_type == "buy"]
     sells = [t for t in txns if t.transaction_type == "sell"]
     if not buys and not sells:
-        return 10, ["Form 4 filings are grants/exercises only — no open-market trades"]
+        return 12, ["Form 4 filings are grants/exercises only — no open-market trades"]
 
     total = buy_val + sell_val
     buy_ratio = buy_val / total if total else len(buys) / (len(buys) + len(sells))
@@ -183,23 +191,23 @@ def _corporate_score(txns: list) -> tuple[int, list[str]]:
 
     reasons = []
     if buy_ratio >= 1.0:
-        score = 18
+        score = 22
         reasons.append(f"Form 4: {buy_txt}, no open-market sells")
     elif buy_ratio >= 0.7:
-        score = 15
+        score = 18
         reasons.append(f"Form 4: {buy_txt} vs {sell_txt} — insiders net buyers")
     elif buy_ratio >= 0.4:
-        score = 10
+        score = 12
         reasons.append(f"Form 4: mixed — {buy_txt}, {sell_txt}")
     elif buy_ratio > 0:
-        score = 6
+        score = 7
         reasons.append(f"Form 4: {sell_txt} outweigh {buy_txt}")
     else:
-        score = 3
+        score = 4
         reasons.append(f"Form 4: {sell_txt}, no buys (insider selling is often routine)")
 
     if len(buyers) >= 2:
-        score = min(20, score + 2)
+        score = min(25, score + 3)
         reasons.append(f"Cluster buy: {len(buyers)} different insiders bought")
     return score, reasons
 
@@ -314,10 +322,8 @@ def _compute_technical_signals(db: Session, target_date: date | None = None) -> 
     Compute composite scores as they would have been on `target_date` (default today).
 
     Time-awareness is essential for the snapshot backfill path: only trades, whale
-    filings, and price bars dated on-or-before `target_date` count. News sentiment
-    can't be reconstructed (Alpha Vantage's free tier returns current news only),
-    so backfilled rows use a neutral 50 — callers should flag those via
-    `is_backfilled` so the win-rate stats stay honest.
+    filings, and price bars dated on-or-before `target_date` count. Callers flag
+    reconstructed rows via `is_backfilled` so the win-rate stats stay honest.
     """
     target_date = target_date or date.today()
     is_historical = target_date < date.today()
@@ -428,12 +434,6 @@ def _compute_technical_signals(db: Session, target_date: date | None = None) -> 
     )
     latest_filing_by_ticker = {r.ticker: r.max_date for r in filing_rows}
 
-    # ── Sentiment fetch ──────────────────────────────────────────────────────
-    # Alpha Vantage news returns *current* sentiment; historical reconstruction
-    # isn't possible on the free tier. For backfill we use a neutral 50 — the
-    # row is flagged is_backfilled so consumers can de-weight if desired.
-    sentiments = {} if is_historical else average_sentiment(tickers)
-
     # ── Parallel price-history fetch ─────────────────────────────────────────
     # yfinance is blocking IO — threads parallelise well. Most calls hit the
     # 24h history cache and return instantly; only cold tickers actually fan
@@ -467,11 +467,8 @@ def _compute_technical_signals(db: Session, target_date: date | None = None) -> 
         smart_pts, smart_reasons = _smart_money_from_positions(positions_by_ticker.get(ticker, []))
         risk_penalty_pts, risk_reasons = _risk_penalty_from_trades(risk_trades_by_ticker.get(ticker, []))
 
-        sentiment_raw = sentiments.get(ticker, 50)
-        sentiment_pts = round(sentiment_raw / 10)
-
         composite = max(0, min(100,
-            smart_pts + insider_pts + corporate_pts + momentum_pts + sentiment_pts - risk_penalty_pts
+            smart_pts + insider_pts + corporate_pts + momentum_pts - risk_penalty_pts
         ))
 
         raw_score = 0
@@ -492,9 +489,9 @@ def _compute_technical_signals(db: Session, target_date: date | None = None) -> 
             raw_score += 1
         elif activity["sell_dollars"] > activity["buy_dollars"]:
             raw_score -= 1
-        if corporate_pts >= 15:
+        if corporate_pts >= 18:
             raw_score += 1
-        elif corporate_pts <= 6:
+        elif corporate_pts <= 7:
             raw_score -= 1
 
         all_reasons = smart_reasons + insider_reasons + corporate_reasons + momentum_reasons + risk_reasons
@@ -528,10 +525,9 @@ def _compute_technical_signals(db: Session, target_date: date | None = None) -> 
                 "insider": insider_pts,
                 "corporate": corporate_pts,
                 "momentum": momentum_pts,
-                "sentiment": sentiment_pts,
                 "risk_penalty": risk_penalty_pts,
             },
         })
 
     results.sort(key=lambda x: x["composite_score"], reverse=True)
-    return {"computed_at": datetime.now(timezone.utc).isoformat(), "signals": results}
+    return {"computed_at": datetime.now(timezone.utc).isoformat(), "score_version": SCORE_VERSION, "signals": results}

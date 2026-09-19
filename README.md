@@ -153,16 +153,17 @@ Every sync records its outcome per source. `GET /health` reports each source as 
 
 ## How Signals Work
 
-Every ticker with a congressional trade in the last 45 days gets a **composite score (0–100)** built from five sub-scores:
+Every ticker with a congressional trade in the last 45 days gets a **composite score (0–100)** built from four sub-scores (scoring **v2**, since 2026-09-19):
 
 | Component | Max points | What it measures |
 |---|---|---|
 | Smart money | 20 | Whale 13F activity for this ticker (new / increased / reduced / closed positions) |
-| Congress | 25 | Congressional buys vs. sells (45-day window), weighted by the disclosed dollar bracket. Options count by contract direction (long call / short put = bullish); unknown contracts and bonds are neutral |
-| Corporate insiders | 20 | SEC Form 4 open-market buys vs. sells by officers, directors and 10% owners (90-day window), by dollar value. Buying counts more than selling; several insiders buying together earns a bonus |
+| Congress | 30 | Congressional buys vs. sells (45-day window), weighted by the disclosed dollar bracket. Options count by contract direction (long call / short put = bullish); unknown contracts and bonds are neutral |
+| Corporate insiders | 25 | SEC Form 4 open-market buys vs. sells by officers, directors and 10% owners (90-day window), by dollar value. Buying counts more than selling; several insiders buying together earns a bonus |
 | Momentum | 25 | SMA20/50 crossovers, RSI, price trend |
-| Sentiment | 10 | News headline sentiment |
 | Risk penalty | −20 | Stale disclosures (old trades or long disclosure lag) |
+
+News sentiment (v1) was dropped: the Alpha Vantage free tier can't cover the ticker universe, so it scored every ticker an identical neutral value. Each outcome snapshot records its `score_version`; the Outcomes page only compares hit-rates within one version.
 
 | Score range | Label |
 |---|---|
