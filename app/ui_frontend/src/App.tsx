@@ -170,6 +170,14 @@ function Drawer({ open, onClose, alerts }: { open: boolean; onClose: () => void;
           <div className="drawer__group">Settings</div>
           <NavLink to="/config" className={({ isActive }) => "drawer__link" + (isActive ? " active" : "")}>Settings</NavLink>
         </div>
+        {/* The app bar hides the business name on phones; this is where it lives instead. */}
+        <div className="drawer__foot">
+          <img src="/logo-mark.svg" alt="" />
+          <div>
+            <div>Insider<b>Track</b></div>
+            <small>M.G. Network &amp; Technology Solutions</small>
+          </div>
+        </div>
       </div>
     </div>
   );
