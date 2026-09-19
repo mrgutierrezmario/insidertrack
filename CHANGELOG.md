@@ -24,7 +24,7 @@ and coverage pass.
 - Composite score 0–100 (**v3**): Smart money 20 + Congress 30 (dollar-weighted, scaled by each member's track record) + Corporate insiders 25 + Momentum 25 − staleness penalty 20.
 - **Per-member track record**: every disclosed stock buy measured from the first close after disclosure to 30 / 60 / 90 days, against SPY; a weekly job turns each member's beat-SPY rate into a 0.5–1.5× weight on their trades.
 - Signal outcomes snapshotted daily and filled at 30/60/90 days; each snapshot records its scoring version so hit-rates compare like with like.
-- Alerts (high signal, momentum, politician buy, new whale position, earnings soon) with a per-rule cap and one digest email per run.
+- Alerts (high signal, momentum, politician buy, new whale position, earnings soon, insider cluster buy, skilled-member buy) with a per-rule cap and one digest email per run.
 - Investment simulator vs SPY; watchlist with email reports; AI research notes per ticker (site key or bring-your-own), daily-capped.
 
 ### Operations

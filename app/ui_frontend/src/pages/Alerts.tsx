@@ -21,6 +21,8 @@ const TYPE_META: Record<string, TypeMeta> = {
   insider_buy:   { label: "Politician buy",     thresholdLabel: "Look-back days",       thresholdDefault: 7,  color: C.info },
   whale_new:     { label: "New whale position", thresholdLabel: null,                  thresholdDefault: null, color: C.warningSolid },
   earnings_soon: { label: "Earnings soon",      thresholdLabel: "Within N days",        thresholdDefault: 7,  color: C.warning },
+  cluster_buy:   { label: "Insider cluster buy", thresholdLabel: "Min insiders buying",  thresholdDefault: 2,  color: C.success },
+  skilled_buy:   { label: "Skilled member buy",  thresholdLabel: "Min beat-SPY %",       thresholdDefault: 60, color: C.info },
 };
 
 const EMPTY_META: TypeMeta = { label: "", thresholdLabel: null, thresholdDefault: null, color: C.dividerStrong };

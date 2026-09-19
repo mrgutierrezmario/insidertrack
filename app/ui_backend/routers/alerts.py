@@ -16,6 +16,8 @@ ALERT_TYPES = {
     "insider_buy":   "A tracked politician disclosed a purchase",
     "whale_new":     "An institution opened a new 13F position",
     "earnings_soon": "A tracked ticker has earnings within N days",
+    "cluster_buy":   "Two or more corporate insiders bought the same stock on the open market (last 30 days; threshold = min insiders)",
+    "skilled_buy":   "A member whose buys beat SPY at least N% of the time disclosed a purchase (threshold = min beat-SPY %)",
 }
 
 
