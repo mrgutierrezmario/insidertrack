@@ -356,3 +356,25 @@ class TestBackfill:
         with pytest.raises(RuntimeError):
             cf.backfill(db, date(2025, 1, 1))
         monkeypatch.setitem(cf._backfill_state, "running", False)
+
+
+# ── _plausible_trade_date ─────────────────────────────────────────────────────
+
+class TestPlausibleTradeDate:
+    def test_rejects_future_and_pre_stock_act(self):
+        from datetime import date, timedelta
+        from services.congress_fetcher import _plausible_trade_date
+        assert not _plausible_trade_date(date.today() + timedelta(days=1), None)
+        assert not _plausible_trade_date(date(2011, 12, 31), None)
+
+    def test_rejects_trade_after_disclosure(self):
+        from datetime import date
+        from services.congress_fetcher import _plausible_trade_date
+        assert not _plausible_trade_date(date(2025, 10, 23), date(2025, 8, 11))
+        assert _plausible_trade_date(date(2025, 8, 12), date(2025, 8, 11))   # 1-day grace (time zones)
+
+    def test_ignores_garbage_disclosure(self):
+        from datetime import date
+        from services.congress_fetcher import _plausible_trade_date
+        # a 1935 "notification date" must not reject a fine 2025 trade
+        assert _plausible_trade_date(date(2025, 3, 13), date(1935, 3, 28))

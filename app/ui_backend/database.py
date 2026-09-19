@@ -162,6 +162,20 @@ def _apply_migrations():
            asset_type  = CASE WHEN COALESCE(raw_data, '') LIKE '%"asset_type": "option"%' THEN 'option' ELSE 'stock' END
          WHERE asset_type IS NULL
          """),
+        # 2026-09: filer date typos. Trades dated in the future or after their
+        # own disclosure can't be real — drop them. House rows whose PTR
+        # "notification date" predates the STOCK Act get NULL; the sync now
+        # stores the Clerk's filing date, and repair_house_disclosure_dates()
+        # (run by every backfill) fills the NULLs from the index.
+        ("migration:trades_implausible_dates",
+         """
+         DELETE FROM trades
+         WHERE trade_date > CURRENT_DATE
+            OR trade_date < DATE '2012-01-01'
+            OR (disclosure_date >= DATE '2012-01-01' AND trade_date > disclosure_date + 1)
+         """),
+        ("migration:trades_implausible_dates",
+         "UPDATE trades SET disclosure_date = NULL WHERE disclosure_date < DATE '2012-01-01'"),
         ("migration:trades_derived_columns",
          """
          UPDATE trades SET direction =

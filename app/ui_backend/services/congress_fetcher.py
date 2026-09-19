@@ -192,6 +192,20 @@ def _trade_exists(db: Session, politician_id: int, ticker: str, trade_date: date
     ).first() is not None
 
 
+# Filers typo dates ("12/26/2026" for a trade disclosed in January 2026,
+# "03/28/1935" as a notification date). A trade can't happen after it was
+# disclosed or in the future, and nothing electronic predates the STOCK Act.
+_EARLIEST_PLAUSIBLE = date(2012, 1, 1)
+
+
+def _plausible_trade_date(trade_date: date, disclosure_date: Optional[date]) -> bool:
+    if trade_date > date.today() or trade_date < _EARLIEST_PLAUSIBLE:
+        return False
+    if disclosure_date and disclosure_date >= _EARLIEST_PLAUSIBLE and trade_date > disclosure_date + timedelta(days=1):
+        return False
+    return True
+
+
 def _new_trade(politician_id: int, tx: dict, tx_type: str, trade_date: date,
                disclosure_date: Optional[date], source: str, raw: dict) -> Trade:
     """Build a Trade with the derived columns (owner, asset_type, direction,
@@ -424,6 +438,9 @@ def sync_senate_trades(db: Session, start_date: Optional[date] = None,
                     trade_date = _parse_date(tx["transaction_date"])
                     if not trade_date:
                         continue
+                    if not _plausible_trade_date(trade_date, disclosure_date):
+                        logger.warning(f"EFD {rpt['uuid']}: skipping {tx['ticker']} with implausible trade date {trade_date} (filed {disclosure_date})")
+                        continue
                     tx_type = tx["type"].lower()
                     if _trade_exists(db, politician.id, tx["ticker"], trade_date, tx_type, tx["amount"]):
                         continue
@@ -489,6 +506,12 @@ def _parse_house_text(text: str) -> list[dict]:
             "amended": amended,
         })
     return txns
+
+
+def tx_disclosure_fallback(txns: list[dict]) -> Optional[str]:
+    """Notification date from the first parsed row — only used when the
+    Clerk's index row has no FilingDate."""
+    return txns[0].get("disclosure_date") if txns else None
 
 
 def _parse_house_ptr(pdf_bytes: bytes) -> list[dict]:
@@ -568,15 +591,22 @@ def sync_house_trades(db: Session, start_date: Optional[date] = None,
                 state = (row.get("StateDst") or "")[:2] or roster_state
                 politician = _get_or_create_politician(db, name, "house", party=party, state=state)
 
+                # Disclosure = the Clerk's filing date (when the public could
+                # see it). The PTR's own "notification date" is hand-typed and
+                # sometimes nonsense (1935); it stays in raw_data only.
+                filed = _parse_date(row.get("FilingDate")) or _parse_date(tx_disclosure_fallback(txns))
                 for tx in txns:
                     trade_date = _parse_date(tx["transaction_date"])
                     if not trade_date:
                         continue
+                    if not _plausible_trade_date(trade_date, filed):
+                        logger.warning(f"House PTR {doc_id}: skipping {tx['ticker']} with implausible trade date {trade_date} (filed {filed})")
+                        continue
                     if _trade_exists(db, politician.id, tx["ticker"], trade_date, tx["type"], tx["amount"]):
                         continue
                     db.add(_new_trade(
-                        politician.id, tx, tx["type"], trade_date, _parse_date(tx["disclosure_date"]),
-                        "house", {**tx, "ptr_doc_id": doc_id},
+                        politician.id, tx, tx["type"], trade_date, filed,
+                        "house", {**tx, "ptr_doc_id": doc_id, "filing_date": row.get("FilingDate")},
                     ))
                     db.flush()  # autoflush is off — make this row visible to the next exists-check
                     count += 1
@@ -592,6 +622,54 @@ def sync_house_trades(db: Session, start_date: Optional[date] = None,
 
     logger.info(f"Synced {count} new House trades")
     return count
+
+
+def repair_house_disclosure_dates(db: Session) -> int:
+    """Fill disclosure_date on House rows that lack one (rows imported before
+    the sync used the Clerk's filing date, then NULLed by the date-cleanup
+    migration) from the per-year index. One ZIP per year involved."""
+    rows = (
+        db.query(Trade)
+        .filter(Trade.source == "house", Trade.disclosure_date.is_(None))
+        .all()
+    )
+    if not rows:
+        return 0
+    by_doc: dict[str, list[Trade]] = {}
+    for t in rows:
+        try:
+            doc_id = str(json.loads(t.raw_data or "{}").get("ptr_doc_id") or "")
+        except ValueError:
+            doc_id = ""
+        if doc_id:
+            by_doc.setdefault(doc_id, []).append(t)
+    if not by_doc:
+        return 0
+    years = sorted({t.trade_date.year for ts in by_doc.values() for t in ts} | {date.today().year})
+    filed_by_doc: dict[str, Optional[date]] = {}
+    client = httpx.Client(timeout=60, follow_redirects=True, headers={"User-Agent": _USER_AGENT})
+    try:
+        for year in years:
+            try:
+                for row in _fetch_house_index(client, year):
+                    doc = (row.get("DocID") or "").strip()
+                    if doc in by_doc:
+                        filed_by_doc[doc] = _parse_date(row.get("FilingDate"))
+            except Exception as exc:
+                logger.warning(f"House index {year} unavailable during repair: {exc}")
+    finally:
+        client.close()
+    fixed = 0
+    for doc, trades in by_doc.items():
+        filed = filed_by_doc.get(doc)
+        if not filed:
+            continue
+        for t in trades:
+            t.disclosure_date = filed
+            fixed += 1
+    db.commit()
+    logger.info(f"Repaired disclosure_date on {fixed} House trade(s)")
+    return fixed
 
 
 # ── Historical backfill ───────────────────────────────────────────────────────
@@ -641,12 +719,19 @@ def backfill(db: Session, since: date, until: Optional[date] = None) -> dict:
             _backfill_state.update(phase=name, done=0, total=0)
             try:
                 result[name] = fn(db, start_date=since, end_date=until, progress=_progress(name))
+                source_health.record(db, name, ok=True, new_rows=result[name],
+                                     detail={"backfill": f"{since} → {until}"})
             except Exception as exc:
                 result[name] = 0
                 errors[name] = str(exc)
                 logger.error(f"Backfill {name} failed: {exc}")
+                source_health.record(db, name, ok=False, error=str(exc))
         if errors:
             result["errors"] = errors
+        try:
+            repair_house_disclosure_dates(db)
+        except Exception as exc:
+            logger.warning(f"disclosure_date repair after backfill failed: {exc}")
         # New rows need a staleness bucket; the daily job would get there
         # eventually but the feed filters on it immediately.
         try:
