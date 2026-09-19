@@ -67,6 +67,9 @@ Skill refresh: interrupted by deploys four times today; the final run started
 - **UI consistency pass**: one date format (`lib/format.ts`), chamber labels, sentence-case labels, Dashboard tile reads "N bullish · M bearish", chip lists capped at 18 with "+N more", plainer nav hints.
 - **Duplicate members merged**: the Clerk's index spells one person several ways; identity is now the bioguide id (roster, incl. nicknames) or a normalized name key; `merge_duplicate_politicians()` runs after every sync. 14 records folded on 2026-09-19; 188/284 members carry a bioguide id (the rest left Congress).
 
+### Decisions
+- **No user accounts** (2026-09-19): the site stays public-read with a single admin password, email-keyed watchlists and an email subscriber list. If this becomes an official product, port lecture-note-app's auth (sign-in, registration + email confirmation, admin approval, reset, roles) and re-key watchlists/alerts/subscriptions to users.
+
 ### Still open after this batch
 - Senate paper readings unverified end-to-end (quota); House paper verified (22 rows, spot-checked).
 - Sentiment is headline-only without an AV key; no scoring use either way.
