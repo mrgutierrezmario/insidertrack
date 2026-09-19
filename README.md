@@ -84,10 +84,11 @@ docker compose -f deploy/compose.yml logs -f app
 ## First Use
 
 1. Open http://localhost:8003
-2. Click **⟳ Sync** on the Dashboard — pulls ~20,000 congressional trade records (~30s)
-3. Signals appear under **Active Signals** once the sync completes
-4. Go to **⚙ Config** → set your watchlist email to receive reports and personalize the earnings calendar
-5. Go to **Admin** (link in Config page) to configure optional API keys
+2. Sign in to **Admin** (gear icon → Admin) and click **⟳ Sync** on the Dashboard — pulls the last ~90 days of House and Senate filings straight from the Clerk and the EFD (a few minutes; one PDF per filing)
+3. Optionally **Admin → Data sources → Backfill history** to import older filings (a full year takes tens of minutes; safe to re-run)
+4. Signals appear once the sync completes — every member with a filed disclosure is tracked by default; mute anyone on the Politicians page to keep them out of signals and alerts
+5. **Settings** → set your watchlist email to receive reports and personalize the earnings calendar
+6. **Admin** → optional API keys (AI provider, Alpha Vantage, mail)
 
 ---
 
@@ -97,9 +98,10 @@ Optional keys unlock additional features. Set them in the Admin panel (no restar
 
 | Key | Feature | Where to get it |
 |---|---|---|
-| `ALPHA_VANTAGE_KEY` | Minute-by-minute intraday charts | alphavantage.co — free tier: 25 req/day |
-| `ANTHROPIC_API_KEY` | AI bull/bear research summaries on ticker pages | console.anthropic.com — pay-as-you-go, cached 6h |
-| `MAIL_USERNAME` + `MAIL_PASSWORD` | Email reports and alert notifications | Gmail address + App Password (myaccount.google.com/apppasswords) |
+| `ALPHA_VANTAGE_KEY` | Minute-by-minute intraday charts, news sentiment | alphavantage.co — free tier: 25 req/day |
+| `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` / `OPENAI_API_KEY` | AI bull/bear research notes on ticker pages. `AI_PROVIDER` picks the writer (claude / gemini / openai); other configured providers are fallbacks. Visitors can also bring their own key in Settings | console.anthropic.com / aistudio.google.com / platform.openai.com — cached 6h per ticker |
+| `MAIL_USERNAME` + `MAIL_PASSWORD` | Email reports, alert notifications, data-source notices | Gmail address + App Password (myaccount.google.com/apppasswords) |
+| `MAIL_ADMIN_TO` | Where operational notices go (a scraper failing or gone quiet). Defaults to the sender | — |
 
 Keys set via the Admin UI are stored in the database and take effect immediately.
 
@@ -110,8 +112,10 @@ Keys set via the Admin UI are stored in the database and take effect immediately
 ### Congressional Trades
 | Source | Update frequency | Lag |
 |---|---|---|
-| House Stock Watcher | Daily | Up to 45 days (STOCK Act deadline) |
-| Senate Stock Watcher | Daily | Up to 45 days (STOCK Act deadline) |
+| House Clerk — Periodic Transaction Report PDFs (disclosures-clerk.house.gov) | Daily, rolling 90-day window | Up to 45 days (STOCK Act deadline) |
+| Senate EFD — electronic PTRs (efdsearch.senate.gov) | Daily, rolling 90-day window | Up to 45 days (STOCK Act deadline) |
+
+Only electronically-filed reports are parsed (scanned paper filings have no text layer). Each row records the owner (member / spouse / dependent child / joint), the asset kind (stock / option / other), the disclosed dollar bracket, and a **direction** — the trade's bet on the ticker. Options follow their contract (long call / short put = bullish); an option whose filing doesn't say call or put, and bonds, are neutral and don't count toward the signal. Party and state come from the `unitedstates/congress-legislators` roster.
 
 ### Corporate Insiders (Form 4)
 | Source | Update frequency | Lag |
@@ -126,9 +130,10 @@ Keys set via the Admin UI are stored in the database and take effect immediately
 Pre-loaded funds: Berkshire Hathaway, Soros Fund Management, Renaissance Technologies, Bridgewater Associates, Pershing Square (Bill Ackman).
 
 ### Federal Reserve Officials
-| Source | Update frequency | Lag |
-|---|---|---|
-| OGE financial disclosures | Daily sync | Varies by official |
+Roster only. Board members have been barred from holding individual stocks since 2022, and OGE publishes disclosures as PDFs with no API, so the Fed page shows who is on the Board with an empty (compliant) trade list.
+
+### Freshness monitoring
+Every sync records its outcome per source. `GET /health` reports each source as `ok` / `stale` (runs succeed but no new rows for longer than expected — usually a site change the parser misses silently) / `failing` (three consecutive failures). **Admin → Data sources** shows the same, and a daily 9 AM ET job emails `MAIL_ADMIN_TO` only when something is stale or failing.
 
 ---
 
@@ -163,17 +168,22 @@ All times Eastern. Jobs run automatically when the backend is running.
 
 | Time (ET) | Job |
 |---|---|
+| 4:00 AM | Nightly `pg_dump` (last 7 kept) |
+| 5:30 AM | Refresh trade staleness buckets (`risk_level`) |
+| 6:00 AM Sat | Sync 13F whale holdings (idempotent; only does work after each quarterly deadline) |
 | 6:30 AM | Sync corporate Form 4 insider filings |
 | 6:45 AM | Pre-warm price history cache |
 | 7:00 AM | Snapshot today's signal scores (for outcome tracking) |
-| 7:15 AM | Sync Federal Reserve official disclosures |
+| 7:15 AM | Fed roster sync (no-op — see Data Sources) |
 | 7:30 AM | Fill 30/60/90-day outcomes for old snapshots |
-| 8:00 AM | Sync congressional trades + morning analysis |
+| 8:00 AM | Sync congressional trades + morning analysis + email report |
 | 8:15 AM | Evaluate alert rules |
-| 12:00 PM | Midday analysis |
+| 9:00 AM | Data-source health check → admin email if anything is stale/failing |
+| 12:00 PM | Midday analysis + email report |
 | 12:15 PM | Evaluate alert rules |
 | 6:00 PM | Evening analysis + email report |
 | 6:15 PM | Evaluate alert rules |
+| hourly | Sweep expired market-cache rows |
 
 Trigger any job manually from **API docs** at `/docs` or the relevant page in the app.
 
@@ -195,8 +205,8 @@ stock-tracker/
 │   ├── config.py                 ← Pydantic settings from .env
 │   │
 │   ├── models/
-│   │   ├── politician.py         ← Congress members
-│   │   ├── trade.py              ← Congressional trade disclosures
+│   │   ├── politician.py         ← Congress members (tracked by default; untrack = mute)
+│   │   ├── trade.py              ← Congressional trade disclosures (+ owner, asset_type, direction, amount bounds)
 │   │   ├── whale.py              ← 13F institutional holders + positions
 │   │   ├── insider.py            ← Form 4 corporate insider transactions
 │   │   ├── fed_official.py       ← Fed officials + trade disclosures
@@ -228,10 +238,13 @@ stock-tracker/
 │   │   ├── config.py             ← Subscriber + email report management
 │   │   ├── app_settings.py       ← API key configuration (admin protected)
 │   │   ├── access.py             ← Admin auth + rate limiting
-│   │   └── ai.py                 ← AI research summary (Anthropic)
+│   │   └── ai.py                 ← AI research notes (site or visitor key)
 │   │
 │   └── services/
-│       ├── congress_fetcher.py   ← House + Senate trade sync
+│       ├── congress_fetcher.py   ← House Clerk + Senate EFD sync, historical backfill
+│       ├── trade_semantics.py    ← owner / asset type / direction / amount parsing (one place)
+│       ├── source_health.py      ← per-source freshness (ok / stale / failing)
+│       ├── providers.py          ← Claude / Gemini / OpenAI clients for research notes
 │       ├── edgar_fetcher.py      ← 13F XML whale holdings sync
 │       ├── form4_fetcher.py      ← SEC Form 4 insider filing sync
 │       ├── fed_fetcher.py        ← Fed official disclosure sync
@@ -242,7 +255,7 @@ stock-tracker/
 │       ├── alert_engine.py       ← Alert rule evaluation
 │       ├── outcome_tracker.py    ← Signal snapshot + outcome fill
 │       ├── email_sender.py       ← Gmail SMTP report delivery
-│       ├── ai_summary.py         ← Anthropic API research summaries
+│       ├── ai_summary.py         ← AI research notes (provider fallback, 6h cache)
 │       └── scheduler.py          ← APScheduler cron jobs
 │
 └── app/ui_frontend/
@@ -277,6 +290,9 @@ stock-tracker/
         │   ├── WatchlistButton.jsx
         │   ├── SearchBar.jsx        ← Global search with ⌘K shortcut
         │   ├── AiSummaryPanel.jsx
+        │   ├── AiProviderPanel.tsx  ← Admin: AI provider, keys, live model lists
+        │   ├── OwnAiSettings.tsx    ← Settings: bring-your-own AI key
+        │   ├── DataSourcesPanel.tsx ← Admin: scraper freshness + history backfill
         │   ├── ActivityChart.jsx    ← Activity feed timeline chart
         │   ├── ChartModal.jsx       ← Full-screen chart overlay
         │   ├── Disclaimer.jsx       ← First-visit legal disclaimer modal
@@ -295,7 +311,7 @@ stock-tracker/
 - Admin password is validated server-side — never sent to the browser in plain text
 - Admin token rotates hourly (HMAC-based, stateless)
 - Login endpoint rate-limited to 10 attempts per 5 minutes per IP
-- API keys (Alpha Vantage, Anthropic, Gmail) are stored encrypted in the database, never exposed in full
+- API keys (Alpha Vantage, AI providers, Gmail) are stored in the database and never exposed in full; a visitor's own AI key is used for that request only and never stored or logged
 - Security headers on every response: `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`
 
 ---
