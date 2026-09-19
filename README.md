@@ -174,7 +174,7 @@ Optional keys unlock additional features. Set them in the Admin panel (no restar
 
 | Key | Feature | Where to get it |
 |---|---|---|
-| `ALPHA_VANTAGE_KEY` | Minute-by-minute intraday charts, news sentiment | alphavantage.co — free tier: 25 req/day |
+| `ALPHA_VANTAGE_KEY` | Minute-by-minute intraday charts; news with sentiment labels (without it the News page shows Google News headlines) | alphavantage.co — free tier: 25 req/day |
 | `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` / `OPENAI_API_KEY` | AI bull/bear research notes on ticker pages. `AI_PROVIDER` picks the writer (claude / gemini / openai); other configured providers are fallbacks. Visitors can also bring their own key in Settings | console.anthropic.com / aistudio.google.com / platform.openai.com — cached 6h per ticker |
 | `MAIL_USERNAME` + `MAIL_PASSWORD` | Email reports, alert notifications, data-source notices | Gmail address + App Password (myaccount.google.com/apppasswords) |
 | `MAIL_ADMIN_TO` | Where operational notices go (a scraper failing or gone quiet). Defaults to the sender | — |
