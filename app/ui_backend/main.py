@@ -95,6 +95,21 @@ async def lifespan(app: FastAPI):
         except Exception:
             logging.getLogger(__name__).exception("gap detection / backfill at startup failed")
     start_scheduler()
+    # Compute the signal set once in the background so the first visitor
+    # after a deploy doesn't eat the cold price fan-out (~7 s for ~140
+    # tickers). Uses the same 5-minute cache the endpoint serves from.
+    import threading
+
+    def _warm_signals():
+        try:
+            from routers.signals import technical_signals
+            with SessionLocal() as db:
+                n = len(technical_signals(db).get("signals", []))
+            logging.getLogger(__name__).info("Warmed signal cache: %d tickers", n)
+        except Exception:
+            logging.getLogger(__name__).exception("signal warm at startup failed")
+
+    threading.Thread(target=_warm_signals, name="warm-signals", daemon=True).start()
     yield
     stop_scheduler()
 
