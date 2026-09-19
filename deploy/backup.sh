@@ -77,6 +77,8 @@ docker run --rm -v "${PROJECT}_tailscale-state:/v:ro" busybox:stable tar -C /v -
 
 # ── 3. Bundle + prune ─────────────────────────────────────────────────────────
 STEP="bundle"
+# macOS tar adds ._* resource-fork entries unless told not to.
+export COPYFILE_DISABLE=1
 tar -C "$WORK" -czf "$BUNDLE" "$(basename "$STAGE")"
 log "Bundle: $BUNDLE ($(du -h "$BUNDLE" | cut -f1))"
 [ "$(date +%u)" = 7 ] && cp "$BUNDLE" "$BACKUP_DIR/weekly/"
