@@ -293,6 +293,9 @@ if DIST_DIR.exists():
         # Root-level static files from the build (favicons, manifest, logos,
         # fonts) are served as-is; anything else is a client-side route and
         # gets the SPA shell. The resolve() check keeps ".." inside dist.
+        # Static pages (user guide, privacy) work without the .html extension.
+        if full_path in ("guide", "privacy"):
+            full_path += ".html"
         if full_path:
             candidate = (DIST_DIR / full_path).resolve()
             if candidate.is_file() and DIST_DIR.resolve() in candidate.parents:

@@ -8,6 +8,7 @@ All notable changes to InsiderTrack. The format follows
 ## [Unreleased]
 
 ### Added
+- User guide (`/guide`) and privacy page (`/privacy`), linked from Settings, the phone menu and the terms gate.
 - Senate paper (scanned) filings read by the vision model, like the House ones; every trade links to its filing; admins can remove a misread paper row.
 - Track record for **sales** (a sale was a good call if the stock then fell or lagged SPY) and a **Leaderboard** ranking members by how often their buys beat SPY at 90 days.
 - Alert types: insider **cluster buy** (market-wide Form 4) and **skilled-member buy**.

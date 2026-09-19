@@ -152,6 +152,8 @@ export default function Disclaimer({ children }: DisclaimerProps) {
             from public filings (STOCK Act, SEC Form 4, 13F) and may be delayed or incomplete. Signals are
             statistical, not recommendations. Past performance does not guarantee future results. By
             continuing you accept this and our use of your IP address to remember that you did.
+            {" "}<a href="/guide" target="_blank" rel="noreferrer" style={{ color: C.accent }}>User guide</a> ·{" "}
+            <a href="/privacy" target="_blank" rel="noreferrer" style={{ color: C.accent }}>Privacy</a>
           </p>
         </div>
 

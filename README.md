@@ -31,6 +31,7 @@ own machine from free public data sources; cloud AI providers are optional.
 | Outcomes | Daily snapshots of every score, filled at 30/60/90 days, so the hit-rate of each label is a number rather than a claim |
 | Also | Alerts (rules + digest email), investment simulator vs SPY, watchlist and email reports, earnings calendar, AI research notes per ticker (site key or bring your own) |
 | Runs as | A Docker Compose stack (Postgres, app, Tailscale sidecar) with a fixed public HTTPS URL via Tailscale Funnel — free, no domain needed |
+| Docs in the app | `/guide` (how to read every page and the score) and `/privacy` (exactly what the site stores about a visitor), linked from Settings and the phone menu |
 | Operations | Per-source scraper health with a daily notice when a government site changes under you; encrypted off-site backups with a scripted restore; CI on every push; Dependabot; [`deploy/OPERATIONS.md`](deploy/OPERATIONS.md) is the operator's to-do list |
 
 <details>
