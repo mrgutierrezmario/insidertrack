@@ -49,6 +49,10 @@ _USER_AGENT = "InsiderTrack/1.0 (congressional disclosure sync; contact via app 
 # Electronic PTRs live at /search/view/ptr/<uuid>/ and have a parseable table.
 # Paper (scanned) filings live at /search/view/paper/... and have no structured data.
 _PTR_LINK_RE = re.compile(r"/search/view/ptr/([0-9a-f-]+)/", re.I)
+# Paper (scanned) filings live at /search/view/paper/<uuid>/ — a page of GIF
+# images, read by the vision model (services.paper_ptr).
+_PAPER_LINK_RE = re.compile(r"/search/view/paper/([0-9a-f-]+)/", re.I)
+_PAPER_IMG_RE = re.compile(r'<img[^>]+src="(https://efd-media-public\.senate\.gov/[^"]+)"', re.I)
 
 # ── House Clerk ───────────────────────────────────────────────────────────────
 HOUSE_BASE = "https://disclosures-clerk.house.gov"
@@ -377,12 +381,14 @@ def _fetch_ptr_list(client: httpx.Client, start_date: date, end_date: Optional[d
             # row = [first, last, "Last, First (Senator)", "<a href=...>Report...</a>", "MM/DD/YYYY"]
             link_html = row[3] if len(row) > 3 else ""
             m = _PTR_LINK_RE.search(link_html)
-            if not m:
-                continue  # paper/scanned filing — no structured transactions
+            paper = None if m else _PAPER_LINK_RE.search(link_html)
+            if not m and not paper:
+                continue
             reports.append({
                 "first": (row[0] or "").strip(),
                 "last": (row[1] or "").strip(),
-                "uuid": m.group(1),
+                "uuid": (m or paper).group(1),
+                "paper": m is None,
                 "filed": (row[4] or "").strip() if len(row) > 4 else "",
                 # Amended reports carry "(Amendment N)" in the link title.
                 "amended": "mendment" in link_html,
@@ -455,6 +461,19 @@ def _parse_senate_report_date(html: str) -> Optional[date]:
     return _parse_date(m.group(1)) if m else None
 
 
+def _fetch_paper_images(client: httpx.Client, uuid: str) -> list[bytes]:
+    """The GIF page scans of a paper Senate PTR."""
+    resp = _request_with_retry(lambda: client.get(f"{EFD_BASE}/search/view/paper/{uuid}/"), label=f"EFD paper {uuid}")
+    urls = _PAPER_IMG_RE.findall(resp.text)
+    pages = []
+    for url in urls[: paper_ptr.MAX_PAGES]:
+        r = client.get(url, timeout=60)
+        if r.status_code == 200 and r.content:
+            pages.append(r.content)
+        time.sleep(0.3)
+    return pages
+
+
 def _fetch_ptr_transactions(client: httpx.Client, uuid: str) -> tuple[Optional[date], list[dict]]:
     """Fetch one electronic Senate PTR detail page → (report "for" date, transactions)."""
     resp = _request_with_retry(
@@ -507,7 +526,18 @@ def sync_senate_trades(db: Session, start_date: Optional[date] = None,
     try:
         reports = _fetch_ptr_list(client, start_date, end_date)
         new_reports = [r for r in reports if r["uuid"] not in seen]
-        logger.info(f"EFD: {len(reports)} PTRs since {start_date}, {len(new_reports)} new")
+        # Paper filings: only within the per-run budget, never in a re-parse.
+        paper_budget = paper_ptr.PAPER_MAX_PER_RUN if (paper_ptr_enabled() and not reparse) else 0
+        kept_reports = []
+        for r in new_reports:
+            if r.get("paper"):
+                if paper_budget <= 0:
+                    continue
+                paper_budget -= 1
+            kept_reports.append(r)
+        new_reports = kept_reports
+        logger.info(f"EFD: {len(reports)} PTRs since {start_date}, {len(new_reports)} new"
+                    f" ({sum(1 for r in new_reports if r.get('paper'))} paper)")
 
         count = 0
         for i, rpt in enumerate(new_reports):
@@ -517,8 +547,19 @@ def sync_senate_trades(db: Session, start_date: Optional[date] = None,
                 if not name:
                     continue
                 filed = _parse_date(rpt["filed"])
+                is_paper = bool(rpt.get("paper"))
+                reading = None
                 try:
-                    report_for, txns = _fetch_ptr_transactions(client, rpt["uuid"])
+                    if is_paper:
+                        reading = paper_ptr.read_senate_paper(_fetch_paper_images(client, rpt["uuid"]))
+                        if reading is None:
+                            continue  # provider down / no JSON — not marked processed, retried next sync
+                        txns, pstats = paper_ptr.rows_from_reading(reading, _house_ticker_lookup(), _is_known_ticker)
+                        report_for = filed
+                        logger.info(f"Senate paper PTR {rpt['uuid']} ({name}): {pstats} via {reading.get('_model')}")
+                        time.sleep(paper_ptr.PACE_SECONDS)
+                    else:
+                        report_for, txns = _fetch_ptr_transactions(client, rpt["uuid"])
                 except Exception as exc:  # one bad filing shouldn't abort the sync
                     logger.warning(f"EFD PTR {rpt['uuid']} failed: {exc}")
                     report_for, txns = None, []
@@ -532,7 +573,9 @@ def sync_senate_trades(db: Session, start_date: Optional[date] = None,
                 # disclosure date; the amendment's own date lives in raw_data.
                 amends = None
                 disclosure_date = filed
-                if rpt.get("amended") and report_for:
+                # (A paper amendment can't name what it amends — the model
+                # only sees a ticked box — so it is stored as a normal filing.)
+                if rpt.get("amended") and report_for and not is_paper:
                     amends = report_for
                     disclosure_date = report_for
                     supersede_senate_report(db, politician.id, report_for, rpt["uuid"])
@@ -552,14 +595,16 @@ def sync_senate_trades(db: Session, start_date: Optional[date] = None,
                         continue
                     tx_type = tx["type"].lower()
                     raw = {**tx, "ptr_uuid": rpt["uuid"], "amended": rpt.get("amended", False),
-                           "amendment_filed": rpt["filed"] if amends else None}
+                           "amendment_filed": rpt["filed"] if amends else None,
+                           **({"paper": True, "model": reading.get("_model")} if is_paper else {})}
                     existing = _find_trade(db, politician.id, tx["ticker"], trade_date, tx_type, tx["amount"])
                     if existing:
                         if reparse:
                             _refresh_trade(existing, tx, disclosure_date, raw, rpt["uuid"], amends)
                             kept.add(existing.id)
                         continue
-                    t = _new_trade(politician.id, tx, tx_type, trade_date, disclosure_date, "senate", raw,
+                    t = _new_trade(politician.id, tx, tx_type, trade_date, disclosure_date,
+                                   "senate-paper" if is_paper else "senate", raw,
                                    filing_id=rpt["uuid"], amends=amends)
                     db.add(t)
                     db.flush()  # autoflush is off — make this row visible to the next exists-check

@@ -540,3 +540,36 @@ class TestHouseAmendedRowReplaces:
         assert r.amount_range == "$250,001 - $500,000" and r.amount_high == 500000
         assert r.filing_id == "20035444" and r.amends == date(2025, 6, 4)
         assert r.disclosure_date == date(2025, 6, 4)     # public since the original filing
+
+
+class TestSenatePaperListing:
+    def test_paper_rows_are_listed_and_flagged(self, monkeypatch):
+        from datetime import date
+        from services import congress_fetcher as cf
+        rows = [
+            ["Jane", "Doe", "Doe, Jane (Senator)", '<a href="/search/view/ptr/aaaa-1111/">Periodic Transaction Report for 05/01/2026</a>', "05/01/2026"],
+            ["Rick", "Roe", "Roe, Rick (Senator)", '<a href="/search/view/paper/bbbb-2222/">Periodic Transaction Report</a>', "05/02/2026"],
+            ["Ann", "Poe", "Poe, Ann (Senator)", '<a href="/search/view/annual/cccc-3333/">Annual Report</a>', "05/03/2026"],
+        ]
+        class _R:
+            def json(self): return {"data": rows, "recordsTotal": 3}
+        class _C:
+            cookies = {"csrftoken": "t"}
+            def post(self, *a, **k): return _R()
+        monkeypatch.setattr(cf, "_request_with_retry", lambda fn, **k: fn())
+        out = cf._fetch_ptr_list(_C(), date(2026, 4, 1))
+        assert [(r["uuid"], r["paper"]) for r in out] == [("aaaa-1111", False), ("bbbb-2222", True)]
+
+    def test_paper_images_are_collected(self, monkeypatch):
+        from services import congress_fetcher as cf
+        html = ('<img src="/static/images/logo.svg"><img src="https://efd-media-public.senate.gov/media/2026/2/000/000/000000521.gif">'
+                '<img src="https://efd-media-public.senate.gov/media/2026/2/000/000/000000522.gif">')
+        class _R:
+            def __init__(self, status, content=b"", text=""): self.status_code, self.content, self.text = status, content, text
+        class _C:
+            def get(self, url, **k):
+                return _R(200, text=html) if "/search/view/paper/" in url else _R(200, content=b"GIF89a" + url[-7:].encode())
+        monkeypatch.setattr(cf, "_request_with_retry", lambda fn, **k: fn())
+        monkeypatch.setattr(cf.time, "sleep", lambda s: None)
+        pages = cf._fetch_paper_images(_C(), "bbbb-2222")
+        assert len(pages) == 2 and all(p.startswith(b"GIF89a") for p in pages)

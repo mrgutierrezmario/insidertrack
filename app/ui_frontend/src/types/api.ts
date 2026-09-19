@@ -38,6 +38,8 @@ export interface Trade {
   disclosure_date: string | null;  // YYYY-MM-DD
   source: string;
   filing_id: string | null;
+  filing_url: string | null;      // the filing itself (House PDF / Senate EFD view)
+  ai_confidence: number | null;   // paper filings only: the model's confidence in this row
   amends: string | null;   // Senate: filing date of the report this amendment replaced
   risk_level: RiskLevel | null;
   politician: {

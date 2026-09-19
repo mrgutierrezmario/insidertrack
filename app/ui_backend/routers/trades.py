@@ -1,3 +1,5 @@
+import json
+import logging
 import re
 from datetime import date, datetime
 from typing import Optional
@@ -12,6 +14,7 @@ from models.trade import Trade
 from services.congress_fetcher import backfill, get_backfill_state, get_last_sync, get_sync_state, sync_all
 
 router = APIRouter(prefix="/trades", tags=["trades"])
+logger = logging.getLogger(__name__)
 
 _AMOUNT_MAP = {
     "1,001": 1_001, "15,000": 15_000, "50,000": 50_000,
@@ -98,6 +101,30 @@ def refresh_risk_levels(db: Session) -> int:
     return changed
 
 
+def _filing_url(t: Trade) -> str | None:
+    """Where a reader can see the filing itself. House PTR PDFs live under
+    the filing year; Senate electronic and paper views by uuid."""
+    if not t.filing_id:
+        return None
+    if t.source in ("house", "house-paper"):
+        year = (t.disclosure_date or t.trade_date).year if (t.disclosure_date or t.trade_date) else None
+        return f"https://disclosures-clerk.house.gov/public_disc/ptr-pdfs/{year}/{t.filing_id}.pdf" if year else None
+    if t.source == "senate":
+        return f"https://efdsearch.senate.gov/search/view/ptr/{t.filing_id}/"
+    if t.source == "senate-paper":
+        return f"https://efdsearch.senate.gov/search/view/paper/{t.filing_id}/"
+    return None
+
+
+def _ai_confidence(t: Trade) -> float | None:
+    if not t.raw_data or not (t.source or "").endswith("-paper"):
+        return None
+    try:
+        return json.loads(t.raw_data).get("ai_confidence")
+    except ValueError:
+        return None
+
+
 def _trade_dict(t: Trade, risk: str) -> dict:
     return {
         "id": t.id,
@@ -114,6 +141,8 @@ def _trade_dict(t: Trade, risk: str) -> dict:
         "disclosure_date": t.disclosure_date,
         "source": t.source,
         "filing_id": t.filing_id,
+        "filing_url": _filing_url(t),
+        "ai_confidence": _ai_confidence(t),
         "amends": t.amends,
         "risk_level": risk,
         "politician": {
@@ -178,6 +207,20 @@ def list_trades(
     # hasn't touched yet (fresh inserts between job runs).
     items = [_trade_dict(t, t.risk_level or _risk_level(t)) for t in rows[:limit]]
     return {"items": items, "total": total, "offset": offset, "limit": limit, "has_more": has_more}
+
+
+@router.delete("/{trade_id}")
+def delete_trade(trade_id: int, _: None = Depends(require_admin), db: Session = Depends(get_db)):
+    """Admin: remove one row — meant for a paper filing the model misread.
+    The filing stays marked processed, so a plain sync won't re-add it; a
+    re-parse over its dates would."""
+    t = db.query(Trade).filter(Trade.id == trade_id).first()
+    if not t:
+        raise HTTPException(404, "Trade not found")
+    logger.warning(f"Admin removed trade {trade_id} ({t.ticker} {t.trade_date} {t.source} filing {t.filing_id})")
+    db.delete(t)
+    db.commit()
+    return {"deleted": trade_id}
 
 
 @router.post("/sync")

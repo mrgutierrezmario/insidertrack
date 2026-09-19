@@ -212,7 +212,7 @@ export default function Politician() {
       </h2>
       <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
         {trades.map((t) => (
-          <TradeCard key={t.id} trade={{ ...t, politician: t.politician } as Trade} />
+          <TradeCard key={t.id} trade={{ ...t, politician: t.politician } as Trade} onRemoved={(id) => setTrades((l) => l.filter((x) => x.id !== id))} />
         ))}
       </div>
     </div>

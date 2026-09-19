@@ -59,6 +59,7 @@ interface TechnicalSignalsResponse {
 export const getTrades = (params: Record<string, unknown> = {}): Resp<PaginatedTrades> =>
   api.get("/trades/", { params });
 export const syncTrades = (): Resp<{ status: string }> => api.post("/trades/sync");
+export const deleteTrade = (id: number): Resp<{ deleted: number }> => api.delete(`/trades/${id}`);
 
 export interface BackfillStatus {
   running: boolean;

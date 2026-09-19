@@ -292,7 +292,7 @@ export default function Feed() {
             {trades.length} trade{trades.length !== 1 ? "s" : ""}
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-            {trades.map((t) => <TradeCard key={t.id} trade={t} />)}
+            {trades.map((t) => <TradeCard key={t.id} trade={t} onRemoved={(id) => setTrades((l) => l.filter((x) => x.id !== id))} />)}
           </div>
           {hasMore && (
             <div style={{ textAlign: "center", marginTop: "1.5rem" }}>

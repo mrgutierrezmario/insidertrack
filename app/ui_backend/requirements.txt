@@ -7,6 +7,7 @@ httpx==0.28.1
 beautifulsoup4==4.14.3
 lxml==6.0.4
 pypdf==6.13.3
+Pillow==11.0.0
 yfinance==0.2.40
 apscheduler==3.11.2
 pydantic==2.7.1

@@ -147,7 +147,7 @@ def delete_politician(
 
 @router.get("/{politician_id}/trades")
 def get_politician_trades(politician_id: int, limit: int = Query(default=50, ge=1, le=500), db: Session = Depends(get_db)):
-    from routers.trades import _risk_level
+    from routers.trades import _ai_confidence, _filing_url, _risk_level
     trades = (
         db.query(Trade)
         .filter(Trade.politician_id == politician_id)
@@ -171,6 +171,8 @@ def get_politician_trades(politician_id: int, limit: int = Query(default=50, ge=
             "disclosure_date": t.disclosure_date,
             "source": t.source,
             "filing_id": t.filing_id,
+            "filing_url": _filing_url(t),
+            "ai_confidence": _ai_confidence(t),
             "amends": t.amends,
             "risk_level": _risk_level(t),
         }
