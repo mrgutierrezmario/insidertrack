@@ -39,9 +39,9 @@ if rclone listremotes | grep -qx "$GDRIVE_REMOTE:"; then
 else
   echo
   echo "  A browser window will open. Sign in with the Google account that should"
-  echo "  hold THESE backups — a different one from the lecture-notes backups."
-  echo "  hold the backups and click Allow. (If you are on a machine without a"
-  echo "  browser, rclone prints a link to open elsewhere.)"
+  echo "  hold THESE backups (a different one from the lecture-notes backups) and"
+  echo "  click Allow. (If you are on a machine without a browser, rclone prints a"
+  echo "  link to open elsewhere.)"
   echo
   read -r -p "  Press Enter to continue..." _
   # rclone prints the finished section, token included, so keep it off the screen.
