@@ -22,6 +22,7 @@ from services.alert_engine import evaluate_alerts
 from services.form4_fetcher import sync_form4_for_tickers
 from services.market_data import warm_price_history
 from services import fed_fetcher
+from services import source_health
 
 logger = logging.getLogger(__name__)
 
@@ -109,8 +110,14 @@ def _form4_job():
     with SessionLocal() as db:
         from routers.insiders import _tracked_tickers
         tickers = _tracked_tickers(db)
-        if tickers:
-            sync_form4_for_tickers(db, tickers)
+        if not tickers:
+            return
+        try:
+            result = sync_form4_for_tickers(db, tickers)
+            source_health.record(db, "form4", ok=True, new_rows=result.get("stored", 0), detail=result)
+        except Exception as exc:
+            source_health.record(db, "form4", ok=False, error=str(exc))
+            raise
 
 
 def _warm_history_job():
@@ -143,8 +150,39 @@ def _whale_sync_job():
     for ~a week after each 45-days-past-quarter-end filing deadline."""
     from services.edgar_fetcher import sync_whale_positions
     with SessionLocal() as db:
-        result = sync_whale_positions(db)
+        try:
+            result = sync_whale_positions(db)
+            source_health.record(db, "whale", ok=True, new_rows=result.get("synced", 0), detail=result)
+        except Exception as exc:
+            source_health.record(db, "whale", ok=False, error=str(exc))
+            raise
         logger.info(f"Whale 13F sync: {result}")
+
+
+def _source_health_job():
+    """Daily: email the admin if any data source is failing or has gone quiet.
+    Only sends when there is something to say."""
+    from services.email_sender import send_admin_email
+    with SessionLocal() as db:
+        issues = source_health.problems(db)
+    if not issues:
+        return
+    rows = "".join(
+        f"<tr><td>{i['label']}</td><td><b>{i['status']}</b></td>"
+        f"<td>{i.get('last_success_at') or '—'}</td><td>{i.get('last_new_rows_at') or '—'}</td>"
+        f"<td>{i.get('last_error') or ''}</td></tr>"
+        for i in issues
+    )
+    html = (
+        "<p>These data sources need a look:</p>"
+        "<table border='1' cellpadding='6' style='border-collapse:collapse'>"
+        "<tr><th>Source</th><th>Status</th><th>Last success</th><th>Last new rows</th><th>Last error</th></tr>"
+        f"{rows}</table>"
+        "<p><i>failing</i> = the last "
+        f"{source_health.FAILING_AFTER}+ runs raised; <i>stale</i> = runs succeed but no new rows "
+        "for longer than expected (a site change the parser silently misses looks exactly like this).</p>"
+    )
+    send_admin_email(f"InsiderTrack: {len(issues)} data source(s) need attention", html)
 
 
 def _risk_refresh_job():
@@ -214,6 +252,8 @@ def start_scheduler():
     scheduler.add_job(_alert_job, CronTrigger(hour="8,12,18", minute=15, timezone=ET), id="alert_eval", **common)
     scheduler.add_job(_fed_sync_job, CronTrigger(hour=7, minute=15, timezone=ET), id="fed_sync", **common)
     scheduler.add_job(_whale_sync_job, CronTrigger(day_of_week="sat", hour=6, minute=0, timezone=ET), id="whale_sync", **common)
+    # After the morning syncs have run — so today's outcome is what gets judged.
+    scheduler.add_job(_source_health_job, CronTrigger(hour=9, minute=0, timezone=ET), id="source_health", **common)
     # Risk classification depends on trade age — refresh once a day so old rows
     # bucket correctly without the /trades read path doing the work.
     scheduler.add_job(_risk_refresh_job, CronTrigger(hour=5, minute=30, timezone=ET), id="risk_refresh", **common)

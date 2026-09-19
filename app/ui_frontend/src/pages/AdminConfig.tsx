@@ -15,6 +15,7 @@ import {
 import { ADMIN_SESSION_KEY } from "../lib/storage";
 import { notifyAdminChange } from "../hooks/useAdmin";
 import AiProviderPanel from "../components/AiProviderPanel";
+import DataSourcesPanel from "../components/DataSourcesPanel";
 import ConfirmModal from "../components/ConfirmModal";
 
 type Period = "morning" | "midday" | "evening";
@@ -303,6 +304,8 @@ function AdminPanel() {
       </div>
 
       <div style={{ height: 1, background: C.surfaceAlt, margin: "1.25rem 0 2rem" }} />
+
+      <DataSourcesPanel />
 
       {/* AI research notes: provider, keys, models */}
       <AiProviderPanel keys={apiKeys} onChanged={async () => { await loadKeys(); }} onError={(m) => setError(m)} />

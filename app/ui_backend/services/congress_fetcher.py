@@ -33,6 +33,7 @@ from models.app_setting import AppSetting
 from models.politician import Politician
 from models.processed_filing import ProcessedFiling
 from models.trade import Trade
+from services import source_health
 from services import trade_semantics as sem
 
 logger = logging.getLogger(__name__)
@@ -428,9 +429,11 @@ def sync_senate_trades(db: Session) -> int:
                 _mark_processed(db, "senate", rpt["uuid"])
                 db.commit()
     except Exception as exc:
+        # Rows committed per filing are kept; the caller records the failure
+        # (source_health) so a broken scraper is distinguishable from a quiet week.
         logger.error(f"Senate EFD sync failed: {exc}")
         db.rollback()
-        return 0
+        raise
     finally:
         client.close()
 
@@ -565,7 +568,7 @@ def sync_house_trades(db: Session) -> int:
     except Exception as exc:
         logger.error(f"House sync failed: {exc}")
         db.rollback()
-        return count
+        raise
     finally:
         client.close()
 
@@ -608,14 +611,26 @@ def sync_all(db: Session) -> dict:
                        finished_at=None, result=None, error=None)
     error = None
     try:
-        senate = sync_senate_trades(db)
-        house = sync_house_trades(db)
-
-        result = {"house": house, "senate": senate}
+        result: dict = {}
+        errors: dict = {}
+        for name, fn in (("senate", sync_senate_trades), ("house", sync_house_trades)):
+            try:
+                result[name] = fn(db)
+                source_health.record(db, name, ok=True, new_rows=result[name])
+            except Exception as exc:  # one source failing must not block the other
+                result[name] = 0
+                errors[name] = str(exc)
+                source_health.record(db, name, ok=False, error=str(exc))
+        if errors:
+            result["errors"] = errors
+            error = "; ".join(f"{k}: {v}" for k, v in errors.items())
+            _sync_state.update(error=error)
         _sync_state.update(result=result)
+        if len(errors) == 2:
+            raise RuntimeError(error)
         return result
     except Exception as exc:
-        error = str(exc)
+        error = error or str(exc)
         _sync_state.update(error=error)
         raise
     finally:

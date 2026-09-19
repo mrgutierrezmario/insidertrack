@@ -330,4 +330,6 @@ export const verifyAdmin = (password: string): Resp<unknown> =>
 
 // ── Health ────────────────────────────────────────────────────────────────────
 
-export const getHealth = (): Resp<Health> => api.get("/health");
+// /health answers 503 when db/scheduler are down; we still want the body.
+export const getHealth = (): Resp<Health> =>
+  api.get("/health", { validateStatus: (s) => s === 200 || s === 503 });

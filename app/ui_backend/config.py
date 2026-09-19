@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     mail_from_name: str = "InsiderTrack"
     # Optional Reply-To, for when MAIL_FROM is a do-not-reply account.
     mail_reply_to: str = ""
+    # Where operational notices go (data-source failures). Defaults to the
+    # sending account.
+    mail_admin_to: str = ""
 
     class Config:
         env_file = str(ENV_FILE)

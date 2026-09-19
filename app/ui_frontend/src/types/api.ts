@@ -47,6 +47,20 @@ export interface Trade {
   } | null;
 }
 
+// ── Health (data sources) ─────────────────────────────────────────────────────
+export type HealthSourceStatus = "ok" | "stale" | "failing" | "never";
+
+export interface HealthSource {
+  label: string;
+  status: HealthSourceStatus;
+  last_run_at: string | null;
+  last_success_at: string | null;
+  last_new_rows_at: string | null;
+  last_new_rows: number | null;
+  last_error: string | null;
+  consecutive_failures: number;
+}
+
 // ── Signals ───────────────────────────────────────────────────────────────────
 
 export type SignalLabel = "Strong Watch" | "Watch" | "Neutral" | "High Risk" | "Avoid for Now";
@@ -166,4 +180,5 @@ export interface Health {
   db: boolean;
   scheduler: boolean;
   snapshot_gaps_14d: number | null;
+  data: { status: "ok" | "stale" | "failing"; sources: Record<string, HealthSource> } | null;
 }

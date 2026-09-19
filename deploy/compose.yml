@@ -91,6 +91,7 @@ services:
       MAIL_FROM: ${MAIL_FROM:-}
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-InsiderTrack}
       MAIL_REPLY_TO: ${MAIL_REPLY_TO:-}
+      MAIL_ADMIN_TO: ${MAIL_ADMIN_TO:-}
       # Daily pg_dump (services/db_backup.py) lands here; kept in a named volume.
       BACKUP_DIR: /backups
     volumes:

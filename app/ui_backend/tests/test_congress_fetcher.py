@@ -290,3 +290,31 @@ class TestLastSyncPersistence:
         _persist_last_sync(db, {"ok": False, "error": "boom"})
         _persist_last_sync(db, {"ok": True, "error": None})
         assert get_last_sync(db)["ok"] is True
+
+
+# ── sync_all: per-source isolation + health ───────────────────────────────────
+
+class TestSyncAllIsolation:
+    def test_one_source_failing_does_not_block_the_other(self, db, monkeypatch):
+        from services import congress_fetcher as cf
+        from services import source_health as sh
+
+        monkeypatch.setattr(cf, "sync_senate_trades", lambda _db: (_ for _ in ()).throw(RuntimeError("EFD down")))
+        monkeypatch.setattr(cf, "sync_house_trades", lambda _db: 7)
+        result = cf.sync_all(db)
+        assert result["house"] == 7 and result["senate"] == 0
+        assert "EFD down" in result["errors"]["senate"]
+        srcs = sh.summary(db)["sources"]
+        assert srcs["house"]["last_new_rows"] == 7
+        assert srcs["senate"]["last_error"] == "EFD down"
+        assert cf.get_sync_state()["running"] is False
+
+    def test_both_failing_raises(self, db, monkeypatch):
+        from services import congress_fetcher as cf
+        def boom(_db):
+            raise RuntimeError("nope")
+        monkeypatch.setattr(cf, "sync_senate_trades", boom)
+        monkeypatch.setattr(cf, "sync_house_trades", boom)
+        with pytest.raises(RuntimeError):
+            cf.sync_all(db)
+        assert "nope" in (cf.get_sync_state()["error"] or "")

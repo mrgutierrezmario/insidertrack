@@ -145,6 +145,17 @@ def send_report(analysis: DailyAnalysis, recipients: list[str]) -> bool:
         return False
 
 
+def send_admin_email(subject: str, html_body: str) -> bool:
+    """Operational notice to the site operator (MAIL_ADMIN_TO, else the
+    sending account). Logged at WARNING as well so it shows up even when
+    mail isn't configured."""
+    logger.warning(f"[admin notice] {subject}")
+    to = settings.mail_admin_to or settings.mail_from or settings.mail_username
+    if not to:
+        return False
+    return send_simple_email(subject, html_body, [to])
+
+
 def send_simple_email(subject: str, html_body: str, recipients: list[str]) -> bool:
     """Send a plain HTML email — used for alert notifications."""
     if not recipients:

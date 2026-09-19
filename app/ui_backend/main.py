@@ -187,8 +187,11 @@ def health():
     from services.scheduler import scheduler
     from services.outcome_tracker import detect_snapshot_gaps
 
+    from services.source_health import summary as source_summary
+
     db_ok = False
     snapshot_gaps_14d = None
+    sources = None
     try:
         with SessionLocal() as db:
             db.execute(text("SELECT 1"))
@@ -197,6 +200,10 @@ def health():
                 snapshot_gaps_14d = len(detect_snapshot_gaps(db, window_days=14))
             except Exception:
                 snapshot_gaps_14d = None
+            try:
+                sources = source_summary(db)
+            except Exception:
+                sources = None
     except Exception:
         db_ok = False
 
@@ -210,6 +217,9 @@ def health():
             "db": db_ok,
             "scheduler": scheduler_running,
             "snapshot_gaps_14d": snapshot_gaps_14d,
+            # Data freshness is reported, not enforced: a stale scraper must
+            # not flip the container unhealthy (the process is fine).
+            "data": sources,
         },
         status_code=code,
     )
