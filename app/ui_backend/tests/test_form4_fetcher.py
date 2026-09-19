@@ -95,3 +95,48 @@ class TestRecentForm4s:
 
     def test_empty(self):
         assert f4._recent_form4s({}) == []
+
+
+class TestDailyIndex:
+    IDX = (
+        "Form Type   Company Name   CIK   Date Filed  File Name\n"
+        "-----\n"
+        "1-A/A            Casa Shares Assets, LLC     1988874     20260918    edgar/data/1988874/0001493152-26-043199.txt\n"
+        "4                MICROSOFT CORP              789019      20260918    edgar/data/789019/0001234567-26-000001.txt\n"
+        "4                Nadella Satya               1183222     20260918    edgar/data/789019/0001234567-26-000001.txt\n"
+        "4/A              APPLE INC                   320193      20260918    edgar/data/320193/0001234567-26-000002.txt\n"
+        "4                APPLE INC                   320193      20260918    edgar/data/320193/0001234567-26-000003.txt\n"
+    )
+
+    def test_entries_dedup_and_skip_amendments(self, monkeypatch):
+        monkeypatch.setattr(f4, "_fetch_text", lambda url: self.IDX)
+        out = f4._daily_index_entries(__import__("datetime").date(2026, 9, 18))
+        assert [(cik, acc) for _, cik, acc in out] == [("789019", "0001234567-26-000001"), ("320193", "0001234567-26-000003")]
+
+    def test_missing_index_is_none(self, monkeypatch):
+        monkeypatch.setattr(f4, "_fetch_text", lambda url: None)
+        assert f4._daily_index_entries(__import__("datetime").date(2026, 9, 19)) is None
+
+    def test_embedded_xml_extraction(self, monkeypatch):
+        txt = "<SEC-DOCUMENT>\n<DOCUMENT>\n<TYPE>4\n<XML>\n" + FORM4_XML + "\n</XML>\n</DOCUMENT>\n</SEC-DOCUMENT>"
+        monkeypatch.setattr(f4, "_fetch_text", lambda url: txt)
+        xml = f4._submission_xml("789019", "0001234567-26-000001")
+        assert xml and xml.lstrip().startswith("<?xml")
+        assert f4._parse_form4_xml(xml)["ticker"] == "MSFT"
+
+
+class TestSyncForm4Daily:
+    def test_stores_only_open_market_rows(self, db, monkeypatch):
+        from datetime import date
+        from models.insider import Form4Transaction as F4
+        day = date(2026, 9, 17)
+        monkeypatch.setattr(f4, "_daily_index_entries", lambda d: [("MICROSOFT CORP", "789019", "0001234567-26-000001")] if d == day else None)
+        monkeypatch.setattr(f4, "_submission_xml", lambda cik, acc: FORM4_XML)
+        monkeypatch.setattr(f4.time, "sleep", lambda s: None)
+        out = f4.sync_form4_daily(db, since=day, until=day)
+        assert out["filings"] == 1 and out["stored"] == 2          # S and P; the M (exercise, no price) is skipped
+        rows = db.query(F4).filter(F4.accession == "0001234567-26-000001").all()
+        assert sorted(r.transaction_type for r in rows) == ["buy", "sell"]
+        # second run: the accession is known → skipped, nothing duplicated
+        out2 = f4.sync_form4_daily(db, since=day, until=day)
+        assert out2["skipped"] == 1 and out2["stored"] == 0

@@ -49,6 +49,16 @@ export interface Trade {
   } | null;
 }
 
+// ── Corporate insiders ────────────────────────────────────────────────────────
+export interface InsiderCluster {
+  ticker: string;
+  company: string | null;
+  buyers: number;
+  buys: number;
+  dollars: number;
+  last_buy: string | null;
+}
+
 // ── Track record ──────────────────────────────────────────────────────────────
 export interface TrackRecordWindow {
   n: number;

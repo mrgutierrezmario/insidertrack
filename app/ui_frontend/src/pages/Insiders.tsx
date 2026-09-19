@@ -7,6 +7,7 @@ import { card , C} from "../lib/theme";
 import useDocumentTitle from "../hooks/useDocumentTitle";
 import useAdmin from "../hooks/useAdmin";
 import SkeletonCard from "../components/SkeletonCard";
+import ClusterBuys from "../components/ClusterBuys";
 
 type TxType = "buy" | "sell" | "other";
 
@@ -155,6 +156,8 @@ export default function Insiders() {
         </div>
         <SyncButton onDone={() => load()} />
       </div>
+
+      <ClusterBuys />
 
       {/* Summary chips */}
       {summary.length > 0 && (

@@ -133,7 +133,10 @@ Only electronically-filed reports are parsed (scanned paper filings have no text
 ### Corporate Insiders (Form 4)
 | Source | Update frequency | Lag |
 |---|---|---|
-| SEC EDGAR | On demand (manual sync or daily job) | 2 business days |
+| SEC EDGAR — per-ticker filing history for every ticker in the congressional universe (15 most recent Form 4s each; all transaction codes) | Daily 6:30 AM ET | 2 business days |
+| SEC EDGAR daily form index — **every Form 4 filed, market-wide**; open-market buys and sells (codes P/S) only | Daily 6:30 AM ET, catches up any missed days | same day (evening index) |
+
+The market-wide feed powers the **Cluster buys** table on the Insiders page — tickers where 2+ different insiders bought on the open market in the last 30 days — which covers companies no member of Congress traded. The composite score's Form 4 sub-score still reads only tickers in the congressional universe.
 
 ### Institutional Whales (13F)
 | Source | Update frequency | Lag |

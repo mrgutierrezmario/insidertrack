@@ -3,6 +3,7 @@ import type { AxiosResponse } from "axios";
 
 import type {
   Health,
+  InsiderCluster,
   OutcomeRow,
   OutcomeStats,
   Politician,
@@ -281,6 +282,8 @@ export const getAiSummary = (ticker: string, refresh = false): Resp<unknown> =>
 export const getInsiderTransactions = (params: Record<string, unknown> = {}): Resp<unknown> =>
   api.get("/insiders/", { params });
 export const getInsiderSummary = (): Resp<unknown> => api.get("/insiders/summary");
+export const getInsiderClusters = (days = 30, minBuyers = 2): Resp<{ days: number; min_buyers: number; items: InsiderCluster[] }> =>
+  api.get("/insiders/clusters", { params: { days, min_buyers: minBuyers } });
 export const syncInsiders = (): Resp<unknown> => api.post("/insiders/sync");
 
 // ── Watchlist ─────────────────────────────────────────────────────────────────

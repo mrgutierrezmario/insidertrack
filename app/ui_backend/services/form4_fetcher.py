@@ -12,7 +12,7 @@ import logging
 import re
 import time
 import xml.etree.ElementTree as ET
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Optional
 
 import httpx
@@ -299,3 +299,134 @@ def sync_form4_for_tickers(db: Session, tickers: list[str]) -> dict:
 
     logger.info(f"Form 4 sync: {stored} stored, {skipped} skipped, {no_cik} tickers had no CIK")
     return {"stored": stored, "skipped": skipped, "no_cik": no_cik}
+
+
+# ── Market-wide daily feed ────────────────────────────────────────────────────
+# The per-ticker sync above only sees companies a member of Congress traded.
+# Insider buying in everything else is at least as interesting, so this walks
+# EDGAR's daily form index (one file per business day, every filing by form
+# type) and imports every Form 4's open-market transactions. The complete
+# submission .txt embeds the ownership XML, so it is one request per filing
+# (~400–600 unique Form 4s on a normal day at 8 req/s ≈ 1–2 min).
+#
+# Only P (open-market purchase) and S (open-market sale) rows are stored from
+# this feed — grants, exercises and gifts carry no view on the stock and would
+# triple the table for nothing.
+
+DAILY_INDEX = "https://www.sec.gov/Archives/edgar/daily-index/{year}/QTR{q}/form.{ymd}.idx"
+_IDX_LINE_RE = re.compile(r"^(4)\s+(.+?)\s+(\d+)\s+(\d{8})\s+(edgar/data/\d+/([\d-]+)\.txt)\s*$")
+_EMBEDDED_XML_RE = re.compile(r"<XML>\s*(.*?)\s*</XML>", re.S | re.I)
+_DAILY_LAST_KEY = "form4_daily_last"
+DAILY_FIRST_LOOKBACK_DAYS = 7
+
+
+def _daily_index_entries(day: date) -> Optional[list[tuple[str, str, str]]]:
+    """(company, cik, accession) for every Form 4 (not 4/A) filed on `day`,
+    de-duplicated — the index lists a filing under the issuer AND each
+    reporting owner. None when the index doesn't exist (weekend/holiday)."""
+    url = DAILY_INDEX.format(year=day.year, q=(day.month - 1) // 3 + 1, ymd=day.strftime("%Y%m%d"))
+    text = _fetch_text(url)
+    if text is None:
+        return None
+    seen: set[str] = set()
+    out = []
+    for line in text.splitlines():
+        m = _IDX_LINE_RE.match(line)
+        if not m:
+            continue
+        company, cik, _filed, path, accession = m.group(2).strip(), m.group(3), m.group(4), m.group(5), m.group(6)
+        if accession in seen:
+            continue
+        seen.add(accession)
+        out.append((company, cik, accession))
+    return out
+
+
+def _submission_xml(cik: str, accession: str) -> Optional[str]:
+    """The ownership XML embedded in the complete submission file."""
+    txt = _fetch_text(f"{EDGAR_ARCHIVES}/{cik}/{accession.replace('-', '')}/{accession}.txt")
+    if not txt:
+        return None
+    for m in _EMBEDDED_XML_RE.finditer(txt):
+        body = m.group(1)
+        if "ownershipDocument" in body:
+            return body
+    return None
+
+
+def _get_setting(db: Session, key: str) -> Optional[str]:
+    from models.app_setting import AppSetting
+    row = db.query(AppSetting).filter(AppSetting.key == key).first()
+    return row.value if row else None
+
+
+def _set_setting(db: Session, key: str, value: str) -> None:
+    from models.app_setting import AppSetting
+    row = db.query(AppSetting).filter(AppSetting.key == key).first()
+    if row:
+        row.value = value
+    else:
+        db.add(AppSetting(key=key, value=value))
+
+
+def sync_form4_daily(db: Session, since: Optional[date] = None, until: Optional[date] = None) -> dict:
+    """Import open-market Form 4 transactions market-wide for every business
+    day in (last synced day, until]. First run looks back a week. Idempotent
+    by accession."""
+    from models.insider import Form4Transaction as F4
+
+    until = until or date.today()
+    if since is None:
+        last = _get_setting(db, _DAILY_LAST_KEY)
+        since = (date.fromisoformat(last) + timedelta(days=1)) if last else until - timedelta(days=DAILY_FIRST_LOOKBACK_DAYS)
+    stored = filings = skipped = 0
+    days_done: list[str] = []
+    day = since
+    while day <= until:
+        if day.weekday() >= 5:
+            day += timedelta(days=1)
+            continue
+        entries = _daily_index_entries(day)
+        time.sleep(REQUEST_DELAY)
+        if entries is None:
+            # Not published yet (today, before EDGAR's evening cut) or a holiday.
+            if day == until:
+                break
+            day += timedelta(days=1)
+            continue
+        known = {a for (a,) in db.query(F4.accession).filter(
+            F4.accession.in_([acc for _, _, acc in entries])).all()} if entries else set()
+        for company, cik, accession in entries:
+            if accession in known:
+                skipped += 1
+                continue
+            xml_text = _submission_xml(cik, accession)
+            time.sleep(REQUEST_DELAY)
+            if not xml_text:
+                continue
+            parsed = _parse_form4_xml(xml_text)
+            if not parsed or not parsed["ticker"]:
+                continue
+            filings += 1
+            for tx in parsed["transactions"]:
+                if tx["transaction_type"] not in ("buy", "sell") or tx["shares"] <= 0 or tx["price"] <= 0:
+                    continue
+                try:
+                    tdate = datetime.strptime(tx["transaction_date"][:10], "%Y-%m-%d").date()
+                except Exception:
+                    tdate = day
+                db.add(F4(
+                    ticker=parsed["ticker"], company_name=parsed["company_name"] or company,
+                    insider_name=parsed["insider_name"], insider_title=parsed["insider_title"],
+                    relationship=parsed["relationship"], transaction_code=tx["transaction_code"],
+                    transaction_type=tx["transaction_type"], shares=tx["shares"], price=tx["price"],
+                    value=tx["value"], transaction_date=tdate, filing_date=day, accession=accession,
+                    source_url=f"{EDGAR_ARCHIVES}/{cik}/{accession.replace('-', '')}/",
+                ))
+                stored += 1
+        _set_setting(db, _DAILY_LAST_KEY, day.isoformat())
+        db.commit()
+        days_done.append(day.isoformat())
+        logger.info(f"Form 4 daily {day}: {len(entries)} filings in index, {filings} parsed so far, {stored} rows")
+        day += timedelta(days=1)
+    return {"days": days_done, "filings": filings, "stored": stored, "skipped": skipped}

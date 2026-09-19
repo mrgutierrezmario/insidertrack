@@ -1,6 +1,6 @@
 """Corporate insider (SEC Form 4) transactions."""
 
-from datetime import date
+from datetime import date, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query
@@ -58,19 +58,57 @@ def list_transactions(
 
 
 @router.get("/summary")
-def insider_summary(db: Session = Depends(get_db)):
-    """Per-ticker buy/sell counts from corporate insiders."""
-    rows = db.query(Form4Transaction).all()
-    by_ticker: dict[str, dict] = {}
-    for r in rows:
-        d = by_ticker.setdefault(r.ticker, {"ticker": r.ticker, "buys": 0, "sells": 0, "other": 0})
-        if r.transaction_type == "buy":
-            d["buys"] += 1
-        elif r.transaction_type == "sell":
-            d["sells"] += 1
-        else:
-            d["other"] += 1
-    return sorted(by_ticker.values(), key=lambda x: x["buys"] + x["sells"], reverse=True)
+def insider_summary(days: int = Query(default=90, ge=1, le=730), limit: int = Query(default=200, ge=1, le=1000),
+                    db: Session = Depends(get_db)):
+    """Per-ticker buy/sell counts from corporate insiders in the last `days`."""
+    from sqlalchemy import case, func
+    cutoff = date.today() - timedelta(days=days)
+    rows = (
+        db.query(
+            Form4Transaction.ticker,
+            func.sum(case((Form4Transaction.transaction_type == "buy", 1), else_=0)).label("buys"),
+            func.sum(case((Form4Transaction.transaction_type == "sell", 1), else_=0)).label("sells"),
+            func.sum(case((Form4Transaction.transaction_type.notin_(["buy", "sell"]), 1), else_=0)).label("other"),
+        )
+        .filter(Form4Transaction.transaction_date >= cutoff, Form4Transaction.ticker.isnot(None))
+        .group_by(Form4Transaction.ticker)
+        .order_by((func.sum(case((Form4Transaction.transaction_type.in_(["buy", "sell"]), 1), else_=0))).desc())
+        .limit(limit)
+        .all()
+    )
+    return [{"ticker": t, "buys": int(b or 0), "sells": int(s or 0), "other": int(o or 0)} for t, b, s, o in rows]
+
+
+@router.get("/clusters")
+def insider_clusters(days: int = Query(default=30, ge=1, le=365), min_buyers: int = Query(default=2, ge=1, le=10),
+                     limit: int = Query(default=50, ge=1, le=200), db: Session = Depends(get_db)):
+    """Cluster buys market-wide: tickers where `min_buyers`+ distinct insiders
+    bought on the open market in the last `days`, by dollars bought. This is
+    the Form 4 signal that lives outside the congressional universe."""
+    from sqlalchemy import func
+    cutoff = date.today() - timedelta(days=days)
+    rows = (
+        db.query(
+            Form4Transaction.ticker,
+            func.max(Form4Transaction.company_name).label("company"),
+            func.count(func.distinct(Form4Transaction.insider_name)).label("buyers"),
+            func.count(Form4Transaction.id).label("buys"),
+            func.sum(Form4Transaction.value).label("dollars"),
+            func.max(Form4Transaction.transaction_date).label("last_buy"),
+        )
+        .filter(Form4Transaction.transaction_type == "buy", Form4Transaction.transaction_date >= cutoff,
+                Form4Transaction.ticker.isnot(None))
+        .group_by(Form4Transaction.ticker)
+        .having(func.count(func.distinct(Form4Transaction.insider_name)) >= min_buyers)
+        .order_by(func.sum(Form4Transaction.value).desc())
+        .limit(limit)
+        .all()
+    )
+    return {"days": days, "min_buyers": min_buyers, "items": [
+        {"ticker": t, "company": c, "buyers": int(n), "buys": int(b), "dollars": int(d or 0),
+         "last_buy": l.isoformat() if l else None}
+        for t, c, n, b, d, l in rows
+    ]}
 
 
 @router.post("/sync")

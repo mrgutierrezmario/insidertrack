@@ -112,9 +112,13 @@ def _form4_job():
         tickers = _tracked_tickers(db)
         if not tickers:
             return
+        from services.form4_fetcher import sync_form4_daily
         try:
             result = sync_form4_for_tickers(db, tickers)
-            source_health.record(db, "form4", ok=True, new_rows=result.get("stored", 0), detail=result)
+            daily = sync_form4_daily(db)          # market-wide, everything since the last run
+            result = {**result, "daily": daily}
+            source_health.record(db, "form4", ok=True,
+                                 new_rows=result.get("stored", 0) + daily.get("stored", 0), detail=result)
         except Exception as exc:
             source_health.record(db, "form4", ok=False, error=str(exc))
             raise
