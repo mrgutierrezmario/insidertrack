@@ -59,7 +59,7 @@ export default function Politician() {
     const pid = Number(id);
     Promise.all([
       getPolitician(pid),
-      getPoliticianTrades(pid),
+      getPoliticianTrades(pid, 500),
       getTechnicalSignals().catch(() => ({ data: [] as SignalRow[] })),
     ]).then(([polRes, tradesRes, sigRes]) => {
       setPolitician(polRes.data as PoliticianDetail);

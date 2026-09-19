@@ -17,6 +17,10 @@ own machine from free public data sources; cloud AI providers are optional.
 
 **By M.G. Network and Technology Solutions.**
 
+![The Dashboard in dark mode: this week's disclosures, the top signal, the latest bullish/bearish read and alerts fired, then the latest analysis as ticker chips](design/screenshots/dashboard-dark.png)
+
+<p align="center"><em>The Dashboard: what changed this week, the top signal, the latest read. Dark mode; light mode below.</em></p>
+
 | | |
 |---|---|
 | Congress | Every electronic House and Senate periodic transaction report, straight from the Clerk and the EFD — owner (member / spouse / child / joint), asset kind, dollar bracket, and a **direction** that treats a put purchase as the bearish bet it is. Amendments reconciled; scanned paper filings read by a vision model |
@@ -27,7 +31,35 @@ own machine from free public data sources; cloud AI providers are optional.
 | Outcomes | Daily snapshots of every score, filled at 30/60/90 days, so the hit-rate of each label is a number rather than a claim |
 | Also | Alerts (rules + digest email), investment simulator vs SPY, watchlist and email reports, earnings calendar, AI research notes per ticker (site key or bring your own) |
 | Runs as | A Docker Compose stack (Postgres, app, Tailscale sidecar) with a fixed public HTTPS URL via Tailscale Funnel — free, no domain needed |
-| Operations | Per-source scraper health with a daily notice when a government site changes under you; encrypted off-site backups with a scripted restore; CI on every push; Dependabot |
+| Operations | Per-source scraper health with a daily notice when a government site changes under you; encrypted off-site backups with a scripted restore; CI on every push; Dependabot; [`deploy/OPERATIONS.md`](deploy/OPERATIONS.md) is the operator's to-do list |
+
+<details>
+<summary><strong>More screenshots</strong> — track record, cluster buys, signals, outcomes, admin, light mode, phone</summary>
+
+<br>
+
+![A member's page: purchases/sales counts, the track record — average return, win rate and vs-SPY at 30/60/90 days — and the per-trade table](design/screenshots/politician-track-record.png)
+<p align="center"><em>A member's track record: every stock buy measured from the first close after disclosure, against SPY. The "×0.98 weight" badge is what those results earn their trades in the score.</em></p>
+
+![Corporate Insiders page with the Cluster buys table: tickers where two or more insiders bought on the open market in the last 30 days](design/screenshots/insiders-cluster-buys.png)
+<p align="center"><em>Cluster buys, market-wide: several insiders putting their own money into the same stock in the same month — including companies no member of Congress traded.</em></p>
+
+![Signals page: composite scores per ticker with the Smart Money / Congress / Insiders / Momentum sub-scores and reasons](design/screenshots/signals.png)
+<p align="center"><em>Signals: the composite score and the four sub-scores behind it, with the reasons written out.</em></p>
+
+![Outcomes page: hit-rates per label at 30/60/90 days and the snapshot table](design/screenshots/outcomes.png)
+<p align="center"><em>Outcomes: does "Strong Watch" actually go up? Every score is snapshotted daily and checked at 30/60/90 days, per scoring version.</em></p>
+
+![Admin → Data sources: one card per scraper with OK/stale/failing status, Run now buttons, and the history backfill controls](design/screenshots/admin-data-sources.png)
+<p align="center"><em>Admin → Data sources: scraper freshness, Run now per source, backfill and re-parse.</em></p>
+
+![The Dashboard in light mode](design/screenshots/dashboard-light.png)
+<p align="center"><em>Light mode.</em></p>
+
+<p align="center"><img width="360" alt="The Dashboard on a phone, dark mode" src="design/screenshots/phone-dashboard.png"> <img width="360" alt="A ticker page on a phone: chart, score and the trades behind it" src="design/screenshots/phone-ticker.png"></p>
+<p align="center"><em>On a phone: the Dashboard and a ticker page.</em></p>
+
+</details>
 
 ---
 

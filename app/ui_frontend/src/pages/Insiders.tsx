@@ -154,7 +154,7 @@ export default function Insiders() {
             </p>
           )}
         </div>
-        <SyncButton onDone={() => load()} />
+        {isAdmin && <SyncButton onDone={() => load()} />}
       </div>
 
       <ClusterBuys />
