@@ -32,10 +32,10 @@ throwaway `postgres:18-alpine` on a user network + `tar cz app/ui_backend | dock
 
 ## Still open
 
-- **Off-site backups** — need a destination (rclone remote). Nightly dump still only in a Docker volume.
-- **Fed page** — roster with a no-op job; drop it or parse OGE 278 PDFs.
-- **Warm `/signals` on startup** — first request after a deploy is a cold ~7 s fan-out.
-- **Per-member track record** (30/60/90-day returns of each member's buys vs SPY) — all inputs now exist; the most-requested feature of this kind of app.
+- **Off-site backups** — scripts ported from lecture-note-app (`deploy/backup.sh`, `backup-setup.sh`, `restore.sh`, launchd plist). **Not yet activated**: run `deploy/backup-setup.sh` on the Mac once (Google sign-in + passphrase). Local half verified.
+- ~~Fed page~~ — kept as a roster (seeded at startup); dead job/endpoint/alert type removed.
+- ~~Warm `/signals` on startup~~ — done.
+- ~~Per-member track record~~ — done (`/politicians/{id}/track-record`, section on the politician page).
 - **`risk_level` → staleness rename** — cosmetic; UI already says STALE.
 - Legacy Senate rows from before EFD (6) had no filing id and were removed as seed data; nothing else lacks provenance.
 

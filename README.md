@@ -76,8 +76,22 @@ docker compose -f deploy/compose.yml logs -f app
   `TS_AUTHKEY`). If the database is empty and `deploy/state/` contains a
   `*.dump` (pg_dump custom format), the newest one is restored automatically.
 - Local access without Funnel: `http://localhost:${APP_PORT}` (default 8013).
-- The nightly `pg_dump` (04:00 UTC, last 7 kept) lands in the `backups` volume:
-  `docker compose -f deploy/compose.yml exec app ls /backups`.
+- The app's own nightly `pg_dump` (04:00 ET, last 7 kept) lands in the `backups`
+  volume: `docker compose -f deploy/compose.yml exec app ls /backups`. That
+  copy dies with the Docker host, so there is also a **host-side, off-site
+  backup**:
+
+  ```bash
+  deploy/backup-setup.sh   # once, on the Mac: rclone + encrypted Google Drive folder + nightly launchd job
+  deploy/backup.sh         # any time: DB dump + .env + Tailscale identity → deploy/state/backups, synced off-site
+  deploy/restore.sh --from-remote latest   # new machine: pull the off-site copy and rebuild the stack (same URL)
+  ```
+
+  Backups are encrypted before they leave the machine (rclone crypt); the
+  passphrase is printed once by the setup script — keep it in a password
+  manager. The Google Drive connection can be shared with lecture-note-app
+  (same `gdrive` rclone remote, separate encrypted folder). Failures email
+  `MAIL_ADMIN_TO`.
 - If the Tailscale container restarts, the app notices within ~45 s that its
   network namespace is gone and restarts itself onto the new one.
 
