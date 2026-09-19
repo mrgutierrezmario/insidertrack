@@ -21,7 +21,6 @@ from models.alert import AlertEvent, AlertRule
 from models.politician import Politician
 from models.trade import Trade
 from models.whale import WhaleHolder, WhalePosition
-from models.fed_official import FedOfficial, FedTrade
 
 logger = logging.getLogger(__name__)
 
@@ -106,23 +105,6 @@ def evaluate_alerts(db: Session) -> dict:
                 msg = f"{who} disclosed a purchase of {tr.ticker} ({tr.amount_range or 'amount n/a'}) on {tr.trade_date}."
                 if _emit(db, rule, tr.ticker, msg, key):
                     new_events.append({"ticker": tr.ticker, "message": msg, "rule": rule.name})
-
-        elif t == "fed_trade":
-            cutoff = today - timedelta(days=int(thr) if thr else 30)
-            q = (
-                db.query(FedTrade)
-                .join(FedOfficial)
-                .filter(FedOfficial.is_active == True,  # noqa: E712
-                        FedTrade.trade_date >= cutoff)
-            )
-            if rule.ticker:
-                q = q.filter(FedTrade.ticker == rule.ticker.upper())
-            for ft in q.all():
-                key = f"{rule.id}:fed_trade:{ft.id}"
-                name = ft.official.name if ft.official else "A Fed official"
-                msg = f"{name} disclosed a {ft.transaction_type} of {ft.ticker} ({ft.amount_range or 'amount n/a'}) on {ft.trade_date}."
-                if _emit(db, rule, ft.ticker, msg, key):
-                    new_events.append({"ticker": ft.ticker, "message": msg, "rule": rule.name})
 
         elif t == "whale_new":
             cutoff = today - timedelta(days=120)

@@ -71,6 +71,13 @@ async def lifespan(app: FastAPI):
     with SessionLocal() as db:
         load_db_settings(db)
         seed_filing_institutions(db)
+        # Fed page is a roster (no data feed); apply the built-in roster so
+        # additions/retirements land on deploy without an admin click.
+        try:
+            from services.fed_fetcher import seed_officials
+            seed_officials(db)
+        except Exception:
+            logging.getLogger(__name__).exception("Fed roster seed at startup failed")
         # Backfill any new/cleared risk_level cells so the /trades filter is
         # immediately accurate — the daily scheduler job keeps them current after.
         try:

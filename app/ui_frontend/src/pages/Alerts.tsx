@@ -21,7 +21,6 @@ const TYPE_META: Record<string, TypeMeta> = {
   insider_buy:   { label: "Politician buy",     thresholdLabel: "Look-back days",       thresholdDefault: 7,  color: C.info },
   whale_new:     { label: "New whale position", thresholdLabel: null,                  thresholdDefault: null, color: C.warningSolid },
   earnings_soon: { label: "Earnings soon",      thresholdLabel: "Within N days",        thresholdDefault: 7,  color: C.warning },
-  fed_trade:     { label: "Fed official trade", thresholdLabel: "Look-back days",       thresholdDefault: 30, color: C.warningSolid },
 };
 
 const EMPTY_META: TypeMeta = { label: "", thresholdLabel: null, thresholdDefault: null, color: C.dividerStrong };

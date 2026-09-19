@@ -14,7 +14,6 @@ ALERT_TYPES = {
     "high_signal":   "Composite signal score at or above a threshold",
     "momentum":      "Ticker shows a BULLISH technical signal",
     "insider_buy":   "A tracked politician disclosed a purchase",
-    "fed_trade":     "A Federal Reserve official disclosed a trade",
     "whale_new":     "An institution opened a new 13F position",
     "earnings_soon": "A tracked ticker has earnings within N days",
 }

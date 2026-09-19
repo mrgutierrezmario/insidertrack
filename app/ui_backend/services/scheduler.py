@@ -1,6 +1,7 @@
 """
 APScheduler jobs:
   08:00 — morning analysis + congressional sync + email
+  (the Fed page is a roster with no data feed — no job)
   12:00 — midday analysis + email
   18:00 — evening analysis + email
 All times are Eastern (America/New_York).
@@ -21,7 +22,6 @@ from services.outcome_tracker import fill_outcomes, snapshot_signals
 from services.alert_engine import evaluate_alerts
 from services.form4_fetcher import sync_form4_for_tickers
 from services.market_data import warm_price_history
-from services import fed_fetcher
 from services import source_health
 
 logger = logging.getLogger(__name__)
@@ -138,13 +138,6 @@ def _warm_history_job():
             warm_price_history(tickers)
 
 
-def _fed_sync_job():
-    logger.info("Running Fed officials disclosure sync")
-    from database import SessionLocal
-    with SessionLocal() as db:
-        fed_fetcher.sync_all(db)
-
-
 def _whale_sync_job():
     """Weekly 13F refresh — skips quarters already stored, so it only does work
     for ~a week after each 45-days-past-quarter-end filing deadline."""
@@ -250,7 +243,13 @@ def start_scheduler():
     scheduler.add_job(_form4_job, CronTrigger(hour=6, minute=30, timezone=ET), id="form4_sync", **common)
     scheduler.add_job(_warm_history_job, CronTrigger(hour=6, minute=45, timezone=ET), id="warm_history", **common)
     scheduler.add_job(_alert_job, CronTrigger(hour="8,12,18", minute=15, timezone=ET), id="alert_eval", **common)
-    scheduler.add_job(_fed_sync_job, CronTrigger(hour=7, minute=15, timezone=ET), id="fed_sync", **common)
+    # The former 07:15 "fed_sync" job is gone — OGE publishes no machine-
+    # readable data and the Fed page is a roster (seeded at startup). Remove
+    # its persisted jobstore row so it doesn't linger.
+    try:
+        scheduler.remove_job("fed_sync")
+    except Exception:
+        pass
     scheduler.add_job(_whale_sync_job, CronTrigger(day_of_week="sat", hour=6, minute=0, timezone=ET), id="whale_sync", **common)
     # After the morning syncs have run — so today's outcome is what gets judged.
     scheduler.add_job(_source_health_job, CronTrigger(hour=9, minute=0, timezone=ET), id="source_health", **common)

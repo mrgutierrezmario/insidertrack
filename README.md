@@ -130,7 +130,7 @@ Only electronically-filed reports are parsed (scanned paper filings have no text
 Pre-loaded funds: Berkshire Hathaway, Soros Fund Management, Renaissance Technologies, Bridgewater Associates, Pershing Square (Bill Ackman).
 
 ### Federal Reserve Officials
-Roster only. Board members have been barred from holding individual stocks since 2022, and OGE publishes disclosures as PDFs with no API, so the Fed page shows who is on the Board with an empty (compliant) trade list.
+Roster only (seeded at startup, refreshable from the page). Board members have been barred from holding individual stocks since 2022, and OGE publishes disclosures as PDFs with no API, so the Fed page shows who is on the Board with an empty (compliant) trade list.
 
 ### Freshness monitoring
 Every sync records its outcome per source. `GET /health` reports each source as `ok` / `stale` (runs succeed but no new rows for longer than expected — usually a site change the parser misses silently) / `failing` (three consecutive failures). **Admin → Data sources** shows the same, and a daily 9 AM ET job emails `MAIL_ADMIN_TO` only when something is stale or failing.
@@ -174,7 +174,6 @@ All times Eastern. Jobs run automatically when the backend is running.
 | 6:30 AM | Sync corporate Form 4 insider filings |
 | 6:45 AM | Pre-warm price history cache |
 | 7:00 AM | Snapshot today's signal scores (for outcome tracking) |
-| 7:15 AM | Fed roster sync (no-op — see Data Sources) |
 | 7:30 AM | Fill 30/60/90-day outcomes for old snapshots |
 | 8:00 AM | Sync congressional trades + morning analysis + email report |
 | 8:15 AM | Evaluate alert rules |

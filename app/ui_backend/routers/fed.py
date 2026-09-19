@@ -3,7 +3,7 @@
 from datetime import date
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Query
+from fastapi import APIRouter, Depends, Query
 from routers.access import require_admin
 from sqlalchemy.orm import Session
 
@@ -95,20 +95,6 @@ def list_trades(
     has_more = len(rows) > limit
     rows = rows[:limit]
     return {"items": [_serialize_trade(t) for t in rows], "offset": offset, "limit": limit, "has_more": has_more}
-
-
-@router.post("/sync")
-def sync_fed(background_tasks: BackgroundTasks, _: None = Depends(require_admin), db: Session = Depends(get_db)):
-    """Seed officials + fetch latest OGE disclosures in background."""
-    from services.fed_fetcher import sync_all
-
-    def _run():
-        from database import SessionLocal
-        with SessionLocal() as s:
-            sync_all(s)
-
-    background_tasks.add_task(_run)
-    return {"status": "sync started"}
 
 
 @router.post("/seed")

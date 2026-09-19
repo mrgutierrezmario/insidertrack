@@ -8,13 +8,12 @@ import { ADMIN_TOKEN_KEY } from "../lib/storage";
 vi.mock("../lib/api", () => ({
   getFedOfficials: vi.fn(),
   getFedTrades:    vi.fn(),
-  syncFed:         vi.fn(),
   seedFed:         vi.fn(),
   addToWatchlist:  vi.fn(),  // pulled in by WatchlistButton on each row
   // Fed.tsx imports ADMIN_TOKEN_KEY from "../lib/api" (re-exported)
   ADMIN_TOKEN_KEY: "insidertrack_admin_token",
 }));
-import { getFedOfficials, getFedTrades, syncFed, seedFed } from "../lib/api";
+import { getFedOfficials, getFedTrades, seedFed } from "../lib/api";
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 const OFFICIALS = [
@@ -175,7 +174,6 @@ describe("<Fed />", () => {
 
     await waitFor(() => expect(seedFed).toHaveBeenCalledTimes(1));
     // There is no machine-readable Fed trade source, so nothing else is called.
-    expect(syncFed).not.toHaveBeenCalled();
     expect(await screen.findByText(/Roster refreshed/i)).toBeInTheDocument();
   });
 

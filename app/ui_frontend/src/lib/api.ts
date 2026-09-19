@@ -329,7 +329,6 @@ export const recoverWatchlistToken = (email: string): Resp<{ status: string }> =
 export const getFedOfficials = (): Resp<unknown> => api.get("/fed/officials");
 export const getFedTrades = (params: Record<string, unknown> = {}): Resp<unknown> =>
   api.get("/fed/trades", { params });
-export const syncFed = (): Resp<unknown> => api.post("/fed/sync");
 export const seedFed = (): Resp<unknown> => api.post("/fed/seed");
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
