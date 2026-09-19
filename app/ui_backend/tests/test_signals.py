@@ -9,6 +9,7 @@ from routers.signals import (
     _rsi,
     _momentum_score,
     _insider_score,
+    _corporate_score,
     _composite_label,
     _bullish_label,
     _smart_money_from_positions,
@@ -124,6 +125,61 @@ class TestInsiderScore:
         assert 6 <= score <= 20
 
 
+class TestInsiderScoreDollarWeighted:
+    def test_dollars_beat_counts(self):
+        # Five $8K buys vs one $5M sale: by count that's "bullish lean",
+        # by dollars it's overwhelmingly a sell.
+        score, reasons = _insider_score(5, 1, buy_dollars=40_000, sell_dollars=5_000_000)
+        assert score == 6
+        assert "$5.0M" in reasons[0]
+
+    def test_all_buys_with_dollars(self):
+        score, reasons = _insider_score(2, 0, buy_dollars=100_000, sell_dollars=0)
+        assert score == 25 and "$100K" in reasons[0]
+
+    def test_falls_back_to_counts_without_dollars(self):
+        assert _insider_score(7, 3)[0] == 20
+
+
+# ── _corporate_score ──────────────────────────────────────────────────────────
+
+class _F4:
+    def __init__(self, ttype, value, name="A. Insider"):
+        self.transaction_type = ttype
+        self.value = value
+        self.insider_name = name
+
+
+class TestCorporateScore:
+    def test_empty_is_neutral(self):
+        score, reasons = _corporate_score([])
+        assert score == 10 and "No Form 4" in reasons[0]
+
+    def test_all_buys(self):
+        score, _ = _corporate_score([_F4("buy", 250_000)])
+        assert score == 18
+
+    def test_cluster_buy_bonus_caps_at_20(self):
+        txns = [_F4("buy", 100_000, "CEO"), _F4("buy", 50_000, "CFO"), _F4("buy", 10_000, "Director")]
+        score, reasons = _corporate_score(txns)
+        assert score == 20
+        assert any("Cluster buy: 3" in r for r in reasons)
+
+    def test_all_sells_is_discounted_not_zero(self):
+        score, reasons = _corporate_score([_F4("sell", 1_000_000)])
+        assert score == 3 and "routine" in reasons[0]
+
+    def test_dollar_weighted_ratio(self):
+        # one big buy vs many tiny sells → net buyers
+        txns = [_F4("buy", 900_000)] + [_F4("sell", 10_000, f"s{i}") for i in range(5)]
+        score, _ = _corporate_score(txns)
+        assert score == 15
+
+    def test_grants_only_are_neutral(self):
+        score, reasons = _corporate_score([_F4("other", 0)])
+        assert score == 10 and "grants" in reasons[0]
+
+
 # ── _composite_label ─────────────────────────────────────────────────────────
 
 class TestCompositeLabel:
@@ -173,13 +229,13 @@ class TestSmartMoneyFromPositions:
 
     def test_empty_returns_neutral(self):
         score, reasons = _smart_money_from_positions([])
-        assert score == 15
+        assert score == 10
         assert "No institutional" in reasons[0]
 
     def test_new_position_max_score(self):
         pos = [self._make_pos("new")]
         score, _ = _smart_money_from_positions(pos)
-        assert score == 30
+        assert score == 20
 
     def test_closed_position_zero_score(self):
         pos = [self._make_pos("closed")]
@@ -189,7 +245,7 @@ class TestSmartMoneyFromPositions:
     def test_mixed_positions_averaged(self):
         positions = [self._make_pos("new"), self._make_pos("closed")]
         score, _ = _smart_money_from_positions(positions)
-        assert score == 15  # (30 + 0) / 2
+        assert score == 10  # (20 + 0) / 2
 
     def test_increased_reason_in_output(self):
         pos = [self._make_pos("increased")]

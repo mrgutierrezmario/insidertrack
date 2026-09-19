@@ -120,8 +120,9 @@ function SubScoreTooltip({ sub }: { sub: Partial<import("../types/api").SubScore
           padding: "10px 14px", zIndex: 100, whiteSpace: "nowrap", boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
         }}>
           {[
-            ["Smart Money", sub.smart_money, 30],
-            ["Insider", sub.insider, 25],
+            ["Smart Money", sub.smart_money, 20],
+            ["Congress", sub.insider, 25],
+            ["Insiders", sub.corporate, 20],
             ["Momentum", sub.momentum, 25],
             ["Sentiment", sub.sentiment, 10],
             ["Risk penalty", sub.risk_penalty ? `-${sub.risk_penalty}` : null, 20],

@@ -123,6 +123,7 @@ def list_outcomes(
             "sub_scores": {
                 "smart_money": r.smart_money_score,
                 "insider":     r.insider_score,
+                "corporate":   r.corporate_score,
                 "momentum":    r.momentum_score,
                 "sentiment":   r.sentiment_score,
                 "risk_penalty":r.risk_penalty,

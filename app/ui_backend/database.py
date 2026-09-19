@@ -70,6 +70,8 @@ def _apply_migrations():
         "CREATE INDEX IF NOT EXISTS ix_trades_direction ON trades (direction)",
         # Flag distinguishing live snapshots from retroactively-backfilled ones
         "ALTER TABLE signal_outcomes ADD COLUMN IF NOT EXISTS is_backfilled BOOLEAN NOT NULL DEFAULT FALSE",
+        # Form 4 sub-score joined the composite in 2026-09
+        "ALTER TABLE signal_outcomes ADD COLUMN IF NOT EXISTS corporate_score INTEGER",
         # Persistent L2 cache for market_data. Sweeper job in scheduler.py
         # deletes expired rows hourly.
         """

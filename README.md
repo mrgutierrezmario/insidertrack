@@ -134,23 +134,24 @@ Pre-loaded funds: Berkshire Hathaway, Soros Fund Management, Renaissance Technol
 
 ## How Signals Work
 
-Each ticker tracked by a congressional trade gets a **composite score (0–100)** built from four sub-scores:
+Every ticker with a congressional trade in the last 45 days gets a **composite score (0–100)** built from five sub-scores:
 
 | Component | Max points | What it measures |
 |---|---|---|
-| Smart money | 30 | Whale 13F activity for this ticker |
-| Insider activity | 25 | Congressional buy vs. sell balance (45-day window) |
-| Momentum | 25 | SMA crossovers, RSI, price trend |
+| Smart money | 20 | Whale 13F activity for this ticker (new / increased / reduced / closed positions) |
+| Congress | 25 | Congressional buys vs. sells (45-day window), weighted by the disclosed dollar bracket. Options count by contract direction (long call / short put = bullish); unknown contracts and bonds are neutral |
+| Corporate insiders | 20 | SEC Form 4 open-market buys vs. sells by officers, directors and 10% owners (90-day window), by dollar value. Buying counts more than selling; several insiders buying together earns a bonus |
+| Momentum | 25 | SMA20/50 crossovers, RSI, price trend |
 | Sentiment | 10 | News headline sentiment |
-| Risk penalty | −20 | Recent sells, overbought RSI, high volatility |
+| Risk penalty | −20 | Stale disclosures (old trades or long disclosure lag) |
 
 | Score range | Label |
 |---|---|
-| 75–100 | Strong Watch |
-| 55–74 | Watch |
-| 35–54 | Neutral |
-| 20–34 | High Risk |
-| 0–19 | Avoid for Now |
+| 70–100 | Strong Watch |
+| 50–69 | Watch |
+| 30–49 | Neutral |
+| 15–29 | High Risk |
+| 0–14 | Avoid for Now |
 
 Signal outcomes are tracked at 30, 60, and 90 days — see the **Outcomes** page for historical hit rates.
 

@@ -53,11 +53,11 @@ export type SignalLabel = "Strong Watch" | "Watch" | "Neutral" | "High Risk" | "
 export type SignalDirection = "BULLISH" | "NEUTRAL" | "BEARISH";
 
 export interface SubScores {
-  smart_money: number;
-  insider: number;
+  smart_money: number;       // 13F whales, max 20
+  insider: number;           // Congress, max 25
+  corporate?: number | null; // Form 4, max 20 (null on snapshots older than 2026-09)
   momentum: number;
   sentiment: number;
-  fundamentals?: number;
   risk_penalty: number;
 }
 

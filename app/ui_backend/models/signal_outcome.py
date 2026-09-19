@@ -23,7 +23,8 @@ class SignalOutcome(Base):
 
     # Sub-scores
     smart_money_score = Column(Integer)
-    insider_score     = Column(Integer)
+    insider_score     = Column(Integer)   # congressional
+    corporate_score   = Column(Integer)   # Form 4 (added 2026-09; NULL on older rows)
     momentum_score    = Column(Integer)
     sentiment_score   = Column(Integer)
     risk_penalty      = Column(Integer)

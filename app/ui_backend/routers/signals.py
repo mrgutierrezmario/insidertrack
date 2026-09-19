@@ -2,12 +2,15 @@
 Technical + composite signal scores per ticker.
 
 Composite score (0-100):
-  Smart Money  (0-30): whale position changes
-  Insider      (0-25): congressional buy/sell conviction
+  Smart Money  (0-20): whale 13F position changes
+  Congress     (0-25): congressional buy/sell conviction, dollar-weighted
+  Corporate    (0-20): Form 4 open-market buys vs sells by company insiders
   Momentum     (0-25): SMA20/50 crossover + RSI
   Sentiment    (0-10): news sentiment via AV
-  Fundamentals (  10): stub — placeholder for paid API
   Risk penalty (0-20): reduces score for HIGH-risk recent trades
+
+The "insider" sub-score key is the congressional one (kept for the stored
+snapshots); "corporate" is the Form 4 one.
 
 Labels:
   70-100 → Strong Watch
@@ -27,9 +30,11 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from database import get_db
+from models.insider import Form4Transaction
 from models.politician import Politician
 from models.trade import Trade
 from models.whale import WhaleHolder, WhalePosition
+from services import trade_semantics as sem
 from services.market_data import get_price_history
 from services.news_fetcher import average_sentiment
 
@@ -106,41 +111,106 @@ def _momentum_score(closes: list[float]) -> tuple[int, list[str]]:
     return max(0, min(25, score)), reasons
 
 
-def _insider_score(buys: int, sells: int) -> tuple[int, list[str]]:
-    """Returns (score_0_25, reasons). Based on buy/sell conviction."""
+# Midpoint assumed for a trade whose bracket could not be parsed — the
+# smallest STOCK Act bracket ($1,001–$15,000), so unknowns never dominate.
+_DEFAULT_TRADE_DOLLARS = 8_000
+
+
+def _fmt_dollars(n: float) -> str:
+    if n >= 1_000_000:
+        return f"${n / 1_000_000:.1f}M"
+    if n >= 1_000:
+        return f"${n / 1_000:.0f}K"
+    return f"${n:.0f}"
+
+
+def _insider_score(buys: int, sells: int, buy_dollars: float = 0, sell_dollars: float = 0) -> tuple[int, list[str]]:
+    """Congressional conviction, 0–25. The buy/sell split is weighted by the
+    bracket midpoint so one $5M purchase outweighs five $1K ones; counts are
+    only used when no dollar figures are known."""
     reasons = []
     if buys == 0 and sells == 0:
-        return 12, ["No recent insider activity"]
+        return 12, ["No recent congressional activity"]
 
-    total = buys + sells
-    buy_ratio = buys / total if total else 0.5
+    if buy_dollars + sell_dollars > 0:
+        buy_ratio = buy_dollars / (buy_dollars + sell_dollars)
+        buy_txt = f"{buys} buy(s) ≈ {_fmt_dollars(buy_dollars)}"
+        sell_txt = f"{sells} sell(s) ≈ {_fmt_dollars(sell_dollars)}"
+    else:
+        buy_ratio = buys / (buys + sells)
+        buy_txt, sell_txt = f"{buys} buy(s)", f"{sells} sell(s)"
 
     if buy_ratio >= 1.0:
         score = 25
-        reasons.append(f"{buys} insider purchase(s), no recent sells — strong conviction")
+        reasons.append(f"Congress: {buy_txt}, no recent sells — strong conviction")
     elif buy_ratio >= 0.7:
         score = 20
-        reasons.append(f"{buys} buy(s) vs {sells} sell(s) — bullish lean")
+        reasons.append(f"Congress: {buy_txt} vs {sell_txt} — bullish lean")
     elif buy_ratio >= 0.4:
         score = 12
-        reasons.append(f"Mixed: {buys} buy(s) and {sells} sell(s)")
+        reasons.append(f"Congress: mixed — {buy_txt}, {sell_txt}")
     elif buy_ratio > 0:
         score = 6
-        reasons.append(f"{sells} sell(s) outweigh {buys} buy(s)")
+        reasons.append(f"Congress: {sell_txt} outweigh {buy_txt}")
     else:
         score = 0
-        reasons.append(f"{sells} insider sale(s), no recent buys — bearish signal")
+        reasons.append(f"Congress: {sell_txt}, no recent buys — bearish signal")
 
+    return score, reasons
+
+
+def _corporate_score(txns: list) -> tuple[int, list[str]]:
+    """Form 4 conviction, 0–20, from open-market buys (P) and sells (S) by the
+    company's own officers, directors and 10% owners, weighted by dollar
+    value. Insider *buying* is the informative side — executives sell for
+    liquidity, taxes and 10b5-1 plans — so all-sells is discounted, and a
+    cluster of distinct insiders buying earns a bonus."""
+    if not txns:
+        return 10, ["No Form 4 insider activity"]
+
+    buy_val = sum((t.value or 0) for t in txns if t.transaction_type == "buy")
+    sell_val = sum((t.value or 0) for t in txns if t.transaction_type == "sell")
+    buys = [t for t in txns if t.transaction_type == "buy"]
+    sells = [t for t in txns if t.transaction_type == "sell"]
+    if not buys and not sells:
+        return 10, ["Form 4 filings are grants/exercises only — no open-market trades"]
+
+    total = buy_val + sell_val
+    buy_ratio = buy_val / total if total else len(buys) / (len(buys) + len(sells))
+    buyers = {t.insider_name for t in buys if t.insider_name}
+    buy_txt = f"{len(buys)} insider buy(s) ≈ {_fmt_dollars(buy_val)}"
+    sell_txt = f"{len(sells)} insider sale(s) ≈ {_fmt_dollars(sell_val)}"
+
+    reasons = []
+    if buy_ratio >= 1.0:
+        score = 18
+        reasons.append(f"Form 4: {buy_txt}, no open-market sells")
+    elif buy_ratio >= 0.7:
+        score = 15
+        reasons.append(f"Form 4: {buy_txt} vs {sell_txt} — insiders net buyers")
+    elif buy_ratio >= 0.4:
+        score = 10
+        reasons.append(f"Form 4: mixed — {buy_txt}, {sell_txt}")
+    elif buy_ratio > 0:
+        score = 6
+        reasons.append(f"Form 4: {sell_txt} outweigh {buy_txt}")
+    else:
+        score = 3
+        reasons.append(f"Form 4: {sell_txt}, no buys (insider selling is often routine)")
+
+    if len(buyers) >= 2:
+        score = min(20, score + 2)
+        reasons.append(f"Cluster buy: {len(buyers)} different insiders bought")
     return score, reasons
 
 
 def _smart_money_from_positions(positions: list) -> tuple[int, list[str]]:
     """Score from a pre-fetched list of WhalePosition objects for one ticker."""
     if not positions:
-        return 15, ["No institutional 13F data for this ticker"]
+        return 10, ["No institutional 13F data for this ticker"]
 
-    change_scores = {"new": 30, "increased": 22, "stable": 15, "decreased": 8, "closed": 0}
-    scores = [change_scores.get(p.change_type or "stable", 15) for p in positions]
+    change_scores = {"new": 20, "increased": 15, "stable": 10, "decreased": 5, "closed": 0}
+    scores = [change_scores.get(p.change_type or "stable", 10) for p in positions]
     avg = round(sum(scores) / len(scores))
 
     latest = positions[0]
@@ -254,7 +324,7 @@ def _compute_technical_signals(db: Session, target_date: date | None = None) -> 
     cutoff = target_date - timedelta(days=45)
 
     rows = (
-        db.query(Trade.ticker, Trade.direction, Trade.trade_date)
+        db.query(Trade.ticker, Trade.direction, Trade.trade_date, Trade.amount_low, Trade.amount_high)
         .join(Politician)
         .filter(
             Politician.is_tracked == True,  # noqa: E712
@@ -265,18 +335,21 @@ def _compute_technical_signals(db: Session, target_date: date | None = None) -> 
     )
 
     ticker_activity: dict[str, dict] = {}
-    for ticker, direction, td in rows:
+    for ticker, direction, td, lo, hi in rows:
         if not ticker:
             continue
         if ticker not in ticker_activity:
-            ticker_activity[ticker] = {"buys": 0, "sells": 0, "last_trade_date": None}
+            ticker_activity[ticker] = {"buys": 0, "sells": 0, "buy_dollars": 0, "sell_dollars": 0, "last_trade_date": None}
+        dollars = sem.amount_midpoint(lo, hi) or _DEFAULT_TRADE_DOLLARS
         # direction is NULL for exchanges, bonds and options with no call/put
         # in the filing — those still put the ticker in the universe (someone
         # in Congress touched it) but don't count as conviction either way.
         if direction == "buy":
             ticker_activity[ticker]["buys"] += 1
+            ticker_activity[ticker]["buy_dollars"] += dollars
         elif direction == "sell":
             ticker_activity[ticker]["sells"] += 1
+            ticker_activity[ticker]["sell_dollars"] += dollars
         if td and (ticker_activity[ticker]["last_trade_date"] is None or td > ticker_activity[ticker]["last_trade_date"]):
             ticker_activity[ticker]["last_trade_date"] = td
 
@@ -324,7 +397,26 @@ def _compute_technical_signals(db: Session, target_date: date | None = None) -> 
         if bucket is not None:
             bucket.append(t)
 
-    # 3. Latest whale filing date per ticker (bounded to target_date)
+    # 3. Form 4 open-market trades in the last 90 days (bounded to target_date
+    #    by filing date — that's when the market could have known).
+    f4_cutoff = target_date - timedelta(days=90)
+    all_f4 = (
+        db.query(Form4Transaction)
+        .filter(
+            Form4Transaction.ticker.in_(tickers),
+            Form4Transaction.transaction_type.in_(["buy", "sell"]),
+            Form4Transaction.filing_date <= target_date,
+            Form4Transaction.transaction_date >= f4_cutoff,
+        )
+        .all()
+    )
+    f4_by_ticker: dict[str, list] = {t: [] for t in tickers}
+    for t in all_f4:
+        bucket = f4_by_ticker.get(t.ticker)
+        if bucket is not None:
+            bucket.append(t)
+
+    # 4. Latest whale filing date per ticker (bounded to target_date)
     filing_rows = (
         db.query(WhalePosition.ticker, func.max(WhalePosition.filing_date).label("max_date"))
         .filter(
@@ -369,16 +461,17 @@ def _compute_technical_signals(db: Session, target_date: date | None = None) -> 
         is_demo = bool(history and history[-1].get("_demo"))
 
         momentum_pts, momentum_reasons = _momentum_score(closes)
-        insider_pts, insider_reasons = _insider_score(activity["buys"], activity["sells"])
+        insider_pts, insider_reasons = _insider_score(
+            activity["buys"], activity["sells"], activity["buy_dollars"], activity["sell_dollars"])
+        corporate_pts, corporate_reasons = _corporate_score(f4_by_ticker.get(ticker, []))
         smart_pts, smart_reasons = _smart_money_from_positions(positions_by_ticker.get(ticker, []))
         risk_penalty_pts, risk_reasons = _risk_penalty_from_trades(risk_trades_by_ticker.get(ticker, []))
 
         sentiment_raw = sentiments.get(ticker, 50)
         sentiment_pts = round(sentiment_raw / 10)
-        fundamentals_pts = 10
 
         composite = max(0, min(100,
-            smart_pts + insider_pts + momentum_pts + sentiment_pts + fundamentals_pts - risk_penalty_pts
+            smart_pts + insider_pts + corporate_pts + momentum_pts + sentiment_pts - risk_penalty_pts
         ))
 
         raw_score = 0
@@ -395,12 +488,16 @@ def _compute_technical_signals(db: Session, target_date: date | None = None) -> 
                 raw_score += 1
             elif rsi > 70:
                 raw_score -= 1
-        if activity["buys"] > activity["sells"]:
+        if activity["buy_dollars"] > activity["sell_dollars"]:
             raw_score += 1
-        elif activity["sells"] > activity["buys"]:
+        elif activity["sell_dollars"] > activity["buy_dollars"]:
+            raw_score -= 1
+        if corporate_pts >= 15:
+            raw_score += 1
+        elif corporate_pts <= 6:
             raw_score -= 1
 
-        all_reasons = smart_reasons + insider_reasons + momentum_reasons + risk_reasons
+        all_reasons = smart_reasons + insider_reasons + corporate_reasons + momentum_reasons + risk_reasons
         last_filing = latest_filing_by_ticker.get(ticker)
         last_trade_date = activity["last_trade_date"].isoformat() if activity.get("last_trade_date") else None
 
@@ -418,6 +515,10 @@ def _compute_technical_signals(db: Session, target_date: date | None = None) -> 
             "reasons": all_reasons,
             "insider_buys": activity["buys"],
             "insider_sells": activity["sells"],
+            "insider_buy_dollars": activity["buy_dollars"],
+            "insider_sell_dollars": activity["sell_dollars"],
+            "corporate_buys": sum(1 for t in f4_by_ticker.get(ticker, []) if t.transaction_type == "buy"),
+            "corporate_sells": sum(1 for t in f4_by_ticker.get(ticker, []) if t.transaction_type == "sell"),
             "window_start": cutoff.isoformat(),
             "window_end": target_date.isoformat(),
             "last_trade_date": last_trade_date,
@@ -425,9 +526,9 @@ def _compute_technical_signals(db: Session, target_date: date | None = None) -> 
             "sub_scores": {
                 "smart_money": smart_pts,
                 "insider": insider_pts,
+                "corporate": corporate_pts,
                 "momentum": momentum_pts,
                 "sentiment": sentiment_pts,
-                "fundamentals": fundamentals_pts,
                 "risk_penalty": risk_penalty_pts,
             },
         })

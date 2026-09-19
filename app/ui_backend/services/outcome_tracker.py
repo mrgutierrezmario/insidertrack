@@ -148,6 +148,7 @@ def snapshot_signals(db: Session, target_date: date | None = None) -> int:
             "politician_name":   pol.get("name"),
             "smart_money_score": sub.get("smart_money"),
             "insider_score":     sub.get("insider"),
+            "corporate_score":   sub.get("corporate"),
             "momentum_score":    sub.get("momentum"),
             "sentiment_score":   sub.get("sentiment"),
             "risk_penalty":      sub.get("risk_penalty"),
