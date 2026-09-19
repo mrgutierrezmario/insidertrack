@@ -134,10 +134,21 @@ def _mask(value: str) -> str:
 _DEFAULTED = {"ai_provider", "claude_model", "gemini_model", "openai_model", "mail_from_name"}
 
 
+# What each setting was before any Admin-panel override: the .env / environment
+# value the process started with. Clearing an override falls back to this —
+# not to "", which used to silently switch off whatever .env provided until
+# the next restart (that is how a stale saved mail_username, paired with the
+# .env password for a different account, produced Gmail 'BadCredentials').
+_ENV_BASELINE: dict[str, object] = {k: getattr(settings, k) for k in type(settings).model_fields}
+
+
 def _apply_to_settings(key: str, value: str):
-    """Push a new value into the live settings object."""
-    if not value and key in _DEFAULTED:
-        value = type(settings).model_fields[key].default
+    """Push a new value into the live settings object; an empty value means
+    'no override' and restores the environment/default value."""
+    if not value:
+        value = _ENV_BASELINE.get(key, "")
+        if not value and key in _DEFAULTED:
+            value = type(settings).model_fields[key].default
     if hasattr(settings, key):
         object.__setattr__(settings, key, value)
     # Bust caches that depend on this key
