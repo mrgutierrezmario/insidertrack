@@ -44,20 +44,31 @@ throwaway `postgres:18-alpine` on a user network + `tar cz app/ui_backend | dock
 
 | # | Gap | Status |
 |---|---|---|
-| 1 | Senate paper filings (GIF scans on EFD) read by the vision model | **done** — code path verified to the model call; Gemini free-tier quota was exhausted, first real readings at the next 8 AM sync |
+| 1 | Senate paper filings (GIF scans on EFD) read by the vision model | **done** — verified to the model call; Gemini free-tier quota was spent, first real readings at the next 8 AM sync |
 | 2 | Paper rows: link to the filing + admin "Remove misread row" | **done** (`filing_url` on every trade, `DELETE /trades/{id}`) |
-| 3 | Backfill 2021–2022 | queued — run after the batch's last deploy (deploys kill running jobs) |
+| 3 | Backfill 2021–2022 | **running** at session end (started 21:42 UTC; `GET /jobs/running` shows progress) |
 | 4 | First market-wide Form 4 run; Insiders page at that size | tomorrow 6:30 — check row count and page load |
-| 5 | Smart money: weight by position size / holder | pending |
-| 6 | Sentiment has no source; News page mostly empty | pending |
-| 7 | Track record for sells | pending |
-| 8 | Member leaderboard | pending |
-| 9 | Alert types: cluster buy, high-skill member buy | pending |
+| 5 | Smart money weighted by position conviction; first-quarter positions neutral | **done** — score **v4** |
+| 6 | Sentiment/News: no source | **done** — Google News RSS headlines when no AV key (or quota spent); sentiment labels only with AV |
+| 7 | Track record for sells | **done** (down after the sale = the good call) |
+| 8 | Member leaderboard | **done** — `/leaderboard`, from the stored weekly skill numbers |
+| 9 | Alert types: cluster buy, skilled-member buy | **done** |
 | 10 | Review the email reports after the universe change | tomorrow's morning report |
 | 11 | Verify the off-site half of the backup | tomorrow after 03:00: `deploy/state/backups/backup.log` should end "Off-site copy up to date" |
-| 12 | Error tracking beyond container logs | pending |
+| 12 | Error tracking beyond container logs | **done** — `errors_24h` in `/health`, included in the 9 AM email when non-zero |
 | 13 | Single uvicorn worker shares scheduler + syncs + requests | noted; split only if 8:00–8:15 feels slow |
-| 14 | Deploy guard: refuse `deploy/start.sh` while a backfill / skill refresh runs | pending |
+| 14 | Deploy guard | **done** — `deploy/start.sh` refuses to restart under a running job (`--force` overrides); `GET /jobs/running` |
+
+Skill refresh: interrupted by deploys four times today; the final run started
+21:42 UTC alongside the backfill. Until it finishes, some members are at
+×1.00 and the leaderboard is partial (65 weighted of ~170 with buys).
+
+### Still open after this batch
+- Senate paper readings unverified end-to-end (quota); House paper verified (22 rows, spot-checked).
+- Sentiment is headline-only without an AV key; no scoring use either way.
+- Paper filings: a paper *amendment* is stored as a normal filing (the model can't tell what it amends).
+- Track-record weights apply only to Congress; 13F holders have no track record of their own.
+- No "re-check this paper row" flow beyond delete.
 
 ## Deployment gotchas (from the 2026-09-16 rebuild; still true)
 

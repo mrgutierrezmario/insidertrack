@@ -5,6 +5,18 @@ All notable changes to InsiderTrack. The format follows
 [Semantic Versioning](https://semver.org/). The current version lives in the
 `VERSION` file and is shown in Settings and at `/health`.
 
+## [Unreleased]
+
+### Added
+- Senate paper (scanned) filings read by the vision model, like the House ones; every trade links to its filing; admins can remove a misread paper row.
+- Track record for **sales** (a sale was a good call if the stock then fell or lagged SPY) and a **Leaderboard** ranking members by how often their buys beat SPY at 90 days.
+- Alert types: insider **cluster buy** (market-wide Form 4) and **skilled-member buy**.
+- Google News headlines on the News page when there is no Alpha Vantage key (or its quota is spent).
+- `/health` reports unhandled exceptions in the last 24 h; the daily admin email includes them. `GET /jobs/running`; `deploy/start.sh` refuses to restart the app under a running backfill / re-parse / sync / skill refresh (`--force` overrides).
+
+### Changed
+- Scoring **v4**: smart money weights each 13F position by its share of the holder's book (5%+ earns a conviction bonus); a holder's first loaded quarter is neutral instead of counting every position as "new".
+
 ## [1.0.0] — 2026-09-19
 
 First release: the app as it runs at its public URL, after a full data-model
