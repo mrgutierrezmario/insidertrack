@@ -80,7 +80,7 @@ export default function News() {
         <div>
           <h1>News & Sentiment</h1>
           <p style={{ color: C.dividerStrong, margin: 0, fontSize: 13 }}>
-            {data?.has_key ? "AI-scored sentiment for tracked tickers · Alpha Vantage NEWS_SENTIMENT · cached 4 hrs" : "Headlines for tracked tickers · Google News · cached 4 hrs · add an Alpha Vantage key in Admin for sentiment labels"}
+            {data?.has_key ? "Headlines for the tickers members are trading most this month · sentiment labels from Alpha Vantage when available · cached 4 hrs" : "Headlines for the tickers members are trading most this month · Google News · cached 4 hrs"}
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -110,7 +110,7 @@ export default function News() {
         />
         {data && data.tickers.length > 0 && (
           <span style={{ color: C.dividerStrong, fontSize: 12, marginLeft: 12 }}>
-            Tracking: {data.tickers.join(", ")}
+            Most traded this month: {data.tickers.join(", ")}
           </span>
         )}
       </div>

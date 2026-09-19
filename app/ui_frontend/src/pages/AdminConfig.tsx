@@ -274,7 +274,7 @@ function AdminPanel() {
   };
 
   return (
-    <div style={{ maxWidth: 720 }}>
+    <div style={{ maxWidth: 800, margin: "0 auto" }}>
       {confirm && (
         <ConfirmModal
           message={confirm.message}

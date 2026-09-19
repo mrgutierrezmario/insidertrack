@@ -95,7 +95,7 @@ export default function Config() {
   useDocumentTitle("Settings");
 
   return (
-    <div style={{ maxWidth: 640 }}>
+    <div style={{ maxWidth: 720, margin: "0 auto" }}>
       {confirm && (
         <ConfirmModal
           message={confirm.message}
