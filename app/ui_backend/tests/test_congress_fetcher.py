@@ -644,3 +644,14 @@ class TestRosterLoad:
         assert cf._roster["dan crenshaw"]["bioguide"] == "C001120"
         assert cf.resolve_identity("Dan Crenshaw") == ("Daniel Crenshaw", "daniel crenshaw", "C001120", "R", "TX")
         cf._legislators, cf._roster, cf._legislators_loaded_on = {}, {}, None
+
+
+class TestSenateExchangeTicker:
+    def test_exchange_row_keeps_received_symbol(self):
+        html = _senate_table(
+            "<tr><td>1</td><td>05/27/2026</td><td>Joint</td><td>BERY -- AMCR</td><td>Berry (Exchanged) Amcor (Received)</td>"
+            "<td>Stock</td><td>Exchange</td><td>$1,001 - $15,000</td><td>--</td></tr>"
+            "<tr><td>2</td><td>05/27/2026</td><td>Joint</td><td>-- HR</td><td>x</td><td>Stock</td><td>Exchange</td><td>$1,001 - $15,000</td><td>--</td></tr>"
+            "<tr><td>3</td><td>05/27/2026</td><td>Joint</td><td>--</td><td>y</td><td>Stock</td><td>Sale</td><td>$1,001 - $15,000</td><td>--</td></tr>"
+        )
+        assert [t["ticker"] for t in _parse_senate_rows(html)] == ["AMCR", "HR"]

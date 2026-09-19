@@ -552,7 +552,11 @@ def _parse_senate_rows(html: str) -> list[dict]:
         if not cells or i_ticker is None:
             continue
         ticker = (cells[i_ticker] if i_ticker < len(cells) else "").strip()
-        if not ticker or ticker in ("--", "N/A", "—"):
+        # An exchange row lists both sides ("BERY -- AMCR", or "-- AMCR" when
+        # the old side has no symbol): the position now held is the last one.
+        parts = [t for t in re.split(r"\s+", ticker) if t not in ("--", "—", "N/A")]
+        ticker = parts[-1].strip() if parts else ""
+        if not ticker:
             continue
         def cell(i: Optional[int]) -> str:
             return cells[i] if i is not None and i < len(cells) else ""

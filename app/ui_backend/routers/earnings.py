@@ -40,4 +40,4 @@ def earnings_for_tracked(email: Optional[str] = None, db: Session = Depends(get_
 def earnings_for_ticker(ticker: str):
     """Next earnings date for a single ticker."""
     result = next_earnings(ticker.upper())
-    return result or {"ticker": ticker.upper(), "message": "No upcoming earnings found or AV key not configured"}
+    return result or {"ticker": ticker.upper(), "message": "No upcoming earnings found"}

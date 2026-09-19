@@ -110,6 +110,7 @@
 /* ── Base ─────────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
+html { background: var(--c-bg); }
 body { background: var(--c-bg); color: var(--c-text); min-height: 100dvh; overflow-x: hidden; }
 #root { min-height: 100dvh; display: flex; flex-direction: column; }
 a { color: var(--c-accent); }

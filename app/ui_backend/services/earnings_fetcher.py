@@ -42,12 +42,74 @@ def _days_until(date_str: str) -> Optional[int]:
         return None
 
 
+# ── Nasdaq's public calendar (keyless) ────────────────────────────────────────
+# One request per calendar day: every company reporting that day, with the
+# consensus EPS estimate. Cached per day in the persistent cache for 24 h so
+# the ~60 business days ahead cost ~60 requests once a day, not per visitor.
+NASDAQ_CALENDAR = "https://api.nasdaq.com/api/calendar/earnings"
+NASDAQ_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "en-US,en;q=0.9",
+}
+CALENDAR_DAYS_AHEAD = 90
+_DAY_TTL = 24 * 3600
+
+
+def _nasdaq_day(client: httpx.Client, day: date) -> list[dict]:
+    """All companies reporting on `day` → [{symbol, name, time, estimate, fiscal}]."""
+    from services.persistent_cache import cache_get, cache_set
+    key = f"earnings_day:{day.isoformat()}"
+    hit = cache_get(key)
+    if hit:
+        return hit[0]
+    r = client.get(NASDAQ_CALENDAR, params={"date": day.isoformat()}, headers=NASDAQ_HEADERS)
+    if r.status_code != 200:
+        return []
+    rows = ((r.json().get("data") or {}).get("rows")) or []
+    out = [{
+        "symbol": (row.get("symbol") or "").upper(),
+        "name": row.get("name") or "",
+        "time": {"time-pre-market": "before open", "time-after-hours": "after close"}.get(row.get("time") or "", ""),
+        "estimate": row.get("epsForecast") or None,
+        "fiscal": row.get("fiscalQuarterEnding") or "",
+    } for row in rows]
+    cache_set(key, out, _DAY_TTL)
+    return out
+
+
+def _nasdaq_calendar(tickers_upper: list[str]) -> list[dict]:
+    wanted = set(tickers_upper)
+    results: list[dict] = []
+    today = date.today()
+    with httpx.Client(timeout=20, follow_redirects=True) as client:
+        for i in range(CALENDAR_DAYS_AHEAD + 1):
+            day = today + timedelta(days=i)
+            if day.weekday() >= 5:
+                continue
+            try:
+                rows = _nasdaq_day(client, day)
+            except Exception as exc:
+                logger.warning(f"Nasdaq earnings calendar {day}: {exc}")
+                continue
+            for row in rows:
+                if row["symbol"] in wanted:
+                    results.append({
+                        "ticker": row["symbol"], "company": row["name"] or row["symbol"],
+                        "report_date": day.isoformat(), "fiscal_date_ending": row["fiscal"],
+                        "estimate": row["estimate"], "time": row["time"],
+                        "days_until": i, "is_upcoming": True, "source": "nasdaq",
+                    })
+    return results
+
+
 def get_earnings_calendar(tickers: list[str]) -> list[dict]:
     """
-    Fetch upcoming earnings dates for the given tickers (next 3 months).
-    Returns list sorted by reportDate ascending.
+    Upcoming earnings dates for the given tickers (next 3 months), sorted by
+    date. Nasdaq's keyless calendar first; Alpha Vantage only if that yields
+    nothing and a key is configured.
     """
-    if not tickers or not settings.alpha_vantage_key:
+    if not tickers:
         return []
 
     tickers_upper = [t.upper() for t in tickers if t]
@@ -57,7 +119,16 @@ def get_earnings_calendar(tickers: list[str]) -> list[dict]:
     if cached is not None:
         return cached
 
-    results = []
+    results = _nasdaq_calendar(tickers_upper)
+    if results:
+        results.sort(key=lambda x: x["report_date"])
+        _cache_set(cache_key, results)
+        logger.info(f"Earnings calendar (Nasdaq): {len(results)} entries for {len(tickers_upper)} tickers")
+        return results
+    if not settings.alpha_vantage_key:
+        _cache_set(cache_key, [])
+        return []
+
     try:
         with httpx.Client(timeout=20) as client:
             r = client.get(AV_BASE, params={

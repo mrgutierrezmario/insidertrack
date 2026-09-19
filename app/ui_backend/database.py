@@ -231,6 +231,9 @@ def _apply_migrations():
          FROM (SELECT holder_id, min(quarter) AS q0 FROM whale_positions GROUP BY holder_id) f
          WHERE p.holder_id = f.holder_id AND p.quarter = f.q0 AND p.change_type = 'new'
          """),
+        # 2026-09: Senate exchange rows stored the whole "-- NEW" ticker cell.
+        ("migration:trades_exchange_ticker",
+         "UPDATE trades SET ticker = regexp_replace(ticker, '^.*\\s', '') WHERE ticker ~ '\\s'"),
         ("migration:trades_derived_columns",
          """
          UPDATE trades SET direction =
