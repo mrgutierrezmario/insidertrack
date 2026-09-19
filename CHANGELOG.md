@@ -14,6 +14,10 @@ All notable changes to InsiderTrack. The format follows
 - Google News headlines on the News page when there is no Alpha Vantage key (or its quota is spent).
 - `/health` reports unhandled exceptions in the last 24 h; the daily admin email includes them. `GET /jobs/running`; `deploy/start.sh` refuses to restart the app under a running backfill / re-parse / sync / skill refresh (`--force` overrides).
 
+### Fixed
+- One member record per person: the Clerk's index spells names inconsistently across years and members were matched by exact name, so several people were split across 2–4 records. Identity is now the bioguide id (via the congress-legislators roster, nicknames included) or a normalised name key; existing duplicates were merged.
+- Consistent date format and chamber labels throughout; sentence-case labels; the Dashboard's ticker chip lists are capped with a "more" link.
+
 ### Changed
 - Scoring **v4**: smart money weights each 13F position by its share of the holder's book (5%+ earns a conviction bonus); a holder's first loaded quarter is neutral instead of counting every position as "new".
 

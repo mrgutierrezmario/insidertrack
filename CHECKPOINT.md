@@ -63,6 +63,10 @@ Skill refresh: interrupted by deploys four times today; the final run started
 21:42 UTC alongside the backfill. Until it finishes, some members are at
 ×1.00 and the leaderboard is partial (65 weighted of ~170 with buys).
 
+### Late additions (same evening)
+- **UI consistency pass**: one date format (`lib/format.ts`), chamber labels, sentence-case labels, Dashboard tile reads "N bullish · M bearish", chip lists capped at 18 with "+N more", plainer nav hints.
+- **Duplicate members merged**: the Clerk's index spells one person several ways; identity is now the bioguide id (roster, incl. nicknames) or a normalised name key; `merge_duplicate_politicians()` runs after every sync. 14 records folded on 2026-09-19; 188/284 members carry a bioguide id (the rest left Congress).
+
 ### Still open after this batch
 - Senate paper readings unverified end-to-end (quota); House paper verified (22 rows, spot-checked).
 - Sentiment is headline-only without an AV key; no scoring use either way.
