@@ -27,7 +27,7 @@ own machine from free public data sources; cloud AI providers are optional.
 | Corporate insiders | SEC Form 4, per ticker and **market-wide daily** — with a cluster-buys view (2+ insiders buying their own stock) |
 | Institutions | Quarterly 13F holdings of 21 discretionary managers, new/increased/reduced/closed per quarter |
 | Score | 0–100 per ticker: smart money + Congress (dollar-weighted, scaled by each member's track record) + corporate insiders + momentum − staleness |
-| Track record | Every member's stock buys measured at 30/60/90 days vs SPY; win rate, average excess, and the weight it earns them in the score |
+| Track record | Every member's stock buys — and sales — measured at 30/60/90 days vs SPY; win rate, average excess, and the weight it earns them in the score. A **Leaderboard** ranks members by how often their buys beat the market |
 | Outcomes | Daily snapshots of every score, filled at 30/60/90 days, so the hit-rate of each label is a number rather than a claim |
 | Also | Alerts (rules + digest email), investment simulator vs SPY, watchlist and email reports, earnings calendar, AI research notes per ticker (site key or bring your own) |
 | Runs as | A Docker Compose stack (Postgres, app, Tailscale sidecar) with a fixed public HTTPS URL via Tailscale Funnel — free, no domain needed |

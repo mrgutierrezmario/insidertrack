@@ -112,36 +112,36 @@ def refresh_skill(db: Session, span_days: int = 1200) -> dict:
 
 def compute_track_record(db: Session, politician_id: int, force: bool = False,
                          span_days: Optional[int] = None) -> dict:
-    key = f"track_record:{politician_id}:v1"
+    key = f"track_record:{politician_id}:v2"
     if not force:
         hit = cache_get(key)
         if hit:
             return hit[0]
 
     today = date.today()
-    buys = (
+    base = (
         db.query(Trade)
         .filter(
             Trade.politician_id == politician_id,
-            Trade.direction == "buy",
             Trade.asset_type == "stock",
             Trade.ticker.isnot(None),
             Trade.disclosure_date.isnot(None),
             Trade.disclosure_date <= today - timedelta(days=WINDOWS[0]),
         )
         .order_by(Trade.disclosure_date.desc())
-        .limit(MAX_TRADES)
-        .all()
     )
-    result: dict = {"politician_id": politician_id, "windows": {}, "trades": [], "evaluated": 0, "skipped_demo": 0}
-    if not buys:
+    buys = base.filter(Trade.direction == "buy").limit(MAX_TRADES).all()
+    sells = base.filter(Trade.direction == "sell").limit(MAX_TRADES).all()
+    result: dict = {"politician_id": politician_id, "windows": {}, "trades": [], "evaluated": 0, "skipped_demo": 0,
+                    "sells": {"windows": {}, "trades": [], "evaluated": 0}}
+    if not buys and not sells:
         cache_set(key, result, CACHE_TTL)
         return result
 
     # One history per ticker, long enough for its oldest disclosure.
-    oldest = min(t.disclosure_date for t in buys)
+    oldest = min(t.disclosure_date for t in buys + sells)
     span = span_days or _bucket((today - oldest).days + 10)
-    tickers = sorted({t.ticker for t in buys})
+    tickers = sorted({t.ticker for t in buys + sells})
 
     def fetch(tk: str) -> tuple[str, list[dict]]:
         try:
@@ -156,50 +156,68 @@ def compute_track_record(db: Session, politician_id: int, force: bool = False,
         logger.warning("track record: no SPY history — excess returns unavailable")
         spy = []
 
-    rows = []
-    for t in buys:
-        hist = histories.get(t.ticker) or []
-        if not hist or hist[-1].get("_demo"):
-            result["skipped_demo"] += 1
-            continue
-        entry = _close_on_or_after(hist, t.disclosure_date)
-        if not entry:
-            continue
-        entry_date, entry_px = entry
-        spy_entry = _close_on_or_after(spy, t.disclosure_date) if spy else None
-        row = {
-            "trade_id": t.id, "ticker": t.ticker, "trade_date": t.trade_date.isoformat(),
-            "disclosure_date": t.disclosure_date.isoformat(), "entry_date": entry_date.isoformat(),
-            "entry_price": round(entry_px, 2), "amount_range": t.amount_range, "owner": t.owner,
-        }
-        for w in WINDOWS:
-            target = entry_date + timedelta(days=w)
-            if target > today:
-                row[f"r{w}"] = None; row[f"x{w}"] = None
+    def measure(trades: list) -> tuple[list[dict], int]:
+        rows, demo = [], 0
+        for t in trades:
+            hist = histories.get(t.ticker) or []
+            if not hist or hist[-1].get("_demo"):
+                demo += 1
                 continue
-            px = _close_on_or_before(hist, target)
-            r = _pct(entry_px, px) if px else None
-            row[f"r{w}"] = r
-            x = None
-            if r is not None and spy_entry:
-                spy_px = _close_on_or_before(spy, target)
-                if spy_px:
-                    x = round(r - _pct(spy_entry[1], spy_px), 2)
-            row[f"x{w}"] = x
-        rows.append(row)
+            entry = _close_on_or_after(hist, t.disclosure_date)
+            if not entry:
+                continue
+            entry_date, entry_px = entry
+            spy_entry = _close_on_or_after(spy, t.disclosure_date) if spy else None
+            row = {
+                "trade_id": t.id, "ticker": t.ticker, "trade_date": t.trade_date.isoformat(),
+                "disclosure_date": t.disclosure_date.isoformat(), "entry_date": entry_date.isoformat(),
+                "entry_price": round(entry_px, 2), "amount_range": t.amount_range, "owner": t.owner,
+            }
+            for w in WINDOWS:
+                target = entry_date + timedelta(days=w)
+                if target > today:
+                    row[f"r{w}"] = None; row[f"x{w}"] = None
+                    continue
+                px = _close_on_or_before(hist, target)
+                r = _pct(entry_px, px) if px else None
+                row[f"r{w}"] = r
+                x = None
+                if r is not None and spy_entry:
+                    spy_px = _close_on_or_before(spy, target)
+                    if spy_px:
+                        x = round(r - _pct(spy_entry[1], spy_px), 2)
+                row[f"x{w}"] = x
+            rows.append(row)
+        return rows, demo
 
-    for w in WINDOWS:
-        rs = [r[f"r{w}"] for r in rows if r[f"r{w}"] is not None]
-        xs = [r[f"x{w}"] for r in rows if r[f"x{w}"] is not None]
-        result["windows"][str(w)] = {
-            "n": len(rs),
-            "avg_return": round(mean(rs), 2) if rs else None,
-            "median_return": round(median(rs), 2) if rs else None,
-            "win_rate": round(sum(1 for r in rs if r > 0) / len(rs) * 100, 1) if rs else None,
-            "avg_excess": round(mean(xs), 2) if xs else None,
-            "beat_spy_rate": round(sum(1 for x in xs if x > 0) / len(xs) * 100, 1) if xs else None,
-        }
+    def summarise(rows: list[dict], good_when_negative: bool = False) -> dict:
+        """Per-window aggregates. For sells a *negative* return/excess is the
+        good outcome (the stock went down after they sold), so 'win' and
+        'beat SPY' flip sign; averages are reported as-is."""
+        out = {}
+        sign = -1 if good_when_negative else 1
+        for w in WINDOWS:
+            rs = [r[f"r{w}"] for r in rows if r[f"r{w}"] is not None]
+            xs = [r[f"x{w}"] for r in rows if r[f"x{w}"] is not None]
+            out[str(w)] = {
+                "n": len(rs),
+                "avg_return": round(mean(rs), 2) if rs else None,
+                "median_return": round(median(rs), 2) if rs else None,
+                "win_rate": round(sum(1 for r in rs if sign * r > 0) / len(rs) * 100, 1) if rs else None,
+                "avg_excess": round(mean(xs), 2) if xs else None,
+                "beat_spy_rate": round(sum(1 for x in xs if sign * x > 0) / len(xs) * 100, 1) if xs else None,
+            }
+        return out
+
+    rows, demo = measure(buys)
+    result["skipped_demo"] += demo
+    result["windows"] = summarise(rows)
     result["trades"] = rows
     result["evaluated"] = len(rows)
+
+    sell_rows, demo = measure(sells)
+    result["skipped_demo"] += demo
+    result["sells"] = {"windows": summarise(sell_rows, good_when_negative=True),
+                       "trades": sell_rows, "evaluated": len(sell_rows)}
     cache_set(key, result, CACHE_TTL)
     return result

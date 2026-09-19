@@ -4,6 +4,7 @@ import type { AxiosResponse } from "axios";
 import type {
   Health,
   InsiderCluster,
+  Leaderboard,
   OutcomeRow,
   OutcomeStats,
   Politician,
@@ -93,6 +94,7 @@ export const getPoliticians = (params: Record<string, unknown> = {}): Resp<Polit
   api.get("/politicians/", { params });
 export const getPolitician = (id: number): Resp<Politician> => api.get(`/politicians/${id}`);
 export const getTrackRecord = (id: number): Resp<TrackRecord> => api.get(`/politicians/${id}/track-record`);
+export const getLeaderboard = (minTrades = 10): Resp<Leaderboard> => api.get("/politicians/leaderboard", { params: { min_trades: minTrades } });
 export const createPolitician = (body: Partial<Politician>): Resp<Politician> =>
   api.post("/politicians/", body);
 export const updatePolitician = (id: number, body: Partial<Politician>): Resp<Politician> =>

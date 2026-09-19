@@ -16,6 +16,7 @@ const Markets     = lazy(() => import("./pages/Markets"));
 const News        = lazy(() => import("./pages/News"));
 const Earnings    = lazy(() => import("./pages/Earnings"));
 const Politicians = lazy(() => import("./pages/Politicians"));
+const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 const Politician  = lazy(() => import("./pages/Politician"));
 const Ticker      = lazy(() => import("./pages/Ticker"));
 const Simulator   = lazy(() => import("./pages/Simulator"));
@@ -47,6 +48,7 @@ const NAV_GROUPS: ReadonlyArray<NavGroup> = [
   { label: "Congress", items: [
     { to: "/feed",        label: "Congressional Trades", hint: "STOCK Act disclosures" },
     { to: "/politicians", label: "Politicians", hint: "Who we track and why" },
+    { to: "/leaderboard", label: "Leaderboard", hint: "Whose buys beat the market" },
   ]},
   { label: "Institutions", items: [
     { to: "/insiders", label: "Corporate Insiders", hint: "SEC Form 4" },
@@ -228,6 +230,7 @@ export default function App() {
           <Route path="/markets" element={<Markets />} />
           <Route path="/signals" element={<Signals />} />
           <Route path="/politicians" element={<Politicians />} />
+          <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/fed" element={<Fed />} />
           <Route path="/activity" element={<Activity />} />
           <Route path="/politician/:id" element={<Politician />} />

@@ -88,6 +88,27 @@ export interface TrackRecord {
   skipped_demo: number;
   windows: Record<"30" | "60" | "90", TrackRecordWindow | undefined>;
   trades: TrackRecordTrade[];
+  // Sells, measured the same way; here a NEGATIVE return is the good call.
+  sells?: { evaluated: number; windows: Record<"30" | "60" | "90", TrackRecordWindow | undefined>; trades: TrackRecordTrade[] };
+}
+
+export interface LeaderboardRow {
+  rank: number | null;
+  id: number;
+  name: string;
+  party: string | null;
+  chamber: string | null;
+  state: string | null;
+  buys_measured: number | null;
+  beat_spy_rate: number | null;
+  skill_factor: number | null;
+  as_of: string | null;
+}
+export interface Leaderboard {
+  min_trades: number;
+  as_of: string | null;
+  ranked: LeaderboardRow[];
+  unranked: LeaderboardRow[];
 }
 
 // ── Health (data sources) ─────────────────────────────────────────────────────
