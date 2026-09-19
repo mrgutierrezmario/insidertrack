@@ -7,6 +7,7 @@ import type {
   OutcomeStats,
   Politician,
   TechnicalSignal,
+  TrackRecord,
   Trade,
   WatchlistItem,
   WhaleHolder,
@@ -89,6 +90,7 @@ export const getSyncStatus = (): Resp<SyncStatus> => api.get("/trades/sync-statu
 export const getPoliticians = (params: Record<string, unknown> = {}): Resp<Politician[]> =>
   api.get("/politicians/", { params });
 export const getPolitician = (id: number): Resp<Politician> => api.get(`/politicians/${id}`);
+export const getTrackRecord = (id: number): Resp<TrackRecord> => api.get(`/politicians/${id}/track-record`);
 export const createPolitician = (body: Partial<Politician>): Resp<Politician> =>
   api.post("/politicians/", body);
 export const updatePolitician = (id: number, body: Partial<Politician>): Resp<Politician> =>

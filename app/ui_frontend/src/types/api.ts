@@ -49,6 +49,35 @@ export interface Trade {
   } | null;
 }
 
+// ── Track record ──────────────────────────────────────────────────────────────
+export interface TrackRecordWindow {
+  n: number;
+  avg_return: number | null;
+  median_return: number | null;
+  win_rate: number | null;
+  avg_excess: number | null;
+  beat_spy_rate: number | null;
+}
+export interface TrackRecordTrade {
+  trade_id: number;
+  ticker: string;
+  trade_date: string;
+  disclosure_date: string;
+  entry_date: string;
+  entry_price: number;
+  amount_range: string | null;
+  owner: string | null;
+  r30: number | null; r60: number | null; r90: number | null;
+  x30: number | null; x60: number | null; x90: number | null;
+}
+export interface TrackRecord {
+  politician_id: number;
+  evaluated: number;
+  skipped_demo: number;
+  windows: Record<"30" | "60" | "90", TrackRecordWindow | undefined>;
+  trades: TrackRecordTrade[];
+}
+
 // ── Health (data sources) ─────────────────────────────────────────────────────
 export type HealthSourceStatus = "ok" | "stale" | "failing" | "never";
 

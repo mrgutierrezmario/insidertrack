@@ -91,6 +91,16 @@ def get_politician(politician_id: int, db: Session = Depends(get_db)):
     return _serialize(p, count)
 
 
+@router.get("/{politician_id}/track-record")
+def politician_track_record(politician_id: int, db: Session = Depends(get_db)):
+    """How this member's disclosed stock buys did at 30/60/90 days vs SPY.
+    Computed from cached price history; the result is cached 6 h."""
+    from services.track_record import compute_track_record
+    if not db.query(Politician.id).filter(Politician.id == politician_id).first():
+        raise HTTPException(status_code=404, detail="Politician not found")
+    return compute_track_record(db, politician_id)
+
+
 @router.patch("/{politician_id}")
 def update_politician(politician_id: int, body: PoliticianUpdate, _: None = Depends(require_admin), db: Session = Depends(get_db)):
     p = db.query(Politician).filter(Politician.id == politician_id).first()

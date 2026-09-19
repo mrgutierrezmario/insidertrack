@@ -7,6 +7,7 @@ import useAdmin from "../hooks/useAdmin";
 import TradeCard from "../components/TradeCard";
 import ActivityChart from "../components/ActivityChart";
 import WatchlistButton from "../components/WatchlistButton";
+import TrackRecord from "../components/TrackRecord";
 import SkeletonCard from "../components/SkeletonCard";
 import type { SignalLabel, Trade } from "../types/api";
 
@@ -161,6 +162,8 @@ export default function Politician() {
           </div>
         </div>
       )}
+
+      {politician && <TrackRecord politicianId={politician.id} />}
 
       {/* Tickers traded with signal scores */}
       {tickers.length > 0 && (
