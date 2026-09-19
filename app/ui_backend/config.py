@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     claude_model: str = "claude-opus-5"
     gemini_model: str = "gemini-flash-latest"
     openai_model: str = "gpt-4o-mini"
+    # Max fresh research notes per UTC day paid for by the site's keys
+    # (cache hits and visitor-key notes don't count).
+    ai_daily_cap: int = 150
     admin_password: str = "191919"
 
     # Set true behind HTTPS (production via Tailscale Funnel / reverse proxy) — the

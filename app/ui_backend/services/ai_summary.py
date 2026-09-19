@@ -101,6 +101,36 @@ def _gather_context(ticker: str, db: Session) -> dict:
     return {"ticker": ticker, "signal": signal, "congress_trades": congress, "whale_positions": whales}
 
 
+# ── Daily spend cap for the site's own keys ────────────────────────────────────
+# Per-IP throttling and the 6h cache bound *one* visitor; they do nothing
+# about many visitors (or a crawler) walking every ticker. Cap fresh
+# generations paid for by the site at AI_DAILY_CAP per UTC day. Visitor keys
+# are their own money and are not counted. In-memory: a restart resets it,
+# which errs on the side of serving notes.
+_daily = {"day": None, "count": 0}
+
+
+def _site_budget_ok() -> bool:
+    from config import settings
+    today = time.strftime("%Y-%m-%d", time.gmtime())
+    if _daily["day"] != today:
+        _daily.update(day=today, count=0)
+    return _daily["count"] < settings.ai_daily_cap
+
+
+def _site_budget_spend() -> None:
+    _daily["count"] += 1
+
+
+def _over_budget(ticker: str, context: dict) -> dict:
+    return {
+        "ticker": ticker,
+        "available": False,
+        "message": "This site's AI research budget for today is used up. Notes resume tomorrow, or add your own key under Settings → AI research notes.",
+        "context": context,
+    }
+
+
 def _fallback(ticker: str, context: dict) -> dict:
     return {
         "ticker": ticker,
@@ -133,6 +163,9 @@ def generate_stock_summary(ticker: str, db: Session, force: bool = False, cred=N
 
     if cred is None and active_provider() is None:
         return _fallback(ticker, context)
+    if cred is None and not _site_budget_ok():
+        logger.warning(f"AI daily cap reached — not generating note for {ticker}")
+        return _over_budget(ticker, context)
 
     prompt = f"""You are a careful investment research assistant. Using ONLY the data below, write a brief, balanced research note for the stock {ticker}.
 
@@ -148,6 +181,8 @@ Write a JSON object with exactly these keys:
 Rules: Never say a trade is guaranteed. Never tell the user to buy or sell. Note that congressional and 13F data is delayed/lagging. Be factual and concise. Output ONLY the raw JSON object, no markdown fencing."""
 
     try:
+        if cred is None:
+            _site_budget_spend()
         gen = generate_text(prompt, max_tokens=700, timeout=45.0, cred=cred)
         text = gen.text
         if text.startswith("```"):
