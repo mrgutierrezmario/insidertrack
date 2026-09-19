@@ -178,18 +178,50 @@ def _get_or_create_politician(db: Session, name: str, chamber: str, party: str =
     return politician
 
 
-def _trade_exists(db: Session, politician_id: int, ticker: str, trade_date: date,
-                  tx_type: str, amount: str) -> bool:
+def _find_trade(db: Session, politician_id: int, ticker: str, trade_date: date,
+                tx_type: str, amount: str) -> Optional[Trade]:
     """Dedup key for a filing row. The amount bracket is part of the key: a
     member can legitimately report two lots of the same ticker on the same
     day, and they differ only by amount."""
-    return db.query(Trade.id).filter(
+    return db.query(Trade).filter(
         Trade.politician_id == politician_id,
         Trade.ticker == ticker,
         Trade.trade_date == trade_date,
         Trade.transaction_type == tx_type,
         Trade.amount_range == amount,
-    ).first() is not None
+    ).first()
+
+
+def _trade_exists(db: Session, politician_id: int, ticker: str, trade_date: date,
+                  tx_type: str, amount: str) -> bool:
+    return _find_trade(db, politician_id, ticker, trade_date, tx_type, amount) is not None
+
+
+def _refresh_trade(t: Trade, tx: dict, disclosure_date: Optional[date], raw: dict,
+                   filing_id: Optional[str], amends: Optional[date]) -> None:
+    """Re-parse mode: bring an existing row's derived columns up to what the
+    current parser extracts (owner, call/put, amount bounds, direction,
+    provenance). The row keeps its id so alert events and links survive."""
+    asset_type = tx.get("asset_type") or sem.ASSET_STOCK
+    low, high = sem.parse_amount_range(tx.get("amount"))
+    t.asset_name = tx.get("asset_name", "") or t.asset_name
+    t.amount_low, t.amount_high = low, high
+    t.owner = tx.get("owner") or sem.OWNER_SELF
+    t.asset_type = asset_type
+    t.direction = sem.direction(t.transaction_type, asset_type, tx.get("asset_name"))
+    t.disclosure_date = disclosure_date or t.disclosure_date
+    t.filing_id = filing_id or t.filing_id
+    t.amends = amends
+    t.raw_data = json.dumps(raw)
+
+
+def _drop_stale_filing_rows(db: Session, filing_id: str, keep_ids: set[int]) -> int:
+    """Re-parse mode: rows from this filing that the current parser no longer
+    produces (e.g. a now-rejected implausible date) are removed."""
+    q = db.query(Trade).filter(Trade.filing_id == filing_id)
+    if keep_ids:
+        q = q.filter(Trade.id.notin_(keep_ids))
+    return q.delete(synchronize_session=False)
 
 
 # Filers typo dates ("12/26/2026" for a trade disclosed in January 2026,
@@ -243,6 +275,14 @@ def _load_processed(db: Session, source: str) -> set[str]:
 
 def _mark_processed(db: Session, source: str, doc_id: str) -> None:
     db.add(ProcessedFiling(source=source, doc_id=doc_id))
+
+
+def _load_processed_one(db: Session, source: str, doc_id: str) -> set[str]:
+    """{doc_id} if already recorded as processed, else empty — for re-parse
+    runs, which must not insert a second ProcessedFiling row."""
+    hit = db.query(ProcessedFiling.doc_id).filter(
+        ProcessedFiling.source == source, ProcessedFiling.doc_id == doc_id).first()
+    return {doc_id} if hit else set()
 
 
 def _request_with_retry(fn, *, retries: int = 3, backoff: float = 1.5, label: str = "request"):
@@ -442,15 +482,18 @@ def _senate_report_superseded(db: Session, politician_id: int, filed: date) -> b
 
 
 def sync_senate_trades(db: Session, start_date: Optional[date] = None,
-                       end_date: Optional[date] = None, progress=None) -> int:
+                       end_date: Optional[date] = None, progress=None,
+                       reparse: bool = False) -> int:
     """Import Senate PTRs filed in [start_date, end_date]. Defaults to the
     rolling EFD_LOOKBACK_DAYS window; the backfill passes explicit bounds.
-    `progress(done, total)` is called per filing when given."""
+    `progress(done, total)` is called per filing when given. With `reparse`,
+    already-processed filings are fetched again and their rows refreshed in
+    place (new columns, better parsing) instead of being skipped."""
     start_date = start_date or date.today() - timedelta(days=EFD_LOOKBACK_DAYS)
-    logger.info(f"Fetching Senate trades from EFD ({start_date} → {end_date or 'now'})...")
+    logger.info(f"Fetching Senate trades from EFD ({start_date} → {end_date or 'now'}{', re-parse' if reparse else ''})...")
 
     client = _efd_client()
-    seen = _load_processed(db, "senate")
+    seen = set() if reparse else _load_processed(db, "senate")
     try:
         reports = _fetch_ptr_list(client, start_date, end_date)
         new_reports = [r for r in reports if r["uuid"] not in seen]
@@ -489,6 +532,7 @@ def sync_senate_trades(db: Session, start_date: Optional[date] = None,
                     db.commit()
                     continue
 
+                kept: set[int] = set()
                 for tx in txns:
                     trade_date = _parse_date(tx["transaction_date"])
                     if not trade_date:
@@ -497,17 +541,24 @@ def sync_senate_trades(db: Session, start_date: Optional[date] = None,
                         logger.warning(f"EFD {rpt['uuid']}: skipping {tx['ticker']} with implausible trade date {trade_date} (filed {disclosure_date})")
                         continue
                     tx_type = tx["type"].lower()
-                    if _trade_exists(db, politician.id, tx["ticker"], trade_date, tx_type, tx["amount"]):
+                    raw = {**tx, "ptr_uuid": rpt["uuid"], "amended": rpt.get("amended", False),
+                           "amendment_filed": rpt["filed"] if amends else None}
+                    existing = _find_trade(db, politician.id, tx["ticker"], trade_date, tx_type, tx["amount"])
+                    if existing:
+                        if reparse:
+                            _refresh_trade(existing, tx, disclosure_date, raw, rpt["uuid"], amends)
+                            kept.add(existing.id)
                         continue
-                    db.add(_new_trade(
-                        politician.id, tx, tx_type, trade_date, disclosure_date, "senate",
-                        {**tx, "ptr_uuid": rpt["uuid"], "amended": rpt.get("amended", False),
-                         "amendment_filed": rpt["filed"] if amends else None},
-                        filing_id=rpt["uuid"], amends=amends,
-                    ))
+                    t = _new_trade(politician.id, tx, tx_type, trade_date, disclosure_date, "senate", raw,
+                                   filing_id=rpt["uuid"], amends=amends)
+                    db.add(t)
                     db.flush()  # autoflush is off — make this row visible to the next exists-check
+                    kept.add(t.id)
                     count += 1
-                _mark_processed(db, "senate", rpt["uuid"])
+                if reparse:
+                    _drop_stale_filing_rows(db, rpt["uuid"], kept)
+                if rpt["uuid"] not in _load_processed_one(db, "senate", rpt["uuid"]):
+                    _mark_processed(db, "senate", rpt["uuid"])
                 db.commit()
     except Exception as exc:
         # Rows committed per filing are kept; the caller records the failure
@@ -579,7 +630,8 @@ def _parse_house_ptr(pdf_bytes: bytes) -> list[dict]:
 
 
 def sync_house_trades(db: Session, start_date: Optional[date] = None,
-                      end_date: Optional[date] = None, progress=None) -> int:
+                      end_date: Optional[date] = None, progress=None,
+                      reparse: bool = False) -> int:
     """Pull House PTRs filed in [start_date, end_date] from the Clerk's office
     and parse their PDFs. Defaults to the rolling HOUSE_LOOKBACK_DAYS window;
     the backfill passes explicit bounds.
@@ -591,12 +643,14 @@ def sync_house_trades(db: Session, start_date: Optional[date] = None,
     """
     cutoff = start_date or date.today() - timedelta(days=HOUSE_LOOKBACK_DAYS)
     until = end_date or date.today()
-    logger.info(f"Fetching House trades from Clerk disclosures ({cutoff} → {until})...")
+    logger.info(f"Fetching House trades from Clerk disclosures ({cutoff} → {until}{', re-parse' if reparse else ''})...")
     years = list(range(cutoff.year, until.year + 1))
 
     # DocIDs we've already parsed (incl. filings with no listed-stock trades), so
-    # re-syncs don't re-download the same PDFs.
-    seen = _load_processed(db, "house")
+    # re-syncs don't re-download the same PDFs. Re-parse mode ignores this and
+    # refreshes the stored rows in place.
+    processed = _load_processed(db, "house")
+    seen = set() if reparse else set(processed)
 
     count = 0
     client = httpx.Client(timeout=60, follow_redirects=True,
@@ -652,6 +706,7 @@ def sync_house_trades(db: Session, start_date: Optional[date] = None,
                 # see it). The PTR's own "notification date" is hand-typed and
                 # sometimes nonsense (1935); it stays in raw_data only.
                 filed = _parse_date(row.get("FilingDate")) or _parse_date(tx_disclosure_fallback(txns))
+                kept: set[int] = set()
                 for tx in txns:
                     trade_date = _parse_date(tx["transaction_date"])
                     if not trade_date:
@@ -659,17 +714,24 @@ def sync_house_trades(db: Session, start_date: Optional[date] = None,
                     if not _plausible_trade_date(trade_date, filed):
                         logger.warning(f"House PTR {doc_id}: skipping {tx['ticker']} with implausible trade date {trade_date} (filed {filed})")
                         continue
-                    if _trade_exists(db, politician.id, tx["ticker"], trade_date, tx["type"], tx["amount"]):
+                    raw = {**tx, "ptr_doc_id": doc_id, "filing_date": row.get("FilingDate")}
+                    existing = _find_trade(db, politician.id, tx["ticker"], trade_date, tx["type"], tx["amount"])
+                    if existing:
+                        if reparse:
+                            _refresh_trade(existing, tx, filed, raw, doc_id, None)
+                            kept.add(existing.id)
                         continue
-                    db.add(_new_trade(
-                        politician.id, tx, tx["type"], trade_date, filed,
-                        "house", {**tx, "ptr_doc_id": doc_id, "filing_date": row.get("FilingDate")},
-                        filing_id=doc_id,
-                    ))
+                    t = _new_trade(politician.id, tx, tx["type"], trade_date, filed, "house", raw, filing_id=doc_id)
+                    db.add(t)
                     db.flush()  # autoflush is off — make this row visible to the next exists-check
+                    kept.add(t.id)
                     count += 1
+                if reparse:
+                    _drop_stale_filing_rows(db, doc_id, kept)
                 seen.add(doc_id)
-                _mark_processed(db, "house", doc_id)
+                if doc_id not in processed:
+                    _mark_processed(db, "house", doc_id)
+                    processed.add(doc_id)
                 db.commit()
     except Exception as exc:
         logger.error(f"House sync failed: {exc}")
@@ -796,13 +858,17 @@ def get_backfill_state(db: Optional[Session] = None) -> dict:
     return dict(_backfill_state)
 
 
-def backfill(db: Session, since: date, until: Optional[date] = None) -> dict:
-    """Import every electronic PTR filed in [since, until] from both chambers."""
+def backfill(db: Session, since: date, until: Optional[date] = None, reparse: bool = False) -> dict:
+    """Import every electronic PTR filed in [since, until] from both chambers.
+    With `reparse`, filings already imported are fetched again and their rows
+    refreshed in place — the way to pick up parser improvements (owner,
+    call/put, amount bounds) on history."""
     until = until or date.today()
     if _backfill_state.get("running"):
         raise RuntimeError("A backfill is already running")
     _backfill_state.clear()
     _backfill_state.update(running=True, since=since.isoformat(), until=until.isoformat(),
+                           reparse=reparse,
                            started_at=datetime.now().isoformat(), finished_at=None,
                            phase=None, done=0, total=0, result={}, error=None)
 
@@ -817,7 +883,7 @@ def backfill(db: Session, since: date, until: Optional[date] = None) -> dict:
         for name, fn in (("senate", sync_senate_trades), ("house", sync_house_trades)):
             _backfill_state.update(phase=name, done=0, total=0)
             try:
-                result[name] = fn(db, start_date=since, end_date=until, progress=_progress(name))
+                result[name] = fn(db, start_date=since, end_date=until, progress=_progress(name), reparse=reparse)
                 source_health.record(db, name, ok=True, new_rows=result[name],
                                      detail={"backfill": f"{since} → {until}"})
             except Exception as exc:

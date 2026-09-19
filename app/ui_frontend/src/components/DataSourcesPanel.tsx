@@ -40,6 +40,7 @@ export default function DataSourcesPanel() {
   const [backfill, setBackfill] = useState<BackfillStatus | null>(null);
   const [since, setSince] = useState(() => `${new Date().getFullYear() - 1}-01-01`);
   const [starting, setStarting] = useState(false);
+  const [reparse, setReparse] = useState(false);
   const [running, setRunning] = useState<Record<string, "started" | "error" | undefined>>({});
 
   const refreshSources = () =>
@@ -82,7 +83,7 @@ export default function DataSourcesPanel() {
   const runBackfill = async () => {
     setStarting(true);
     try {
-      await startBackfill(since);
+      await startBackfill(since, undefined, reparse);
       const r = await getBackfillStatus();
       setBackfill({ ...r.data, running: true });
     } catch {
@@ -140,6 +141,11 @@ export default function DataSourcesPanel() {
           <label style={{ color: C.textMuted, fontSize: "0.8rem" }}>Filed since</label>
           <input type="date" value={since} onChange={(e) => setSince(e.target.value)} disabled={!!backfill?.running}
             style={{ background: C.bg, color: C.text, border: "1px solid var(--c-surfaceAlt)", borderRadius: 5, padding: "0.3rem 0.5rem", fontSize: 16 }} />
+          <label style={{ color: C.textMuted, fontSize: "0.8rem", display: "flex", alignItems: "center", gap: 4 }}
+            data-tip="Also re-fetch filings already imported and refresh their rows with the current parser (owner, call/put, amount bounds). Slower — every filing in the range is downloaded again.">
+            <input type="checkbox" checked={reparse} onChange={(e) => setReparse(e.target.checked)} disabled={!!backfill?.running} />
+            re-parse imported filings
+          </label>
           <button onClick={runBackfill} disabled={starting || !!backfill?.running || !since}
             style={{ background: C.accentSolid, color: "#fff", border: "none", borderRadius: 5, padding: "0.35rem 0.9rem", cursor: "pointer", fontSize: "0.8rem", opacity: backfill?.running ? 0.6 : 1 }}>
             {backfill?.running ? "Running…" : "Start backfill"}
@@ -148,10 +154,10 @@ export default function DataSourcesPanel() {
         {backfill && (backfill.running || backfill.finished_at) && (
           <div style={{ color: C.textMuted, fontSize: "0.78rem", marginTop: "0.5rem", lineHeight: 1.6 }}>
             {backfill.running ? (
-              <>Importing {backfill.phase ?? "…"}: {backfill.done ?? 0}{backfill.total ? ` / ${backfill.total}` : ""} filings ({backfill.since} → {backfill.until})</>
+              <>{backfill.reparse ? "Re-parsing" : "Importing"} {backfill.phase ?? "…"}: {backfill.done ?? 0}{backfill.total ? ` / ${backfill.total}` : ""} filings ({backfill.since} → {backfill.until})</>
             ) : (
               <>
-                Last backfill {backfill.since} → {backfill.until}: {backfill.result?.senate ?? 0} Senate + {backfill.result?.house ?? 0} House trades added
+                Last {backfill.reparse ? "re-parse" : "backfill"} {backfill.since} → {backfill.until}: {backfill.result?.senate ?? 0} Senate + {backfill.result?.house ?? 0} House trades added
                 {backfill.finished_at ? ` · finished ${ago(backfill.finished_at)}` : ""}
                 {backfill.error && <div style={{ color: C.danger }}>{backfill.error}</div>}
               </>

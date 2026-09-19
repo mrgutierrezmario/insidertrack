@@ -62,6 +62,7 @@ export interface BackfillStatus {
   running: boolean;
   since?: string;
   until?: string;
+  reparse?: boolean;
   started_at?: string | null;
   finished_at?: string | null;
   phase?: "senate" | "house" | null;
@@ -70,8 +71,8 @@ export interface BackfillStatus {
   result?: { senate?: number; house?: number; errors?: Record<string, string> };
   error?: string | null;
 }
-export const startBackfill = (since: string, until?: string): Resp<{ status: string }> =>
-  api.post("/trades/backfill", null, { params: { since, ...(until ? { until } : {}) } });
+export const startBackfill = (since: string, until?: string, reparse = false): Resp<{ status: string }> =>
+  api.post("/trades/backfill", null, { params: { since, ...(until ? { until } : {}), ...(reparse ? { reparse: true } : {}) } });
 export const getBackfillStatus = (): Resp<BackfillStatus> => api.get("/trades/backfill-status");
 
 export interface SyncStatus {

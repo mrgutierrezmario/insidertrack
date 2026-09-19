@@ -331,12 +331,12 @@ class TestBackfill:
         from services import congress_fetcher as cf
         calls = {}
 
-        def fake_senate(_db, start_date=None, end_date=None, progress=None):
+        def fake_senate(_db, start_date=None, end_date=None, progress=None, reparse=False):
             calls["senate"] = (start_date, end_date)
             progress(0, 2); progress(1, 2)
             return 2
 
-        def fake_house(_db, start_date=None, end_date=None, progress=None):
+        def fake_house(_db, start_date=None, end_date=None, progress=None, reparse=False):
             calls["house"] = (start_date, end_date)
             raise RuntimeError("zip missing")
 
@@ -436,3 +436,34 @@ class TestSupersede:
         self._mk(db, p.id, "am1-uuid", orig, amends=orig)
         assert _senate_report_superseded(db, p.id, orig)
         assert not _senate_report_superseded(db, p.id, date(2025, 6, 1))
+
+
+# ── re-parse helpers ──────────────────────────────────────────────────────────
+
+class TestReparseHelpers:
+    def test_refresh_fills_derived_columns_and_keeps_id(self, db):
+        from datetime import date
+        from models.politician import Politician
+        from models.trade import Trade
+        from services.congress_fetcher import _refresh_trade, _drop_stale_filing_rows
+        p = Politician(name="Rep Reparse", chamber="house"); db.add(p); db.flush()
+        # a pre-2026-09 row: option stored as "(option)", no owner, no bounds
+        t = Trade(politician_id=p.id, ticker="MSFT", transaction_type="purchase", asset_name="MSFT (option)",
+                  amount_range="$50,001 - $100,000", trade_date=date(2026, 3, 25), source="house",
+                  asset_type="option", direction=None, raw_data="{}")
+        stale = Trade(politician_id=p.id, ticker="ZZZ", transaction_type="purchase", amount_range="$1,001 - $15,000",
+                      trade_date=date(2026, 3, 25), source="house", filing_id="20099", raw_data="{}")
+        db.add_all([t, stale]); db.flush()
+        tid = t.id
+        tx = {"ticker": "MSFT", "type": "purchase", "amount": "$50,001 - $100,000",
+              "asset_type": "option", "asset_name": "MSFT put option", "owner": "spouse"}
+        _refresh_trade(t, tx, date(2026, 4, 7), {**tx, "ptr_doc_id": "20099"}, "20099", None)
+        assert t.id == tid
+        assert t.owner == "spouse" and t.asset_name == "MSFT put option"
+        assert t.direction == "sell"                  # a put purchase is bearish
+        assert (t.amount_low, t.amount_high) == (50001, 100000)
+        assert t.disclosure_date == date(2026, 4, 7) and t.filing_id == "20099"
+        # rows of the same filing the parser no longer yields are dropped
+        removed = _drop_stale_filing_rows(db, "20099", {t.id})
+        assert removed == 1
+        assert db.query(Trade).filter(Trade.ticker == "ZZZ").count() == 0

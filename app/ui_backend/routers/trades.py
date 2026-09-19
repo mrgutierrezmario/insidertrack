@@ -212,6 +212,7 @@ def trigger_backfill(
     background_tasks: BackgroundTasks,
     since: date = Query(..., description="Earliest filing date to import (YYYY-MM-DD)"),
     until: Optional[date] = Query(default=None, description="Latest filing date; default today"),
+    reparse: bool = Query(default=False, description="Re-fetch filings already imported and refresh their rows in place"),
     _: None = Depends(require_admin),
 ):
     """Import historical PTRs from both chambers for a date range, in the
@@ -226,12 +227,12 @@ def trigger_backfill(
         from database import SessionLocal
         with SessionLocal() as s:
             try:
-                backfill(s, since, until)
+                backfill(s, since, until, reparse=reparse)
             except Exception:
                 pass  # recorded in backfill state
 
     background_tasks.add_task(_run)
-    return {"status": "started", "since": since.isoformat(), "until": (until or date.today()).isoformat()}
+    return {"status": "started", "since": since.isoformat(), "until": (until or date.today()).isoformat(), "reparse": reparse}
 
 
 @router.get("/backfill-status")
