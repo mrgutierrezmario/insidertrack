@@ -151,7 +151,7 @@ export const getWhaleFeed = (params: Record<string, unknown> = {}): Resp<WhalePo
   api.get("/whales/feed", { params });
 export const getWhalePositions = (id: number): Resp<unknown> => api.get(`/whales/${id}/positions`);
 export const getWhaleDetail = (id: number): Resp<unknown> => api.get(`/whales/${id}/detail`);
-export const syncWhales = (): Resp<{ synced: number; skipped: number; unmapped: number }> =>
+export const syncWhales = (): Resp<{ status: string }> =>
   api.post("/whales/sync");
 
 // ── Settings ──────────────────────────────────────────────────────────────────

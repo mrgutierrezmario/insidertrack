@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { C } from "../lib/theme";
-import { getBackfillStatus, getHealth, startBackfill } from "../lib/api";
+import { getBackfillStatus, getHealth, startBackfill, syncInsiders, syncTrades, syncWhales } from "../lib/api";
 import type { BackfillStatus } from "../lib/api";
 import type { HealthSource, HealthSourceStatus } from "../types/api";
 
@@ -9,6 +9,15 @@ const STATUS_META: Record<HealthSourceStatus, { label: string; color: string }> 
   stale:   { label: "STALE",   color: C.warningSolid },
   failing: { label: "FAILING", color: C.danger },
   never:   { label: "NO RUN",  color: C.textMuted },
+};
+
+// Which endpoint kicks each source. Senate and House run together (one
+// congressional sync); the label says so.
+const RUNNERS: Record<string, { run: () => Promise<unknown>; note: string }> = {
+  senate: { run: () => syncTrades(),   note: "runs Senate + House" },
+  house:  { run: () => syncTrades(),   note: "runs Senate + House" },
+  form4:  { run: () => syncInsiders(), note: "every tracked ticker" },
+  whale:  { run: () => syncWhales(),   note: "latest 13F per holder" },
 };
 
 function ago(iso: string | null | undefined): string {
@@ -31,6 +40,28 @@ export default function DataSourcesPanel() {
   const [backfill, setBackfill] = useState<BackfillStatus | null>(null);
   const [since, setSince] = useState(() => `${new Date().getFullYear() - 1}-01-01`);
   const [starting, setStarting] = useState(false);
+  const [running, setRunning] = useState<Record<string, "started" | "error" | undefined>>({});
+
+  const refreshSources = () =>
+    getHealth().then((r) => setSources(r.data.data?.sources ?? {})).catch(() => {});
+
+  const runSource = async (key: string) => {
+    setRunning((r) => ({ ...r, [key]: undefined }));
+    try {
+      await RUNNERS[key].run();
+      setRunning((r) => ({ ...r, [key]: "started" }));
+    } catch {
+      setRunning((r) => ({ ...r, [key]: "error" }));
+    }
+  };
+
+  // Once a run is kicked off, refresh the cards every 20 s so the outcome
+  // shows up without a reload.
+  useEffect(() => {
+    if (!Object.values(running).includes("started")) return;
+    const id = setInterval(refreshSources, 20000);
+    return () => clearInterval(id);
+  }, [running]);
 
   useEffect(() => {
     getHealth()
@@ -83,6 +114,17 @@ export default function DataSourcesPanel() {
                   <div>Last new rows: {ago(s.last_new_rows_at)}{s.last_new_rows != null ? ` (${s.last_new_rows} last run)` : ""}</div>
                   {s.last_error && <div style={{ color: C.danger, wordBreak: "break-word" }}>{s.last_error}</div>}
                 </div>
+                {RUNNERS[key] && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+                    <button onClick={() => runSource(key)}
+                      style={{ background: C.surfaceAlt, color: C.textSoft, border: "none", borderRadius: 4, padding: "3px 10px", cursor: "pointer", fontSize: "0.75rem" }}>
+                      ↻ Run now
+                    </button>
+                    <span style={{ color: running[key] === "error" ? C.danger : running[key] === "started" ? C.success : C.textDim, fontSize: "0.7rem" }}>
+                      {running[key] === "started" ? "started in background" : running[key] === "error" ? "could not start" : RUNNERS[key].note}
+                    </span>
+                  </div>
+                )}
               </div>
             );
           })}

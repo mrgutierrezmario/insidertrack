@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from routers.access import require_admin
 from sqlalchemy.orm import Session, joinedload
 
@@ -121,11 +121,12 @@ def holder_positions(holder_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/sync")
-def sync_whales(_: None = Depends(require_admin), db: Session = Depends(get_db)):
-    """Fetch latest 13F filings from SEC EDGAR and parse actual holdings."""
-    from services.edgar_fetcher import sync_whale_positions
-    result = sync_whale_positions(db)
-    return {"status": "ok", **result}
+def sync_whales(background_tasks: BackgroundTasks, _: None = Depends(require_admin)):
+    """Fetch the latest 13F filings from SEC EDGAR in the background; the
+    outcome is recorded per source (Admin → Data sources)."""
+    from services.scheduler import _whale_sync_job
+    background_tasks.add_task(_whale_sync_job)
+    return {"status": "started"}
 
 
 @router.get("/{holder_id}/detail")

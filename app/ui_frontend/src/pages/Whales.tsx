@@ -113,7 +113,7 @@ function SyncButton({ onRefresh }: { onRefresh: () => void }) {
       </button>
       {result && !result.error && (
         <span style={{ color: C.success, fontSize: "0.72rem" }}>
-          {result.synced} positions synced · {result.skipped} skipped · {result.unmapped} unmapped
+          Sync started in the background — outcome in <Link to="/admin" style={{ color: C.accent }}>Admin → Data sources</Link>
         </span>
       )}
       {result?.error && <span style={{ color: C.danger, fontSize: "0.72rem" }}>{result.error}</span>}

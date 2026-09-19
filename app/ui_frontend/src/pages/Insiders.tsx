@@ -92,7 +92,7 @@ function SyncButton({ onDone }: { onDone: () => void }) {
       </button>
       {result && !result.error && (
         <span style={{ color: C.success, fontSize: 11 }}>
-          {result.stored} stored · {result.skipped} known · {result.tickers} tickers
+          Syncing {result.tickers} tickers in the background — outcome in <Link to="/admin" style={{ color: C.accent }}>Admin → Data sources</Link>
         </span>
       )}
       {result?.error && <span style={{ color: C.danger, fontSize: 11 }}>{result.error}</span>}

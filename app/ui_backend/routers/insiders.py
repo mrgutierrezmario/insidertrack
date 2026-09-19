@@ -75,10 +75,14 @@ def insider_summary(db: Session = Depends(get_db)):
 
 @router.post("/sync")
 def sync_insiders(background_tasks: BackgroundTasks, _: None = Depends(require_admin), db: Session = Depends(get_db)):
-    """Pull recent Form 4 filings from SEC EDGAR for all tracked tickers."""
-    from services.form4_fetcher import sync_form4_for_tickers
+    """Pull recent Form 4 filings from SEC EDGAR for every tracked ticker.
+
+    Runs in the background — hundreds of tickers at SEC's rate limit is
+    minutes, and the single worker must not block. The outcome is recorded
+    per source (see /health "data" and Admin → Data sources)."""
+    from services.scheduler import _form4_job
     tickers = _tracked_tickers(db)
     if not tickers:
-        return {"status": "no tracked tickers", "stored": 0}
-    result = sync_form4_for_tickers(db, tickers)
-    return {"status": "ok", "tickers": len(tickers), **result}
+        return {"status": "no tracked tickers", "tickers": 0}
+    background_tasks.add_task(_form4_job)
+    return {"status": "started", "tickers": len(tickers)}

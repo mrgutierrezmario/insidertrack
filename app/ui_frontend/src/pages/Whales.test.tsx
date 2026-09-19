@@ -155,7 +155,7 @@ describe("<Whales />", () => {
 
   it("SHOWS the Sync button when ADMIN_TOKEN_KEY is set, and clicking triggers syncWhales", async () => {
     sessionStorage.setItem(ADMIN_TOKEN_KEY, "1");
-    vi.mocked(syncWhales).mockResolvedValue({ data: { synced: 10, skipped: 2, unmapped: 1 } } as any);
+    vi.mocked(syncWhales).mockResolvedValue({ data: { status: "started" } } as any);
 
     const user = userEvent.setup();
     renderPage();
@@ -165,7 +165,7 @@ describe("<Whales />", () => {
     await user.click(syncBtn);
 
     await waitFor(() => expect(syncWhales).toHaveBeenCalledTimes(1));
-    expect(await screen.findByText(/10 positions synced/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Sync started in the background/i)).toBeInTheDocument();
   });
 
   it("shows empty-state message when feed comes back empty", async () => {
