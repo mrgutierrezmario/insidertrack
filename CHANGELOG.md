@@ -15,6 +15,9 @@ All notable changes to InsiderTrack. The format follows
 - Google News headlines on the News page when there is no Alpha Vantage key (or its quota is spent).
 - `/health` reports unhandled exceptions in the last 24 h; the daily admin email includes them. `GET /jobs/running`; `deploy/start.sh` refuses to restart the app under a running backfill / re-parse / sync / skill refresh (`--force` overrides).
 
+### Security
+- Dependency updates for every open Dependabot alert (84, incl. 1 critical): Pillow 12.3, pypdf 6.16, lxml 6.1, python-dotenv 1.2; axios 1.20, React Router 7, Vite 6, Vitest 5. `npm audit` is clean.
+
 ### Fixed
 - One member record per person: the Clerk's index spells names inconsistently across years and members were matched by exact name, so several people were split across 2–4 records. Identity is now the bioguide id (via the congress-legislators roster, nicknames included) or a normalized name key; existing duplicates were merged.
 - Consistent date format and chamber labels throughout; sentence-case labels; the Dashboard's ticker chip lists are capped with a "more" link.
