@@ -13,9 +13,10 @@ RUN npm run build
 FROM python:3.11-slim
 
 # postgresql-client: pg_dump for services/db_backup.py + pg_isready for the
-# startup wait. curl: healthcheck.
+# startup wait. curl: healthcheck. poppler-utils: pdftoppm renders scanned
+# (paper) House PTRs for the vision-model reader (services/paper_ptr.py).
 RUN apt-get update \
- && apt-get install -y --no-install-recommends postgresql-client curl \
+ && apt-get install -y --no-install-recommends postgresql-client curl poppler-utils \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app/ui_backend

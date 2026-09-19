@@ -33,7 +33,7 @@ from models.app_setting import AppSetting
 from models.politician import Politician
 from models.processed_filing import ProcessedFiling
 from models.trade import Trade
-from services import source_health
+from services import paper_ptr, source_health
 from services import trade_semantics as sem
 
 logger = logging.getLogger(__name__)
@@ -634,6 +634,33 @@ def _parse_house_text(text: str) -> list[dict]:
     return txns
 
 
+def paper_ptr_enabled() -> bool:
+    """Paper filings are read by the site's AI provider; nothing to do without one."""
+    from services.providers import active_provider
+    try:
+        return active_provider() is not None
+    except Exception:
+        return False
+
+
+_house_ticker_map: Optional[dict] = None
+
+
+def _house_ticker_lookup():
+    """Company-name → ticker resolver for paper filings ('Provide full name,
+    not ticker symbol'). Reuses the 13F fetcher's SEC name map."""
+    global _house_ticker_map
+    from services.edgar_fetcher import _load_ticker_map, _lookup_ticker
+    if _house_ticker_map is None:
+        try:
+            _house_ticker_map = _load_ticker_map()
+        except Exception as exc:
+            logger.warning(f"ticker map unavailable for paper PTRs: {exc}")
+            _house_ticker_map = {}
+    m = _house_ticker_map
+    return lambda name: _lookup_ticker(name, m) if name else ""
+
+
 def tx_disclosure_fallback(txns: list[dict]) -> Optional[str]:
     """Notification date from the first parsed row — only used when the
     Clerk's index row has no FilingDate."""
@@ -654,8 +681,10 @@ def sync_house_trades(db: Session, start_date: Optional[date] = None,
     and parse their PDFs. Defaults to the rolling HOUSE_LOOKBACK_DAYS window;
     the backfill passes explicit bounds.
 
-    Only electronically-filed PTRs (DocID begins with "2") carry a text layer;
-    older scanned/handwritten filings are skipped. Filings whose PDF we have
+    Electronically-filed PTRs (DocID begins with "2") carry a text layer and
+    are parsed directly. Paper filings (scanned, often handwritten) are read
+    by the configured vision model — see services.paper_ptr — up to
+    PAPER_MAX_PER_RUN per sync, and stored with source="house-paper". Filings
     already imported (tracked by DocID) are not re-downloaded.
     `progress(done, total)` is called per filing when given.
     """
@@ -683,17 +712,23 @@ def sync_house_trades(db: Session, start_date: Optional[date] = None,
 
             # Filter first so progress totals are meaningful.
             todo = []
+            paper_budget = paper_ptr.PAPER_MAX_PER_RUN if paper_ptr_enabled() else 0
             for row in rows:
                 doc_id = (row.get("DocID") or "").strip()
                 # FilingType "P" = Periodic Transaction Report; DocID starting
-                # with "2" marks an electronic (text-layer) filing.
-                if row.get("FilingType") != "P" or not doc_id.startswith("2"):
+                # with "2" marks an electronic (text-layer) filing, anything
+                # else a scanned paper form.
+                if row.get("FilingType") != "P":
                     continue
                 if doc_id in seen:
                     continue
                 filed = _parse_date(row.get("FilingDate"))
                 if filed and (filed < cutoff or filed > until):
                     continue
+                if not doc_id.startswith("2"):
+                    if paper_budget <= 0 or reparse:
+                        continue        # paper: only within budget, never in re-parse
+                    paper_budget -= 1
                 todo.append((row, doc_id))
 
             for i, (row, doc_id) in enumerate(todo):
@@ -705,11 +740,19 @@ def sync_house_trades(db: Session, start_date: Optional[date] = None,
                 if not name:
                     continue
 
+                is_paper = not doc_id.startswith("2")
                 try:
                     pdf = client.get(HOUSE_PTR_PDF_URL.format(year=year, doc_id=doc_id))
                     if pdf.status_code != 200:
                         continue  # transient/missing — retry on a later sync
-                    txns = _parse_house_ptr(pdf.content)
+                    if is_paper:
+                        reading = paper_ptr.read_paper_ptr(pdf.content)
+                        if reading is None:
+                            continue  # provider down / no JSON — not marked processed, retried next sync
+                        txns, pstats = paper_ptr.rows_from_reading(reading, _house_ticker_lookup())
+                        logger.info(f"House paper PTR {doc_id} ({name}): {pstats} via {reading.get('_model')}")
+                    else:
+                        txns = _parse_house_ptr(pdf.content)
                 except Exception as exc:  # a single bad PDF must not abort the sync
                     logger.warning(f"House PTR {doc_id} failed: {exc}")
                     txns = []
@@ -732,7 +775,8 @@ def sync_house_trades(db: Session, start_date: Optional[date] = None,
                     if not _plausible_trade_date(trade_date, filed):
                         logger.warning(f"House PTR {doc_id}: skipping {tx['ticker']} with implausible trade date {trade_date} (filed {filed})")
                         continue
-                    raw = {**tx, "ptr_doc_id": doc_id, "filing_date": row.get("FilingDate")}
+                    raw = {**tx, "ptr_doc_id": doc_id, "filing_date": row.get("FilingDate"),
+                           **({"paper": True, "model": reading.get("_model")} if is_paper else {})}
                     # The transaction ID is the real identity of a House row.
                     # An "Amended" row with a known ID replaces the earlier
                     # version in place (same trade id); a "New" row with a
@@ -756,7 +800,8 @@ def sync_house_trades(db: Session, start_date: Optional[date] = None,
                             _refresh_trade(existing, tx, filed, raw, doc_id, existing.amends)
                         kept.add(existing.id)
                         continue
-                    t = _new_trade(politician.id, tx, tx["type"], trade_date, filed, "house", raw, filing_id=doc_id)
+                    t = _new_trade(politician.id, tx, tx["type"], trade_date, filed,
+                                   "house-paper" if is_paper else "house", raw, filing_id=doc_id)
                     db.add(t)
                     db.flush()  # autoflush is off — make this row visible to the next exists-check
                     kept.add(t.id)

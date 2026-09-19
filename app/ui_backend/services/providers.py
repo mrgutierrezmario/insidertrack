@@ -120,14 +120,26 @@ def active_provider() -> str | None:
 # ── Implementations ───────────────────────────────────────────────────────────
 
 
-def _claude(prompt: str, max_tokens: int, timeout: float, key: str, model: str) -> Generation:
+def _b64(data: bytes) -> str:
+    import base64
+    return base64.b64encode(data).decode("ascii")
+
+
+def _claude(prompt: str, max_tokens: int, timeout: float, key: str, model: str,
+            images: list[bytes] | None = None) -> Generation:
     from anthropic import Anthropic
 
     client = Anthropic(api_key=key, timeout=timeout, max_retries=1)
+    content: list | str = prompt
+    if images:
+        content = [
+            {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": _b64(im)}}
+            for im in images
+        ] + [{"type": "text", "text": prompt}]
     response = client.messages.create(
         model=model,
         max_tokens=max_tokens,
-        messages=[{"role": "user", "content": prompt}],
+        messages=[{"role": "user", "content": content}],
     )
     if getattr(response, "stop_reason", None) == "refusal":
         raise ProviderError("Claude declined the request")
@@ -162,15 +174,17 @@ def _gemini_text(data: dict) -> str:
     return text
 
 
-def _gemini(prompt: str, max_tokens: int, timeout: float, key: str, model: str) -> Generation:
+def _gemini(prompt: str, max_tokens: int, timeout: float, key: str, model: str,
+            images: list[bytes] | None = None) -> Generation:
     url = GEMINI_URL.format(model=model)
     headers = {"x-goog-api-key": key}
     options = [_gemini_thinking_cfg[model]] if model in _gemini_thinking_cfg else list(_THINKING_OPTIONS)
     last = None
+    parts = [{"inline_data": {"mime_type": "image/png", "data": _b64(im)}} for im in (images or [])] + [{"text": prompt}]
     with httpx.Client(timeout=timeout) as client:
         for cfg in options:
             body = {
-                "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+                "contents": [{"role": "user", "parts": parts}],
                 "generationConfig": {"temperature": 0.1, "maxOutputTokens": max(max_tokens, 2048), **cfg},
             }
             for attempt in (1, 2):
@@ -191,14 +205,19 @@ def _gemini(prompt: str, max_tokens: int, timeout: float, key: str, model: str) 
     )
 
 
-def _openai(prompt: str, max_tokens: int, timeout: float, key: str, model: str) -> Generation:
+def _openai(prompt: str, max_tokens: int, timeout: float, key: str, model: str,
+            images: list[bytes] | None = None) -> Generation:
+    content: list | str = prompt
+    if images:
+        content = [{"type": "image_url", "image_url": {"url": f"data:image/png;base64,{_b64(im)}"}} for im in images] \
+                  + [{"type": "text", "text": prompt}]
     with httpx.Client(timeout=timeout) as client:
         r = client.post(
             OPENAI_URL,
             headers={"Authorization": f"Bearer {key}"},
             json={
                 "model": model,
-                "messages": [{"role": "user", "content": prompt}],
+                "messages": [{"role": "user", "content": content}],
                 "temperature": 0.1,
                 "max_completion_tokens": max_tokens,
             },
@@ -217,7 +236,8 @@ def _openai(prompt: str, max_tokens: int, timeout: float, key: str, model: str) 
 _IMPL = {"claude": _claude, "gemini": _gemini, "openai": _openai}
 
 
-def _run(provider: str, prompt: str, max_tokens: int, timeout: float, cred: Credential | None = None) -> Generation:
+def _run(provider: str, prompt: str, max_tokens: int, timeout: float, cred: Credential | None = None,
+         images: list[bytes] | None = None) -> Generation:
     """Call one provider with either the visitor's credential or the site key."""
     if cred is not None:
         key, model = cred.key, cred.model or model_for(provider)
@@ -227,7 +247,7 @@ def _run(provider: str, prompt: str, max_tokens: int, timeout: float, cred: Cred
         raise ProviderError(f"No API key for {LABELS.get(provider, provider)}")
     if not model:
         raise ProviderError(f"No model set for {LABELS.get(provider, provider)}")
-    return _IMPL[provider](prompt, max_tokens, timeout, key, model)
+    return _IMPL[provider](prompt, max_tokens, timeout, key, model, images=images)
 
 
 def _cascade(primary: str) -> list[str]:
@@ -236,7 +256,8 @@ def _cascade(primary: str) -> list[str]:
 
 
 def generate_text(
-    prompt: str, *, max_tokens: int = 800, timeout: float = 60.0, cred: Credential | None = None
+    prompt: str, *, max_tokens: int = 800, timeout: float = 60.0, cred: Credential | None = None,
+    images: list[bytes] | None = None,
 ) -> Generation:
     """Generate with the configured provider, falling through to the other
     configured providers on failure. With ``cred`` (a visitor's own key) only
@@ -246,14 +267,14 @@ def generate_text(
     if cred is not None:
         if cred.provider not in PROVIDERS:
             raise ProviderError("Unknown provider")
-        return _run(cred.provider, prompt, max_tokens, timeout, cred)
+        return _run(cred.provider, prompt, max_tokens, timeout, cred, images=images)
     primary = active_provider()
     if primary is None:
         raise ProviderError("No AI provider configured")
     first_error: Exception | None = None
     for candidate in _cascade(primary):
         try:
-            result = _run(candidate, prompt, max_tokens, timeout)
+            result = _run(candidate, prompt, max_tokens, timeout, images=images)
             if candidate != primary:
                 result.fallback = primary
                 result.fallback_reason = describe_failure(first_error)
