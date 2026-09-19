@@ -5,7 +5,7 @@ All notable changes to InsiderTrack. The format follows
 [Semantic Versioning](https://semver.org/). The current version lives in the
 `VERSION` file and is shown in Settings and at `/health`.
 
-## [Unreleased]
+## [1.1.0] — 2026-09-19
 
 ### Added
 - User guide (`/guide`) and privacy page (`/privacy`), linked from Settings, the phone menu and the terms gate.
@@ -64,4 +64,5 @@ notes gained Claude / Gemini / OpenAI providers on 2026-09-17; and 2026-09-19
 brought the data-model pass above. Commit history before that date was
 rewritten once to remove attribution trailers; contents are unchanged.
 
+[1.1.0]: https://github.com/mrgutierrezmario/insidertrack/releases/tag/v1.1.0
 [1.0.0]: https://github.com/mrgutierrezmario/insidertrack/releases/tag/v1.0.0

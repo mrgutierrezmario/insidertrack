@@ -53,7 +53,7 @@ that week instead of waiting.
 look at the app log:
 
 ```bash
-git checkout v1.0.0                      # the last tag that worked
+git checkout v1.1.0                      # the last tag that worked
 deploy/start.sh
 docker compose -f deploy/compose.yml logs --tail=100 app
 ```
