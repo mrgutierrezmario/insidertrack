@@ -761,6 +761,7 @@ def sync_house_trades(db: Session, start_date: Optional[date] = None,
                             continue  # provider down / no JSON — not marked processed, retried next sync
                         txns, pstats = paper_ptr.rows_from_reading(reading, _house_ticker_lookup(), _is_known_ticker)
                         logger.info(f"House paper PTR {doc_id} ({name}): {pstats} via {reading.get('_model')}")
+                        time.sleep(paper_ptr.PACE_SECONDS)   # free-tier vision quotas are per minute
                     else:
                         txns = _parse_house_ptr(pdf.content)
                 except Exception as exc:  # a single bad PDF must not abort the sync

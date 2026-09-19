@@ -25,6 +25,7 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 PAPER_MAX_PER_RUN = 25
+PACE_SECONDS = 5          # between readings — Gemini/Claude free tiers cap requests per minute
 MAX_PAGES = 6
 RENDER_DPI = 150
 
