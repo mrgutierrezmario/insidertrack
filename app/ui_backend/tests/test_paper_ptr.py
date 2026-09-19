@@ -30,7 +30,7 @@ def _lookup(name):
 
 class TestRowsFromReading:
     def test_shapes_and_filters(self):
-        rows, stats = pp.rows_from_reading(READING, _lookup)
+        rows, stats = pp.rows_from_reading(READING, _lookup, {"AAPL", "MSFT", "TSLA", "NVDA", "F"}.__contains__)
         assert stats == {"rows": 6, "kept": 2, "no_ticker": 1, "no_date": 1, "no_amount": 1, "low_confidence": 1}
         aapl, msft = rows
         assert aapl["ticker"] == "AAPL" and aapl["owner"] == "SP" and aapl["type"] == "purchase"
@@ -41,8 +41,26 @@ class TestRowsFromReading:
         assert msft["amount"] == "$1,001 - $15,000"
 
     def test_amendment_flag(self):
-        rows, _ = pp.rows_from_reading({**READING, "amendment": True}, _lookup)
+        rows, _ = pp.rows_from_reading({**READING, "amendment": True}, _lookup, {"AAPL", "MSFT"}.__contains__)
         assert all(r["amended"] for r in rows)
+
+
+class TestResolveTicker:
+    KNOWN = {"TLH", "PICK", "AAPL", "MSFT"}.__contains__
+
+    def test_model_field_wins_when_valid(self):
+        assert pp.resolve_ticker({"ticker": "(msft)", "asset": "Microsoft"}, lambda n: "", self.KNOWN) == "MSFT"
+
+    def test_name_map_next(self):
+        assert pp.resolve_ticker({"ticker": None, "asset": "Apple Inc"}, lambda n: "AAPL", self.KNOWN) == "AAPL"
+
+    def test_trailing_token_must_be_a_real_symbol(self):
+        assert pp.resolve_ticker({"ticker": None, "asset": "Ishares TR 3-7 Yr Treas Bd ETF TLH"}, lambda n: "", self.KNOWN) == "TLH"
+        assert pp.resolve_ticker({"ticker": None, "asset": "Some Bond ETF"}, lambda n: "", self.KNOWN) == ""   # "ETF" isn't a ticker
+        assert pp.resolve_ticker({"ticker": None, "asset": "Cole Hargrave CHS Stock (Private)"}, lambda n: "", self.KNOWN) == ""
+
+    def test_without_validator_shape_is_enough(self):
+        assert pp.resolve_ticker({"ticker": None, "asset": "Proshares S&P Midcap 400 REGL"}, lambda n: "") == "REGL"
 
 
 class TestHelpers:

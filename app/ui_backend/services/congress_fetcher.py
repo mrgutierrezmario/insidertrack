@@ -661,6 +661,16 @@ def _house_ticker_lookup():
     return lambda name: _lookup_ticker(name, m) if name else ""
 
 
+def _is_known_ticker(sym: str) -> bool:
+    """Is `sym` a symbol in SEC's company list? Guards bare tokens read off
+    a paper form ("ETF" is not a ticker; "TLH" is)."""
+    from services.form4_fetcher import _load_ticker_cik_map
+    try:
+        return sym in _load_ticker_cik_map()
+    except Exception:
+        return False
+
+
 def tx_disclosure_fallback(txns: list[dict]) -> Optional[str]:
     """Notification date from the first parsed row — only used when the
     Clerk's index row has no FilingDate."""
@@ -749,7 +759,7 @@ def sync_house_trades(db: Session, start_date: Optional[date] = None,
                         reading = paper_ptr.read_paper_ptr(pdf.content)
                         if reading is None:
                             continue  # provider down / no JSON — not marked processed, retried next sync
-                        txns, pstats = paper_ptr.rows_from_reading(reading, _house_ticker_lookup())
+                        txns, pstats = paper_ptr.rows_from_reading(reading, _house_ticker_lookup(), _is_known_ticker)
                         logger.info(f"House paper PTR {doc_id} ({name}): {pstats} via {reading.get('_model')}")
                     else:
                         txns = _parse_house_ptr(pdf.content)

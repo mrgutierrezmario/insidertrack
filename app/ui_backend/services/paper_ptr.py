@@ -40,7 +40,7 @@ AMOUNT_COLUMNS = {
 PROMPT = """You are reading a scanned, possibly handwritten U.S. House of Representatives Periodic Transaction Report (PTR).
 Extract EVERY transaction row from the table. For each row give:
 - "asset": the full asset name exactly as written (it is a company or fund name, usually not a ticker)
-- "ticker": the ticker symbol ONLY if one is written on the form (in parentheses or a ticker column); otherwise null
+- "ticker": the ticker symbol if one appears anywhere in the row — in parentheses, in a ticker column, or as the trailing all-caps token of the asset name (brokerage statements print ETFs like "Ishares TR 3-7 Yr Treas Bd ETF TLH" → "TLH"); otherwise null
 - "owner": "SP" (spouse), "DC" (dependent child), "JT" (joint) or "" (the filer) — from the Owner column
 - "type": "P" (purchase), "S" (sale), "S (partial)" or "E" (exchange) — from the Type of Transaction column
 - "transaction_date": MM/DD/YYYY from the Date of Transaction column
@@ -94,19 +94,41 @@ def _year4(d: Optional[str]) -> Optional[str]:
     return f"{int(mm):02d}/{int(dd):02d}/{yy}"
 
 
-def rows_from_reading(reading: dict, ticker_lookup) -> tuple[list[dict], dict]:
+_TICKER_SHAPE = re.compile(r"[A-Z][A-Z.\-]{0,5}")
+
+
+def resolve_ticker(row: dict, ticker_lookup, is_ticker=None) -> str:
+    """Ticker for a read row, in order: the model's ticker field; the SEC
+    name map on the asset name; a trailing all-caps token of the asset name
+    ("… ETF TLH"). `is_ticker(sym)` — when given — must confirm the symbol
+    exists (SEC company list) before a bare token is trusted."""
+    def ok(sym: str) -> bool:
+        return bool(sym and _TICKER_SHAPE.fullmatch(sym) and (is_ticker is None or is_ticker(sym)))
+    cand = (row.get("ticker") or "").strip().upper().strip("()")
+    if ok(cand):
+        return cand
+    asset = (row.get("asset") or "").strip()
+    by_name = ticker_lookup(asset) if asset else ""
+    if by_name:
+        return by_name
+    tail = asset.split()[-1].strip("()") if asset else ""
+    if tail.isupper() and ok(tail):
+        return tail
+    return ""
+
+
+def rows_from_reading(reading: dict, ticker_lookup, is_ticker=None) -> tuple[list[dict], dict]:
     """Turn the model's JSON into parser-shaped transaction dicts (the same
     shape `_parse_house_text` yields) so the normal insert path applies.
-    `ticker_lookup(asset_name) -> ticker or ''` resolves names. Rows with no
-    resolvable ticker, no date, or no amount are dropped and counted."""
+    `ticker_lookup(asset_name) -> ticker or ''` resolves names; `is_ticker`
+    validates bare symbols. Rows with no resolvable ticker, no date, or no
+    amount are dropped and counted."""
     stats = {"rows": 0, "kept": 0, "no_ticker": 0, "no_date": 0, "no_amount": 0, "low_confidence": 0}
     out = []
     for r in reading.get("transactions") or []:
         stats["rows"] += 1
         conf = float(r.get("confidence") or 0)
-        ticker = (r.get("ticker") or "").strip().upper().strip("()")
-        if not re.fullmatch(r"[A-Z][A-Z.\-]{0,5}", ticker or ""):
-            ticker = ticker_lookup(r.get("asset") or "") or ""
+        ticker = resolve_ticker(r, ticker_lookup, is_ticker)
         if not ticker:
             stats["no_ticker"] += 1
             continue
