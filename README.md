@@ -1,23 +1,54 @@
 # InsiderTrack
 
-Track stock trades made by U.S. Congress members, corporate insiders, and institutional investors ("whales") — then get composite signal scores and alerts based on their moves.
+[![Release](https://img.shields.io/github/v/release/mrgutierrezmario/stock-tracker?display_name=tag&color=0b74f6)](https://github.com/mrgutierrezmario/stock-tracker/releases)
+[![CI](https://github.com/mrgutierrezmario/stock-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/mrgutierrezmario/stock-tracker/actions/workflows/ci.yml)
+[![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB.svg?logo=python&logoColor=white)](app/ui_backend)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688.svg?logo=fastapi&logoColor=white)](app/ui_backend)
+[![React 18](https://img.shields.io/badge/React-18-61DAFB.svg?logo=react&logoColor=black)](app/ui_frontend)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6.svg?logo=typescript&logoColor=white)](app/ui_frontend)
+[![Docker Compose](https://img.shields.io/badge/Docker-Compose-2496ED.svg?logo=docker&logoColor=white)](deploy)
+
+Track the stock trades of U.S. Congress members, corporate insiders and
+institutional investors from their legally required public disclosures — then
+score each ticker on who is buying, weight each member by how their past buys
+actually did, and get alerts when something moves. Everything runs on your
+own machine from free public data sources; cloud AI providers are optional.
+
+**By M.G. Network and Technology Solutions.**
+
+| | |
+|---|---|
+| Congress | Every electronic House and Senate periodic transaction report, straight from the Clerk and the EFD — owner (member / spouse / child / joint), asset kind, dollar bracket, and a **direction** that treats a put purchase as the bearish bet it is. Amendments reconciled; scanned paper filings read by a vision model |
+| Corporate insiders | SEC Form 4, per ticker and **market-wide daily** — with a cluster-buys view (2+ insiders buying their own stock) |
+| Institutions | Quarterly 13F holdings of 21 discretionary managers, new/increased/reduced/closed per quarter |
+| Score | 0–100 per ticker: smart money + Congress (dollar-weighted, scaled by each member's track record) + corporate insiders + momentum − staleness |
+| Track record | Every member's stock buys measured at 30/60/90 days vs SPY; win rate, average excess, and the weight it earns them in the score |
+| Outcomes | Daily snapshots of every score, filled at 30/60/90 days, so the hit-rate of each label is a number rather than a claim |
+| Also | Alerts (rules + digest email), investment simulator vs SPY, watchlist and email reports, earnings calendar, AI research notes per ticker (site key or bring your own) |
+| Runs as | A Docker Compose stack (Postgres, app, Tailscale sidecar) with a fixed public HTTPS URL via Tailscale Funnel — free, no domain needed |
+| Operations | Per-source scraper health with a daily notice when a government site changes under you; encrypted off-site backups with a scripted restore; CI on every push; Dependabot |
 
 ---
 
-## What it does
+## Contents
 
-- **Congressional trades** — every House and Senate disclosure required by the STOCK Act
-- **Corporate Form 4 insiders** — SEC filings from executives and directors
-- **Institutional whales** — SEC 13F quarterly holdings (Buffett, Soros, Bridgewater, Ackman, Renaissance)
-- **Federal Reserve officials** — OGE financial disclosure trades
-- **Composite signal scores** — 0–100 score per ticker combining smart money, insider activity, momentum, and sentiment
-- **Alerts** — rule-based notifications when signals, whale moves, or earnings thresholds are hit
-- **Investment simulator** — what $X would be worth if you'd bought on any insider's disclosure date, vs. SPY
-- **Signal outcomes** — tracks whether signal scores predicted price direction at 30, 60, and 90 days
-- **Watchlist** — follow tickers, get personalized earnings calendar, receive email reports
-- **Markets overview** — live macro indicators, top movers, Fed funds rate
-- **News sentiment** — aggregated headlines with sentiment scoring per ticker
-- **Earnings calendar** — upcoming reports for tracked and watchlisted tickers
+- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+- [Production (Docker + Tailscale Funnel)](#production-docker--tailscale-funnel)
+- [First Use](#first-use)
+- [Configuring API Keys](#configuring-api-keys)
+- [Data Sources](#data-sources)
+- [How Signals Work](#how-signals-work)
+- [Daily Schedule](#daily-schedule)
+- [Project Structure](#project-structure)
+- [Security](#security)
+- [Logs](#logs)
+- [Versions and releases](#versions-and-releases)
+- [Contributing](#contributing)
+- [How it was built](#how-it-was-built)
+- [Disclaimer](#disclaimer)
+- [License](#license)
 
 ---
 
@@ -346,6 +377,69 @@ tail -f logs/backend.log
 
 ---
 
+## Versions and releases
+
+The version lives in the `VERSION` file at the repository root — the backend,
+the frontend build and `/health` all read it, and Settings shows it in the
+footer. Releases are git tags (`v1.0.0`) with notes on the
+[Releases](https://github.com/mrgutierrezmario/stock-tracker/releases) page;
+[CHANGELOG.md](CHANGELOG.md) keeps the history. Semantic versioning: patch
+for fixes, minor for features, major for breaking changes.
+
+To cut a release: bump `VERSION` and `app/ui_frontend/package.json`, add a
+CHANGELOG section, commit, then `git tag vX.Y.Z && git push --tags` and
+create the release on GitHub from the tag.
+
+### Keeping dependencies current
+
+Dependabot opens grouped update PRs every Monday (Python, frontend) and
+monthly (Docker base images, GitHub Actions); CI runs on each. A workflow
+(`.github/workflows/dependabot-auto-merge.yml`) lets **patch and minor**
+bumps merge themselves once CI is green and comments on the rest — major
+bumps and base-image changes — which wait for a person. Merging changes the
+repository only; the running site picks up new libraries at the next image
+build on the server (`git pull` then `deploy/start.sh`).
+
+---
+
+## Contributing
+
+Issues and pull requests are welcome. Before opening a PR:
+
+```bash
+cd app/ui_backend && python -m pytest -q      # 272 tests; needs Postgres at DATABASE_URL for the cache tests
+cd ../ui_frontend && npm run typecheck && npm test && npm run build
+```
+
+Never commit `.env` files, `deploy/.env`, or anything under `deploy/state/`
+(all git-ignored). API keys belong in the Admin panel, not in the repo.
+
+## How it was built
+
+Designed, specified and operated by Mario Gutierrez (M.G. Network and
+Technology Solutions), and developed with [Claude Code](https://claude.com/claude-code)
+as a pair-programming assistant. Every change was driven by looking at the
+real data: what the filings actually contain, where the parsers were wrong,
+and what the score was really measuring.
+
+| When | What |
+|---|---|
+| **May 2026** | First version: congressional trade feed from community mirrors, a composite score, alerts, simulator, watchlist. Five audit passes in the same month closed security, performance and data-integrity gaps and added the first test suite |
+| **September 16, 2026** | The community data mirrors had gone dark; fetchers rewritten against the House Clerk and Senate EFD directly. Deployment rebuilt as a Docker stack with a fixed public URL; the project became a git repository |
+| **September 17, 2026** | AI research notes with Claude / Gemini / OpenAI providers and bring-your-own keys |
+| **September 19, 2026** | The data-model pass: every member tracked, owner / asset / direction / dollar columns, options scored by contract, amendments reconciled, three years of history, market-wide Form 4, paper filings read by a vision model, per-member track records feeding the score, scraper health, off-site backups, CI — released as **v1.0.0** |
+
+---
+
 ## Disclaimer
 
-This tool uses legally required public disclosures. It is for informational and educational purposes only and does not constitute financial advice. Always do your own research before making investment decisions. Past insider trades are not a guarantee of future stock performance.
+This tool uses legally required public disclosures. It is for informational and educational purposes only and does not constitute financial advice. Always do your own research before making investment decisions. Past insider trades are not a guarantee of future stock performance. Rows read from scanned paper filings by an AI model are marked as such and should be checked against the filing before relied on.
+
+## License
+
+[PolyForm Noncommercial 1.0.0](LICENSE) — © 2026 M.G. Network and Technology Solutions.
+
+Free to use, modify and share for **noncommercial** purposes: personal study,
+research, hobby projects, and use by educational institutions, charities and
+other noncommercial organizations. **Commercial use requires a separate
+license** — contact the copyright holder.

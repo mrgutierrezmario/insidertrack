@@ -121,7 +121,9 @@ async def lifespan(app: FastAPI):
     stop_scheduler()
 
 
-app = FastAPI(title="Stock Tracker API", version="1.0.0", lifespan=lifespan)
+from version import __version__  # noqa: E402
+
+app = FastAPI(title="InsiderTrack API", version=__version__, lifespan=lifespan)
 
 
 # ── Global exception handlers ─────────────────────────────────────────────────
@@ -236,6 +238,7 @@ def health():
     return JSONResponse(
         {
             "status": status,
+            "version": __version__,
             "db": db_ok,
             "scheduler": scheduler_running,
             "snapshot_gaps_14d": snapshot_gaps_14d,

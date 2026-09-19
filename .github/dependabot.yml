@@ -1,0 +1,42 @@
+# Weekly dependency update PRs, grouped so the repo isn't flooded:
+# Python backend, the React frontend, and the Docker base images.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /app/ui_backend
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      python-dependencies:
+        patterns: ["*"]
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: npm
+    directory: /app/ui_frontend
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      frontend-dependencies:
+        patterns: ["*"]
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: docker
+    directory: /deploy
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+    # Base-image majors/minors (Python 3.x, Node LTS) are deliberate upgrades,
+    # not routine bumps (pinned wheels lag new Pythons; odd Node releases are
+    # not LTS). Patch updates are still proposed.
+    ignore:
+      - dependency-name: python
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

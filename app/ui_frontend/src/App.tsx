@@ -175,7 +175,7 @@ function Drawer({ open, onClose, alerts }: { open: boolean; onClose: () => void;
           <img src="/logo-mark.svg" alt="" />
           <div>
             <div>Insider<b>Track</b></div>
-            <small>M.G. Network &amp; Technology Solutions</small>
+            <small>M.G. Network &amp; Technology Solutions · v{__APP_VERSION__}</small>
           </div>
         </div>
       </div>
