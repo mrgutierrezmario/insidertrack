@@ -267,7 +267,7 @@ def macro_indicators():
         import yfinance as yf
         for sym, meta in tickers_map.items():
             try:
-                hist = yf.Ticker(sym).history(period="5d", auto_adjust=True)
+                hist = yf.Ticker(sym).history(period="5d", auto_adjust=True, timeout=20)
                 if len(hist) >= 2:
                     curr = float(hist["Close"].iloc[-1])
                     prev = float(hist["Close"].iloc[-2])

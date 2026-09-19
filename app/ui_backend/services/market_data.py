@@ -352,7 +352,8 @@ def get_price_history(ticker: str, days: int = 90) -> list[dict]:
         end = date.today()
         start = end - timedelta(days=days)
         hist = _yf_call(
-            lambda: yf.Ticker(ticker).history(start=start.isoformat(), end=end.isoformat()),
+            # timeout: one hung socket must not stall a thread pool (skill refresh, signals).
+            lambda: yf.Ticker(ticker).history(start=start.isoformat(), end=end.isoformat(), timeout=20),
             label=f"yfinance history[{ticker}]",
         )
         rows = [
