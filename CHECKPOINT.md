@@ -1,3 +1,46 @@
+# Checkpoint — 2026-09-19 (data model + coverage pass)
+
+> Supersedes the 2026-09-16 checkpoint (kept below for history).
+
+Live at **https://mgnts-stock-tracker.tail3659a6.ts.net**, deployed via
+`deploy/start.sh` (needs `DOCKER_CONFIG` pointing at an empty `{}` config from
+the dev container — see memory note). Branch `main` is pushed; CI runs on push.
+
+## What changed today (commits a85c340..HEAD)
+
+| Area | Change |
+|---|---|
+| Politicians | **Everyone tracked by default** (`is_tracked` default true, one-shot migration flipped existing rows). Untracking = admin "mute". The signal universe went from Pelosi's tickers to every ticker traded in 45 days (~139). |
+| Trades | New columns `owner` (self/spouse/child/joint), `asset_type` (stock/option/other), `direction` (buy/sell/NULL), `amount_low/high`, `filing_id`, `amends`. `services/trade_semantics.py` is the single source of those rules. **Options follow their contract** (long call / short put = bullish); unknown contracts, bonds, exchanges are neutral. All consumers filter on `direction`. |
+| Score | Composite = Smart money 20 + Congress 25 (dollar-weighted) + **Corporate/Form 4 20** (new) + Momentum 25 + Sentiment 10 − Risk 20. Fundamentals stub removed. `signal_outcomes.corporate_score` stored. |
+| Ingest | House disclosure_date = Clerk's filing date (PTR notification dates are hand-typed). Implausible trade dates (future, pre-2012, after filing) rejected. Dedup key includes amount bracket. **Senate amendments** replace the report they amend (title "… for MM/DD/YYYY (Amendment N)"); `repair_senate_amendments()` handles history. |
+| Backfill | `POST /trades/backfill?since=&until=&reparse=` (admin, background, progress in Admin → Data sources). `reparse=true` re-fetches processed filings and refreshes rows in place. Loaded 2025-01-01 → today: 698 Senate + 6,396 House. |
+| Health | `services/source_health.py`: per-source ok/stale/failing in `/health` ("data"), Admin → Data sources panel with **Run now** per source, daily 09:00 ET email to `MAIL_ADMIN_TO` when something's wrong. Senate/House syncs isolated from each other; manual Form 4 / 13F syncs now background. |
+| Ops | GitHub Actions CI (backend w/ Postgres, frontend, image build, nightly). Migration failures logged instead of swallowed. `AI_DAILY_CAP` (150/day) on site-key AI notes. README rewritten to match. |
+| Data cleanup | 6 seed trades with no filing removed; duplicate "Tommy Tuberville" merged into "Thomas H Tuberville". All 9,0xx trades now carry a `filing_id`. |
+| Tests | 248 backend (was 149) + 70 frontend. New: trade_semantics, source_health, form4/edgar parsers, outcome_tracker, alert_engine, backfill/amendment/re-parse helpers. |
+
+## Live data (end of session)
+
+- ~9,020 congressional trades, ~1,370 tickers, Jan 2025 → now; 18,459 Form 4 rows / 678 tickers; 842 13F positions (Q2-2026).
+- A re-parse of 2026-05-01 → today and a backfill of 2023-01-01 → 2024-12-31 were started at the end of the session — check Admin → Data sources for the outcome.
+
+## Running backend tests from the dev container
+
+Local Python is 3.14 and can't install the pinned deps. Use the app image:
+throwaway `postgres:18-alpine` on a user network + `tar cz app/ui_backend | docker run -i … stock-tracker-app:latest` + `pip install pytest` + `python -c 'from database import init_db; init_db()'` + `pytest -q`. Bind mounts of dev-container paths are refused by Docker Desktop, hence the tar pipe.
+
+## Still open
+
+- **Off-site backups** — need a destination (rclone remote). Nightly dump still only in a Docker volume.
+- **Fed page** — roster with a no-op job; drop it or parse OGE 278 PDFs.
+- **Warm `/signals` on startup** — first request after a deploy is a cold ~7 s fan-out.
+- **Per-member track record** (30/60/90-day returns of each member's buys vs SPY) — all inputs now exist; the most-requested feature of this kind of app.
+- **`risk_level` → staleness rename** — cosmetic; UI already says STALE.
+- Legacy Senate rows from before EFD (6) had no filing id and were removed as seed data; nothing else lacks provenance.
+
+---
+
 # Checkpoint — 2026-09-16 (deployment rebuilt on Tailscale Funnel)
 
 > Supersedes the 2026-05-18 checkpoint (kept below for history).
