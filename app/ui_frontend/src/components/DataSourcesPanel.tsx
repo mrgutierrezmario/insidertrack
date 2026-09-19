@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { C } from "../lib/theme";
-import { getHealth } from "../lib/api";
+import { getBackfillStatus, getHealth, startBackfill } from "../lib/api";
+import type { BackfillStatus } from "../lib/api";
 import type { HealthSource, HealthSourceStatus } from "../types/api";
 
 const STATUS_META: Record<HealthSourceStatus, { label: string; color: string }> = {
@@ -27,12 +28,38 @@ function ago(iso: string | null | undefined): string {
 export default function DataSourcesPanel() {
   const [sources, setSources] = useState<Record<string, HealthSource> | null>(null);
   const [error, setError] = useState("");
+  const [backfill, setBackfill] = useState<BackfillStatus | null>(null);
+  const [since, setSince] = useState(() => `${new Date().getFullYear() - 1}-01-01`);
+  const [starting, setStarting] = useState(false);
 
   useEffect(() => {
     getHealth()
       .then((r) => setSources(r.data.data?.sources ?? {}))
       .catch(() => setError("Could not load /health"));
+    getBackfillStatus().then((r) => setBackfill(r.data)).catch(() => {});
   }, []);
+
+  // Poll while a backfill runs (it's minutes to tens of minutes).
+  useEffect(() => {
+    if (!backfill?.running) return;
+    const id = setInterval(() => {
+      getBackfillStatus().then((r) => setBackfill(r.data)).catch(() => {});
+    }, 5000);
+    return () => clearInterval(id);
+  }, [backfill?.running]);
+
+  const runBackfill = async () => {
+    setStarting(true);
+    try {
+      await startBackfill(since);
+      const r = await getBackfillStatus();
+      setBackfill({ ...r.data, running: true });
+    } catch {
+      setError("Could not start backfill");
+    } finally {
+      setStarting(false);
+    }
+  };
 
   return (
     <section style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, padding: "1.25rem", marginBottom: "1.5rem" }}>
@@ -61,6 +88,35 @@ export default function DataSourcesPanel() {
           })}
         </div>
       )}
+
+      <div style={{ borderTop: "1px solid var(--c-bgSunken)", marginTop: "1rem", paddingTop: "1rem" }}>
+        <div style={{ fontWeight: 600, fontSize: "0.9rem", marginBottom: 4 }}>Backfill history</div>
+        <div style={{ color: C.textMuted, fontSize: "0.8rem", marginBottom: "0.6rem" }}>
+          The daily sync only looks back ~90 days. Import older filings from both chambers so the simulator, outcomes and per-member records have history. One PDF per filing — a full year takes tens of minutes. Safe to re-run.
+        </div>
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+          <label style={{ color: C.textMuted, fontSize: "0.8rem" }}>Filed since</label>
+          <input type="date" value={since} onChange={(e) => setSince(e.target.value)} disabled={!!backfill?.running}
+            style={{ background: C.bg, color: C.text, border: "1px solid var(--c-surfaceAlt)", borderRadius: 5, padding: "0.3rem 0.5rem", fontSize: 16 }} />
+          <button onClick={runBackfill} disabled={starting || !!backfill?.running || !since}
+            style={{ background: C.accentSolid, color: "#fff", border: "none", borderRadius: 5, padding: "0.35rem 0.9rem", cursor: "pointer", fontSize: "0.8rem", opacity: backfill?.running ? 0.6 : 1 }}>
+            {backfill?.running ? "Running…" : "Start backfill"}
+          </button>
+        </div>
+        {backfill && (backfill.running || backfill.finished_at) && (
+          <div style={{ color: C.textMuted, fontSize: "0.78rem", marginTop: "0.5rem", lineHeight: 1.6 }}>
+            {backfill.running ? (
+              <>Importing {backfill.phase ?? "…"}: {backfill.done ?? 0}{backfill.total ? ` / ${backfill.total}` : ""} filings ({backfill.since} → {backfill.until})</>
+            ) : (
+              <>
+                Last backfill {backfill.since} → {backfill.until}: {backfill.result?.senate ?? 0} Senate + {backfill.result?.house ?? 0} House trades added
+                {backfill.finished_at ? ` · finished ${ago(backfill.finished_at)}` : ""}
+                {backfill.error && <div style={{ color: C.danger }}>{backfill.error}</div>}
+              </>
+            )}
+          </div>
+        )}
+      </div>
     </section>
   );
 }

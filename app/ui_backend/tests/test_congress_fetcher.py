@@ -318,3 +318,41 @@ class TestSyncAllIsolation:
         with pytest.raises(RuntimeError):
             cf.sync_all(db)
         assert "nope" in (cf.get_sync_state()["error"] or "")
+
+
+# ── backfill ──────────────────────────────────────────────────────────────────
+
+class TestBackfill:
+    def test_passes_bounds_and_records_progress(self, db, monkeypatch):
+        from datetime import date
+        from services import congress_fetcher as cf
+        calls = {}
+
+        def fake_senate(_db, start_date=None, end_date=None, progress=None):
+            calls["senate"] = (start_date, end_date)
+            progress(0, 2); progress(1, 2)
+            return 2
+
+        def fake_house(_db, start_date=None, end_date=None, progress=None):
+            calls["house"] = (start_date, end_date)
+            raise RuntimeError("zip missing")
+
+        monkeypatch.setattr(cf, "sync_senate_trades", fake_senate)
+        monkeypatch.setattr(cf, "sync_house_trades", fake_house)
+        result = cf.backfill(db, date(2025, 1, 1), date(2025, 6, 30))
+        assert calls["senate"] == (date(2025, 1, 1), date(2025, 6, 30))
+        assert calls["house"] == (date(2025, 1, 1), date(2025, 6, 30))
+        assert result["senate"] == 2 and result["house"] == 0
+        assert "zip missing" in result["errors"]["house"]
+        state = cf.get_backfill_state(db)
+        assert state["running"] is False
+        assert state["since"] == "2025-01-01" and state["result"]["senate"] == 2
+        assert "zip missing" in state["error"]
+
+    def test_refuses_concurrent_run(self, db, monkeypatch):
+        from datetime import date
+        from services import congress_fetcher as cf
+        monkeypatch.setitem(cf._backfill_state, "running", True)
+        with pytest.raises(RuntimeError):
+            cf.backfill(db, date(2025, 1, 1))
+        monkeypatch.setitem(cf._backfill_state, "running", False)

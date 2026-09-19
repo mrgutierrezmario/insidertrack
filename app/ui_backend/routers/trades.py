@@ -2,14 +2,14 @@ import re
 from datetime import date, datetime
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from routers.access import require_admin
 from sqlalchemy.orm import Session, joinedload
 
 from database import get_db
 from models.politician import Politician
 from models.trade import Trade
-from services.congress_fetcher import get_last_sync, get_sync_state, sync_all
+from services.congress_fetcher import backfill, get_backfill_state, get_last_sync, get_sync_state, sync_all
 
 router = APIRouter(prefix="/trades", tags=["trades"])
 
@@ -203,3 +203,35 @@ def sync_status(_: None = Depends(require_admin), db: Session = Depends(get_db))
     """Live status of the current/last sync, plus the last persisted outcome
     (which survives restarts and covers the 8 AM scheduler run)."""
     return {**get_sync_state(), "last": get_last_sync(db)}
+
+
+@router.post("/backfill")
+def trigger_backfill(
+    background_tasks: BackgroundTasks,
+    since: date = Query(..., description="Earliest filing date to import (YYYY-MM-DD)"),
+    until: Optional[date] = Query(default=None, description="Latest filing date; default today"),
+    _: None = Depends(require_admin),
+):
+    """Import historical PTRs from both chambers for a date range, in the
+    background. Slow (one PDF per filing) — a full year of House filings is
+    tens of minutes. Idempotent; poll GET /trades/backfill-status."""
+    if since > (until or date.today()):
+        raise HTTPException(400, "since must be on or before until")
+    if get_backfill_state()["running"]:
+        return {"status": "already_running"}
+
+    def _run():
+        from database import SessionLocal
+        with SessionLocal() as s:
+            try:
+                backfill(s, since, until)
+            except Exception:
+                pass  # recorded in backfill state
+
+    background_tasks.add_task(_run)
+    return {"status": "started", "since": since.isoformat(), "until": (until or date.today()).isoformat()}
+
+
+@router.get("/backfill-status")
+def backfill_status(_: None = Depends(require_admin), db: Session = Depends(get_db)):
+    return get_backfill_state(db)

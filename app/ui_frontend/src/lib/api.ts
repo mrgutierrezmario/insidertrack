@@ -58,6 +58,22 @@ export const getTrades = (params: Record<string, unknown> = {}): Resp<PaginatedT
   api.get("/trades/", { params });
 export const syncTrades = (): Resp<{ status: string }> => api.post("/trades/sync");
 
+export interface BackfillStatus {
+  running: boolean;
+  since?: string;
+  until?: string;
+  started_at?: string | null;
+  finished_at?: string | null;
+  phase?: "senate" | "house" | null;
+  done?: number;
+  total?: number;
+  result?: { senate?: number; house?: number; errors?: Record<string, string> };
+  error?: string | null;
+}
+export const startBackfill = (since: string, until?: string): Resp<{ status: string }> =>
+  api.post("/trades/backfill", null, { params: { since, ...(until ? { until } : {}) } });
+export const getBackfillStatus = (): Resp<BackfillStatus> => api.get("/trades/backfill-status");
+
 export interface SyncStatus {
   running: boolean;
   started_at: string | null;

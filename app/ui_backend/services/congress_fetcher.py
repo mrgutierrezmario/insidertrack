@@ -274,8 +274,9 @@ def _efd_client() -> httpx.Client:
     return client
 
 
-def _fetch_ptr_list(client: httpx.Client, start_date: date) -> list[dict]:
-    """Page through the EFD search API for Senate PTRs filed since `start_date`."""
+def _fetch_ptr_list(client: httpx.Client, start_date: date, end_date: Optional[date] = None) -> list[dict]:
+    """Page through the EFD search API for Senate PTRs filed between
+    `start_date` and `end_date` (inclusive; open-ended when None)."""
     token = client.cookies.get("csrftoken", "")
     headers = {
         "Referer": f"{EFD_BASE}/search/",
@@ -291,7 +292,7 @@ def _fetch_ptr_list(client: httpx.Client, start_date: date) -> list[dict]:
             "report_types": f"[{EFD_PTR_REPORT_TYPE}]",
             "filer_types": "[]",
             "submitted_start_date": start_date.strftime("%m/%d/%Y 00:00:00"),
-            "submitted_end_date": "",
+            "submitted_end_date": end_date.strftime("%m/%d/%Y 23:59:59") if end_date else "",
             "candidate_state": "",
             "senator_state": "",
             "office_id": "",
@@ -386,19 +387,25 @@ def _fetch_ptr_transactions(client: httpx.Client, uuid: str) -> list[dict]:
     return _parse_senate_rows(resp.text)
 
 
-def sync_senate_trades(db: Session) -> int:
-    logger.info("Fetching Senate trades from EFD...")
-    start_date = date.today() - timedelta(days=EFD_LOOKBACK_DAYS)
+def sync_senate_trades(db: Session, start_date: Optional[date] = None,
+                       end_date: Optional[date] = None, progress=None) -> int:
+    """Import Senate PTRs filed in [start_date, end_date]. Defaults to the
+    rolling EFD_LOOKBACK_DAYS window; the backfill passes explicit bounds.
+    `progress(done, total)` is called per filing when given."""
+    start_date = start_date or date.today() - timedelta(days=EFD_LOOKBACK_DAYS)
+    logger.info(f"Fetching Senate trades from EFD ({start_date} → {end_date or 'now'})...")
 
     client = _efd_client()
     seen = _load_processed(db, "senate")
     try:
-        reports = _fetch_ptr_list(client, start_date)
+        reports = _fetch_ptr_list(client, start_date, end_date)
         new_reports = [r for r in reports if r["uuid"] not in seen]
         logger.info(f"EFD: {len(reports)} PTRs since {start_date}, {len(new_reports)} new")
 
         count = 0
-        for rpt in new_reports:
+        for i, rpt in enumerate(new_reports):
+                if progress:
+                    progress(i, len(new_reports))
                 name = f"{rpt['first']} {rpt['last']}".strip()
                 if not name:
                     continue
@@ -491,17 +498,21 @@ def _parse_house_ptr(pdf_bytes: bytes) -> list[dict]:
     return _parse_house_text(text)
 
 
-def sync_house_trades(db: Session) -> int:
-    """Pull recent House PTRs from the Clerk's office and parse their PDFs.
+def sync_house_trades(db: Session, start_date: Optional[date] = None,
+                      end_date: Optional[date] = None, progress=None) -> int:
+    """Pull House PTRs filed in [start_date, end_date] from the Clerk's office
+    and parse their PDFs. Defaults to the rolling HOUSE_LOOKBACK_DAYS window;
+    the backfill passes explicit bounds.
 
     Only electronically-filed PTRs (DocID begins with "2") carry a text layer;
-    older scanned/handwritten filings are skipped. To keep each sync light we
-    look back HOUSE_LOOKBACK_DAYS and skip filings whose PDF we have already
-    imported (tracked by DocID in raw_data).
+    older scanned/handwritten filings are skipped. Filings whose PDF we have
+    already imported (tracked by DocID) are not re-downloaded.
+    `progress(done, total)` is called per filing when given.
     """
-    logger.info("Fetching House trades from Clerk disclosures...")
-    cutoff = date.today() - timedelta(days=HOUSE_LOOKBACK_DAYS)
-    years = sorted({cutoff.year, date.today().year})
+    cutoff = start_date or date.today() - timedelta(days=HOUSE_LOOKBACK_DAYS)
+    until = end_date or date.today()
+    logger.info(f"Fetching House trades from Clerk disclosures ({cutoff} → {until})...")
+    years = list(range(cutoff.year, until.year + 1))
 
     # DocIDs we've already parsed (incl. filings with no listed-stock trades), so
     # re-syncs don't re-download the same PDFs.
@@ -518,6 +529,8 @@ def sync_house_trades(db: Session) -> int:
                 logger.warning(f"House index {year} unavailable: {exc}")
                 continue
 
+            # Filter first so progress totals are meaningful.
+            todo = []
             for row in rows:
                 doc_id = (row.get("DocID") or "").strip()
                 # FilingType "P" = Periodic Transaction Report; DocID starting
@@ -527,8 +540,13 @@ def sync_house_trades(db: Session) -> int:
                 if doc_id in seen:
                     continue
                 filed = _parse_date(row.get("FilingDate"))
-                if filed and filed < cutoff:
+                if filed and (filed < cutoff or filed > until):
                     continue
+                todo.append((row, doc_id))
+
+            for i, (row, doc_id) in enumerate(todo):
+                if progress:
+                    progress(i, len(todo))
 
                 first, last = (row.get("First") or "").strip(), (row.get("Last") or "").strip()
                 name = f"{first} {last}".strip()
@@ -574,6 +592,83 @@ def sync_house_trades(db: Session) -> int:
 
     logger.info(f"Synced {count} new House trades")
     return count
+
+
+# ── Historical backfill ───────────────────────────────────────────────────────
+# The rolling sync only looks back ~90 days. This walks an explicit range
+# (House: per-year index ZIPs; Senate: EFD date-bounded search) so the
+# simulator, outcomes and per-member track records have history to work
+# with. Idempotent: processed filings and the trade dedup key make re-runs
+# cheap. Slow by design (one government PDF per filing, politely paced) —
+# run it in the background and poll get_backfill_state().
+
+_BACKFILL_KEY = "congress_backfill"
+_backfill_state: dict = {"running": False}
+
+
+def get_backfill_state(db: Optional[Session] = None) -> dict:
+    """In-memory state while running; the persisted last outcome otherwise."""
+    if _backfill_state.get("running") or db is None:
+        return dict(_backfill_state)
+    row = db.query(AppSetting).filter(AppSetting.key == _BACKFILL_KEY).first()
+    if row and row.value:
+        try:
+            return {**json.loads(row.value), "running": False}
+        except ValueError:
+            pass
+    return dict(_backfill_state)
+
+
+def backfill(db: Session, since: date, until: Optional[date] = None) -> dict:
+    """Import every electronic PTR filed in [since, until] from both chambers."""
+    until = until or date.today()
+    if _backfill_state.get("running"):
+        raise RuntimeError("A backfill is already running")
+    _backfill_state.clear()
+    _backfill_state.update(running=True, since=since.isoformat(), until=until.isoformat(),
+                           started_at=datetime.now().isoformat(), finished_at=None,
+                           phase=None, done=0, total=0, result={}, error=None)
+
+    def _progress(phase):
+        def cb(done, total):
+            _backfill_state.update(phase=phase, done=done, total=total)
+        return cb
+
+    result: dict = {}
+    errors: dict = {}
+    try:
+        for name, fn in (("senate", sync_senate_trades), ("house", sync_house_trades)):
+            _backfill_state.update(phase=name, done=0, total=0)
+            try:
+                result[name] = fn(db, start_date=since, end_date=until, progress=_progress(name))
+            except Exception as exc:
+                result[name] = 0
+                errors[name] = str(exc)
+                logger.error(f"Backfill {name} failed: {exc}")
+        if errors:
+            result["errors"] = errors
+        # New rows need a staleness bucket; the daily job would get there
+        # eventually but the feed filters on it immediately.
+        try:
+            from routers.trades import refresh_risk_levels
+            refresh_risk_levels(db)
+        except Exception as exc:
+            logger.warning(f"risk_level refresh after backfill failed: {exc}")
+        return result
+    finally:
+        _backfill_state.update(running=False, finished_at=datetime.now().isoformat(),
+                               result=result, error="; ".join(f"{k}: {v}" for k, v in errors.items()) or None)
+        try:
+            row = db.query(AppSetting).filter(AppSetting.key == _BACKFILL_KEY).first()
+            payload = json.dumps({k: v for k, v in _backfill_state.items() if k != "running"})
+            if row:
+                row.value = payload
+            else:
+                db.add(AppSetting(key=_BACKFILL_KEY, value=payload))
+            db.commit()
+        except Exception as exc:
+            logger.warning(f"Could not persist backfill record: {exc}")
+            db.rollback()
 
 
 _LAST_SYNC_KEY = "congress_last_sync"
