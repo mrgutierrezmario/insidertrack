@@ -23,6 +23,7 @@ REPO=$(cd .. && pwd)
 # uses — sign in with a different Google account so the two apps' backups don't
 # share a drive (or a blast radius).
 GDRIVE_REMOTE=gdrive-stock-tracker
+BACKUP_ACCOUNT="mgnetwork.donotreply@gmail.com"   # the Google account that holds these backups
 CRYPT_REMOTE="${RCLONE_REMOTE:-stock-tracker-backup:}"; CRYPT_REMOTE=${CRYPT_REMOTE%:}
 DRIVE_FOLDER=InsiderTrackBackups
 log() { echo "[backup-setup] $*"; }
@@ -38,10 +39,12 @@ if rclone listremotes | grep -qx "$GDRIVE_REMOTE:"; then
   log "Google Drive remote '$GDRIVE_REMOTE' already exists."
 else
   echo
-  echo "  A browser window will open. Sign in with the Google account that should"
-  echo "  hold THESE backups (a different one from the lecture-notes backups) and"
-  echo "  click Allow. (If you are on a machine without a browser, rclone prints a"
-  echo "  link to open elsewhere.)"
+  echo "  A browser window will open. Sign in as:"
+  echo
+  echo "      $BACKUP_ACCOUNT"
+  echo
+  echo "  (not the lecture-notes account) and click Allow. If you are on a machine"
+  echo "  without a browser, rclone prints a link to open elsewhere."
   echo
   read -r -p "  Press Enter to continue..." _
   # rclone prints the finished section, token included, so keep it off the screen.
