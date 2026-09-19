@@ -104,7 +104,12 @@ def _trade_dict(t: Trade, risk: str) -> dict:
         "ticker": t.ticker,
         "asset_name": t.asset_name,
         "transaction_type": t.transaction_type,
+        "direction": t.direction,
+        "asset_type": t.asset_type,
+        "owner": t.owner,
         "amount_range": t.amount_range,
+        "amount_low": t.amount_low,
+        "amount_high": t.amount_high,
         "trade_date": t.trade_date,
         "disclosure_date": t.disclosure_date,
         "source": t.source,
@@ -124,6 +129,9 @@ def list_trades(
     ticker: Optional[str] = None,
     tracked_only: bool = False,
     transaction_type: Optional[str] = None,
+    direction: Optional[str] = Query(default=None, pattern="^(buy|sell)$"),
+    asset_type: Optional[str] = Query(default=None, pattern="^(stock|option|other)$"),
+    owner: Optional[str] = Query(default=None, pattern="^(self|spouse|child|joint)$"),
     since: Optional[date] = None,
     until: Optional[date] = None,
     politician_id: Optional[int] = None,
@@ -141,6 +149,12 @@ def list_trades(
         q = q.join(Politician).filter(Politician.is_tracked == True)  # noqa: E712
     if transaction_type:
         q = q.filter(Trade.transaction_type.ilike(f"%{transaction_type}%"))
+    if direction:
+        q = q.filter(Trade.direction == direction)
+    if asset_type:
+        q = q.filter(Trade.asset_type == asset_type)
+    if owner:
+        q = q.filter(Trade.owner == owner)
     if since:
         q = q.filter(Trade.trade_date >= since)
     if until:

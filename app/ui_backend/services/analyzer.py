@@ -37,8 +37,8 @@ def _get_tracked_tickers(db: Session) -> list[str]:
 
 
 def _build_signal(ticker: str, recent_trades: list[Trade], current_price: Optional[float]) -> dict:
-    buys = [t for t in recent_trades if "purchase" in (t.transaction_type or "")]
-    sells = [t for t in recent_trades if "sale" in (t.transaction_type or "")]
+    buys = [t for t in recent_trades if t.direction == "buy"]
+    sells = [t for t in recent_trades if t.direction == "sell"]
 
     signal = "HOLD"
     reason = "No strong signal from tracked insiders."

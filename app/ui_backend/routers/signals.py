@@ -254,7 +254,7 @@ def _compute_technical_signals(db: Session, target_date: date | None = None) -> 
     cutoff = target_date - timedelta(days=45)
 
     rows = (
-        db.query(Trade.ticker, Trade.transaction_type, Trade.trade_date)
+        db.query(Trade.ticker, Trade.direction, Trade.trade_date)
         .join(Politician)
         .filter(
             Politician.is_tracked == True,  # noqa: E712
@@ -265,15 +265,17 @@ def _compute_technical_signals(db: Session, target_date: date | None = None) -> 
     )
 
     ticker_activity: dict[str, dict] = {}
-    for ticker, tx, td in rows:
+    for ticker, direction, td in rows:
         if not ticker:
             continue
         if ticker not in ticker_activity:
             ticker_activity[ticker] = {"buys": 0, "sells": 0, "last_trade_date": None}
-        tx_lower = (tx or "").lower()
-        if "purchase" in tx_lower:
+        # direction is NULL for exchanges, bonds and options with no call/put
+        # in the filing — those still put the ticker in the universe (someone
+        # in Congress touched it) but don't count as conviction either way.
+        if direction == "buy":
             ticker_activity[ticker]["buys"] += 1
-        elif "sale" in tx_lower:
+        elif direction == "sell":
             ticker_activity[ticker]["sells"] += 1
         if td and (ticker_activity[ticker]["last_trade_date"] is None or td > ticker_activity[ticker]["last_trade_date"]):
             ticker_activity[ticker]["last_trade_date"] = td

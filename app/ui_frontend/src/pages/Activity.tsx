@@ -23,6 +23,7 @@ interface ActivityItem {
   trade_date: string;
   transaction_type?: string | null;
   amount_range?: string | null;
+  _direction: "buy" | "sell" | null;   // the bet on the ticker; null = neutral
   _source: Source;
   _who: string;
   _role?: string | null;
@@ -37,9 +38,16 @@ function SourceBadge({ source }: { source: Source }) {
   );
 }
 
+/** Form 4 / Fed rows have no stored direction — read it off the verb. */
+function directionFromVerb(type: string | undefined | null): "buy" | "sell" | null {
+  const t = (type || "").toLowerCase();
+  if (t === "buy" || t.includes("purchase")) return "buy";
+  if (t === "sell" || t.includes("sale")) return "sell";
+  return null;
+}
+
 function ActivityRow({ item }: { item: ActivityItem }) {
-  const isBuy = ["purchase", "buy"].includes((item.transaction_type || "").toLowerCase());
-  const typeColor = isBuy ? C.success : C.danger;
+  const typeColor = item._direction === "buy" ? C.success : item._direction === "sell" ? C.danger : C.textSoft;
 
   return (
     <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 9, padding: "11px 14px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -60,7 +68,7 @@ function ActivityRow({ item }: { item: ActivityItem }) {
 
       <div style={{ flexShrink: 0 }}>
         <span style={{ color: typeColor, fontWeight: 700, fontSize: 12, textTransform: "uppercase" }}>
-          {isBuy ? "BUY" : "SELL"}
+          {item._direction === "buy" ? "BUY" : item._direction === "sell" ? "SELL" : (item.transaction_type || "—")}
         </span>
         {item.amount_range && (
           <div style={{ color: C.dividerStrong, fontSize: 11 }}>{item.amount_range}</div>
@@ -98,6 +106,7 @@ function normalize(results: [FetchResult, FetchResult, FetchResult]): { items: A
         trade_date: t.trade_date as string,
         transaction_type: t.transaction_type as string | undefined,
         amount_range: t.amount_range as string | undefined,
+        _direction: (t.direction as "buy" | "sell" | null | undefined) ?? null,
         _source: "congressional",
         _who: pol?.name || "Unknown",
         _role: `${pol?.party || ""} · ${pol?.chamber || ""}`.trim().replace(/^·|·$/, "").trim(),
@@ -114,6 +123,7 @@ function normalize(results: [FetchResult, FetchResult, FetchResult]): { items: A
         trade_date: t.transaction_date as string,
         transaction_type: t.transaction_type as string | undefined,
         amount_range: t.amount_range as string | undefined,
+        _direction: directionFromVerb(t.transaction_type as string | undefined),
         _source: "corporate",
         _who: t.insider_name as string,
         _role: t.insider_title as string | undefined,
@@ -130,6 +140,7 @@ function normalize(results: [FetchResult, FetchResult, FetchResult]): { items: A
         trade_date: t.trade_date as string,
         transaction_type: t.transaction_type as string | undefined,
         amount_range: t.amount_range as string | undefined,
+        _direction: directionFromVerb(t.transaction_type as string | undefined),
         _source: "fed",
         _who: t.official_name as string,
         _role: t.official_title as string | undefined,
@@ -203,8 +214,8 @@ export default function Activity() {
 
   const filtered = items.filter((it) => {
     if (!sources[it._source]) return false;
-    if (typeFilter === "buy" && !["purchase", "buy"].includes((it.transaction_type || "").toLowerCase())) return false;
-    if (typeFilter === "sell" && !["sale", "sell"].includes((it.transaction_type || "").toLowerCase())) return false;
+    if (typeFilter === "buy" && it._direction !== "buy") return false;
+    if (typeFilter === "sell" && it._direction !== "sell") return false;
     if (tickerFilter && !it.ticker?.includes(tickerFilter.toUpperCase())) return false;
     return true;
   });

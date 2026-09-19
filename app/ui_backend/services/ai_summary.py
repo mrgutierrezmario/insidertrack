@@ -55,6 +55,9 @@ def _gather_context(ticker: str, db: Session) -> dict:
         {
             "politician": t.politician.name if t.politician else "Unknown",
             "type": t.transaction_type,
+            "asset": t.asset_type or "stock",
+            "direction": t.direction,
+            "owner": t.owner,
             "amount": t.amount_range,
             "date": str(t.trade_date),
         }

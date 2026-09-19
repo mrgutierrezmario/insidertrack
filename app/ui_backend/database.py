@@ -59,6 +59,15 @@ def _apply_migrations():
         # Cached risk_level for trades — populated by refresh_risk_levels(), indexed for filter
         "ALTER TABLE trades ADD COLUMN IF NOT EXISTS risk_level VARCHAR(8)",
         "CREATE INDEX IF NOT EXISTS ix_trades_risk_level ON trades (risk_level)",
+        # Derived trade columns (see services/trade_semantics.py): parsed amount
+        # bounds, filer relationship, asset kind, and the buy/sell direction.
+        "ALTER TABLE trades ADD COLUMN IF NOT EXISTS amount_low INTEGER",
+        "ALTER TABLE trades ADD COLUMN IF NOT EXISTS amount_high INTEGER",
+        "ALTER TABLE trades ADD COLUMN IF NOT EXISTS owner VARCHAR(8)",
+        "ALTER TABLE trades ADD COLUMN IF NOT EXISTS asset_type VARCHAR(8)",
+        "ALTER TABLE trades ADD COLUMN IF NOT EXISTS direction VARCHAR(4)",
+        "CREATE INDEX IF NOT EXISTS ix_trades_asset_type ON trades (asset_type)",
+        "CREATE INDEX IF NOT EXISTS ix_trades_direction ON trades (direction)",
         # Flag distinguishing live snapshots from retroactively-backfilled ones
         "ALTER TABLE signal_outcomes ADD COLUMN IF NOT EXISTS is_backfilled BOOLEAN NOT NULL DEFAULT FALSE",
         # Persistent L2 cache for market_data. Sweeper job in scheduler.py
@@ -126,6 +135,34 @@ def _apply_migrations():
          "UPDATE politicians SET is_tracked = TRUE WHERE is_tracked IS NOT TRUE"),
         ("migration:politicians_tracked_by_default",
          "ALTER TABLE politicians ALTER COLUMN is_tracked SET DEFAULT TRUE, ALTER COLUMN is_tracked SET NOT NULL"),
+        # 2026-09: backfill the derived trade columns for rows ingested before
+        # they existed. Owner is left NULL (unknown) — the old parsers dropped
+        # it. Options recorded as "<TICKER> (option)" have no call/put, so
+        # their direction stays NULL and they drop out of the score.
+        ("migration:trades_derived_columns",
+         """
+         UPDATE trades SET
+           amount_low  = NULLIF(regexp_replace(split_part(COALESCE(amount_range, ''), '-', 1), '[^0-9]', '', 'g'), '')::bigint,
+           amount_high = CASE
+                           WHEN position('-' in COALESCE(amount_range, '')) = 0 THEN
+                             CASE WHEN amount_range ~* '([+]|over)' THEN NULL
+                                  ELSE NULLIF(regexp_replace(COALESCE(amount_range, ''), '[^0-9]', '', 'g'), '')::bigint END
+                           ELSE NULLIF(regexp_replace(split_part(amount_range, '-', 2), '[^0-9]', '', 'g'), '')::bigint
+                         END,
+           asset_type  = CASE WHEN COALESCE(raw_data, '') LIKE '%"asset_type": "option"%' THEN 'option' ELSE 'stock' END
+         WHERE asset_type IS NULL
+         """),
+        ("migration:trades_derived_columns",
+         """
+         UPDATE trades SET direction =
+           CASE
+             WHEN asset_type <> 'stock' THEN NULL
+             WHEN transaction_type ILIKE '%purchase%' THEN 'buy'
+             WHEN transaction_type ILIKE '%sale%' THEN 'sell'
+             ELSE NULL
+           END
+         WHERE direction IS NULL
+         """),
     ]
     with engine.begin() as conn:
         done = {

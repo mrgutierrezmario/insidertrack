@@ -95,13 +95,12 @@ def evaluate_alerts(db: Session) -> dict:
             q = (
                 db.query(Trade)
                 .join(Politician)
-                .filter(Politician.is_tracked == True, Trade.trade_date >= cutoff)  # noqa: E712
+                .filter(Politician.is_tracked == True, Trade.trade_date >= cutoff,  # noqa: E712
+                        Trade.direction == "buy")
             )
             if rule.ticker:
                 q = q.filter(Trade.ticker == rule.ticker.upper())
             for tr in q.all():
-                if "purchase" not in (tr.transaction_type or "").lower():
-                    continue
                 key = f"{rule.id}:insider_buy:{tr.id}"
                 who = tr.politician.name if tr.politician else "A tracked politician"
                 msg = f"{who} disclosed a purchase of {tr.ticker} ({tr.amount_range or 'amount n/a'}) on {tr.trade_date}."

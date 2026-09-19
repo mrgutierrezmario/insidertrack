@@ -333,11 +333,11 @@ export default function Dashboard() {
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {recentTrades.length === 0 && <div style={{ color: C.textDim, fontSize: "0.85rem" }}>No trades loaded yet.</div>}
                 {recentTrades.map((t) => {
-                  const buy = /purchase|buy/i.test(t.transaction_type);
+                  const buy = t.direction === "buy";
                   return (
                     <div key={t.id} style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, padding: "0.6rem 0.9rem", display: "flex", flexWrap: "wrap", gap: "0.25rem 0.75rem", alignItems: "center" }}>
                       <Link to={`/ticker/${t.ticker}`} style={{ color: C.accent, fontWeight: 700, textDecoration: "none", width: 64 }}>{t.ticker}</Link>
-                      <span style={{ color: buy ? C.success : C.danger, fontSize: "0.78rem", fontWeight: 600, width: 84 }}>{t.transaction_type}</span>
+                      <span style={{ color: buy ? C.success : t.direction === "sell" ? C.danger : C.textSoft, fontSize: "0.78rem", fontWeight: 600, width: 84 }}>{t.transaction_type}</span>
                       <span style={{ color: C.textSoft, fontSize: "0.82rem", flex: "1 1 120px", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {t.politician ? <Link to={`/politician/${t.politician.id}`} style={{ color: "inherit", textDecoration: "none" }}>{t.politician.name}</Link> : "—"}
                       </span>

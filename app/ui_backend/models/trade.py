@@ -13,6 +13,19 @@ class Trade(Base):
     asset_name = Column(String)
     transaction_type = Column(String)  # purchase | sale | sale_partial | exchange
     amount_range = Column(String)      # e.g. "$1,001 - $15,000"
+    # Parsed bounds of amount_range (dollars). high is NULL for open-ended
+    # brackets ("Over $50,000,000"). Lets the score weight by size, not count.
+    amount_low = Column(Integer)
+    amount_high = Column(Integer)
+    # self | spouse | child | joint — STOCK Act filings distinguish these.
+    owner = Column(String(8))
+    # stock | option | other. Options are stored under their underlying ticker,
+    # so this is what stops a put purchase from reading as a stock buy.
+    asset_type = Column(String(8), index=True)
+    # buy | sell | NULL — the trade's bet on the ticker, computed once at ingest
+    # by services.trade_semantics.direction(). Consumers filter on this, never
+    # on transaction_type strings.
+    direction = Column(String(4), index=True)
     trade_date = Column(Date, index=True)
     disclosure_date = Column(Date, index=True)
     source = Column(String)            # house | senate

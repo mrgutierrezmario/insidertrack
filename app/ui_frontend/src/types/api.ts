@@ -28,7 +28,12 @@ export interface Trade {
   ticker: string | null;
   asset_name: string | null;
   transaction_type: string;
+  direction: "buy" | "sell" | null;          // the bet on the ticker; null = neutral (exchange, bond, unknown option)
+  asset_type: "stock" | "option" | "other" | null;
+  owner: "self" | "spouse" | "child" | "joint" | null;  // null = unknown (pre-2026-09 rows)
   amount_range: string | null;
+  amount_low: number | null;
+  amount_high: number | null;
   trade_date: string | null;       // YYYY-MM-DD
   disclosure_date: string | null;  // YYYY-MM-DD
   source: string;

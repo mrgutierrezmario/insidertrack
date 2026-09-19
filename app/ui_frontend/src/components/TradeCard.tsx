@@ -34,14 +34,29 @@ function RiskBadge({ level }: { level: RiskLevel | null }) {
   );
 }
 
-function tradeColor(type: string | null | undefined): string {
-  if (!type) return C.textSoft;
-  const t = type.toLowerCase();
-  if (t.includes("purchase")) return C.success;
-  if (t.includes("sale") && t.includes("partial")) return C.warning;
-  if (t.includes("sale")) return C.danger;
-  if (t.includes("exchange")) return C.info;
+function tradeColor(trade: Trade): string {
+  // Colour follows the bet, not the verb: a put purchase is bearish.
+  if (trade.direction === "buy") return C.success;
+  if (trade.direction === "sell") {
+    return (trade.transaction_type || "").toLowerCase().includes("partial") ? C.warning : C.danger;
+  }
+  if ((trade.transaction_type || "").toLowerCase().includes("exchange")) return C.info;
   return C.textSoft;
+}
+
+const OWNER_LABEL: Record<NonNullable<Trade["owner"]>, string> = {
+  self: "", spouse: "Spouse", child: "Child", joint: "Joint",
+};
+
+function Tag({ children, tip }: { children: string; tip: string }) {
+  return (
+    <span data-tip={tip} style={{
+      background: C.surfaceAlt, color: C.textMuted, borderRadius: 5, padding: "1px 7px",
+      fontSize: 10, fontWeight: 700, letterSpacing: "0.04em", whiteSpace: "nowrap",
+    }}>
+      {children}
+    </span>
+  );
 }
 
 function fmtDate(str: string | null | undefined): string {
@@ -55,7 +70,8 @@ interface TradeCardProps {
 }
 
 export default function TradeCard({ trade }: TradeCardProps) {
-  const color = tradeColor(trade.transaction_type);
+  const color = tradeColor(trade);
+  const ownerLabel = trade.owner ? OWNER_LABEL[trade.owner] : "";
   return (
     <div
       style={{
@@ -80,6 +96,15 @@ export default function TradeCard({ trade }: TradeCardProps) {
           <span style={{ color, fontSize: "0.8rem" }}>
             {trade.transaction_type}
           </span>
+          {trade.asset_type === "option" && (
+            <Tag tip={trade.direction
+              ? "An option contract on this ticker. Direction follows the contract (long call / short put = bullish)."
+              : "An option contract on this ticker. The filing doesn't say call or put, so it doesn't count toward the signal."}>
+              OPTION
+            </Tag>
+          )}
+          {trade.asset_type === "other" && <Tag tip="Not common stock (bond, note, fund). Doesn't count toward the signal.">OTHER</Tag>}
+          {ownerLabel && <Tag tip="Who holds the position, per the filing — the STOCK Act covers spouses and dependent children too.">{ownerLabel.toUpperCase()}</Tag>}
           <RiskBadge level={trade.risk_level} />
           {trade.ticker && <WatchlistButton ticker={trade.ticker} />}
         </div>

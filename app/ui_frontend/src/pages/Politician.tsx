@@ -86,8 +86,8 @@ export default function Politician() {
 
   if (!politician) return <p style={{ color: C.textMuted }}>Politician not found.</p>;
 
-  const buys = trades.filter((t) => t.transaction_type?.toLowerCase().includes("purchase")).length;
-  const sells = trades.filter((t) => t.transaction_type?.toLowerCase().includes("sale")).length;
+  const buys = trades.filter((t) => t.direction === "buy").length;
+  const sells = trades.filter((t) => t.direction === "sell").length;
   const partyColor = (politician.party && PARTY_COLOR[politician.party]) || C.textSoft;
 
   // Unique tickers this politician traded

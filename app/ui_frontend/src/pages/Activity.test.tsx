@@ -17,12 +17,12 @@ const CONG = {
   items: [
     {
       id: 1, ticker: "AAPL", trade_date: "2026-03-10",
-      transaction_type: "purchase", amount_range: "$1,001–$15,000",
+      transaction_type: "purchase", direction: "buy", amount_range: "$1,001–$15,000",
       politician: { name: "Nancy Pelosi", party: "D", chamber: "House" },
     },
     {
       id: 2, ticker: "NVDA", trade_date: "2026-03-08",
-      transaction_type: "sale", amount_range: "$15,001–$50,000",
+      transaction_type: "sale", direction: "sell", amount_range: "$15,001–$50,000",
       politician: { name: "Dan Crenshaw", party: "R", chamber: "House" },
     },
   ],

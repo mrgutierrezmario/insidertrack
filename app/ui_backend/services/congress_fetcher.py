@@ -33,6 +33,7 @@ from models.app_setting import AppSetting
 from models.politician import Politician
 from models.processed_filing import ProcessedFiling
 from models.trade import Trade
+from services import trade_semantics as sem
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,14 @@ _HOUSE_TXN_RE = re.compile(
     r"(\d{2}/\d{2}/\d{4})\s*"                  # notification (disclosure) date
     r"\$([\d,]+)\s*-\s*\$?([\d,]+)?"           # amount low - high
 )
+# The owner code (SP spouse / DC dependent child / JT joint; blank = self)
+# opens each row, right before the asset name. We look for it at the start of
+# the text between the previous transaction and this one.
+_HOUSE_OWNER_RE = re.compile(r"^\s*(?:\d+\s+)?(SP|DC|JT)\b")
+# Option contracts describe themselves after the amount: "... call options
+# with a strike price ..." / "... put option ...". Only the segment up to the
+# next transaction belongs to this row.
+_HOUSE_OPTION_KIND_RE = re.compile(r"\b(call|put)s?\b", re.I)
 
 
 def _parse_date(value: Optional[str]) -> Optional[date]:
@@ -166,6 +175,44 @@ def _get_or_create_politician(db: Session, name: str, chamber: str, party: str =
     if state and not (politician.state or "").strip():
         politician.state = state
     return politician
+
+
+def _trade_exists(db: Session, politician_id: int, ticker: str, trade_date: date,
+                  tx_type: str, amount: str) -> bool:
+    """Dedup key for a filing row. The amount bracket is part of the key: a
+    member can legitimately report two lots of the same ticker on the same
+    day, and they differ only by amount."""
+    return db.query(Trade.id).filter(
+        Trade.politician_id == politician_id,
+        Trade.ticker == ticker,
+        Trade.trade_date == trade_date,
+        Trade.transaction_type == tx_type,
+        Trade.amount_range == amount,
+    ).first() is not None
+
+
+def _new_trade(politician_id: int, tx: dict, tx_type: str, trade_date: date,
+               disclosure_date: Optional[date], source: str, raw: dict) -> Trade:
+    """Build a Trade with the derived columns (owner, asset_type, direction,
+    amount bounds) filled from the parsed filing row."""
+    asset_type = tx.get("asset_type") or sem.ASSET_STOCK
+    low, high = sem.parse_amount_range(tx.get("amount"))
+    return Trade(
+        politician_id=politician_id,
+        ticker=tx["ticker"],
+        asset_name=tx.get("asset_name", ""),
+        transaction_type=tx_type,
+        amount_range=tx.get("amount", ""),
+        amount_low=low,
+        amount_high=high,
+        owner=tx.get("owner") or sem.OWNER_SELF,
+        asset_type=asset_type,
+        direction=sem.direction(tx_type, asset_type, tx.get("asset_name")),
+        trade_date=trade_date,
+        disclosure_date=disclosure_date,
+        source=source,
+        raw_data=json.dumps(raw),
+    )
 
 
 # ── Processed-filing bookkeeping (skip re-downloads) ──────────────────────────
@@ -303,8 +350,9 @@ def _parse_senate_rows(html: str) -> list[dict]:
                 return i
         return None
 
-    i_date, i_ticker, i_type, i_amount, i_asset = (
+    i_date, i_ticker, i_type, i_amount, i_asset, i_owner, i_asset_type = (
         col("transaction date"), col("ticker"), col("type"), col("amount"), col("asset name"),
+        col("owner"), col("asset type"),
     )
     txns = []
     for tr in table.select("tbody tr"):
@@ -314,12 +362,16 @@ def _parse_senate_rows(html: str) -> list[dict]:
         ticker = (cells[i_ticker] if i_ticker < len(cells) else "").strip()
         if not ticker or ticker in ("--", "N/A", "—"):
             continue
+        def cell(i: Optional[int]) -> str:
+            return cells[i] if i is not None and i < len(cells) else ""
         txns.append({
-            "transaction_date": cells[i_date] if i_date is not None and i_date < len(cells) else "",
+            "transaction_date": cell(i_date),
             "ticker": ticker,
-            "type": (cells[i_type] if i_type is not None and i_type < len(cells) else "").strip(),
-            "amount": cells[i_amount] if i_amount is not None and i_amount < len(cells) else "",
-            "asset_name": cells[i_asset] if i_asset is not None and i_asset < len(cells) else "",
+            "type": cell(i_type).strip(),
+            "amount": cell(i_amount),
+            "asset_name": cell(i_asset),
+            "asset_type": sem.normalize_asset_type(cell(i_asset_type)),
+            "owner": sem.normalize_owner(cell(i_owner)),
         })
     return txns
 
@@ -365,24 +417,11 @@ def sync_senate_trades(db: Session) -> int:
                     if not trade_date:
                         continue
                     tx_type = tx["type"].lower()
-                    exists = db.query(Trade).filter(
-                        Trade.politician_id == politician.id,
-                        Trade.ticker == tx["ticker"],
-                        Trade.trade_date == trade_date,
-                        Trade.transaction_type == tx_type,
-                    ).first()
-                    if exists:
+                    if _trade_exists(db, politician.id, tx["ticker"], trade_date, tx_type, tx["amount"]):
                         continue
-                    db.add(Trade(
-                        politician_id=politician.id,
-                        ticker=tx["ticker"],
-                        asset_name=tx["asset_name"],
-                        transaction_type=tx_type,
-                        amount_range=tx["amount"],
-                        trade_date=trade_date,
-                        disclosure_date=disclosure_date,
-                        source="senate",
-                        raw_data=json.dumps({**tx, "ptr_uuid": rpt["uuid"], "amended": rpt.get("amended", False)}),
+                    db.add(_new_trade(
+                        politician.id, tx, tx_type, trade_date, disclosure_date, "senate",
+                        {**tx, "ptr_uuid": rpt["uuid"], "amended": rpt.get("amended", False)},
                     ))
                     db.flush()  # autoflush is off — make this row visible to the next exists-check
                     count += 1
@@ -415,9 +454,19 @@ def _parse_house_text(text: str) -> list[dict]:
     """
     flat = re.sub(r"\s+", " ", text)  # PTR rows wrap across lines; flatten first
     amended = bool(re.search(r"\bamendment\b", flat, re.I))
+    matches = list(_HOUSE_TXN_RE.finditer(flat))
     txns = []
-    for tk, code, ty, td, nd, lo, hi in _HOUSE_TXN_RE.findall(flat):
+    for i, m in enumerate(matches):
+        tk, code, ty, td, nd, lo, hi = m.groups()
         is_option = code == "OP"
+        # Text owned by this row: from the end of the previous match to the
+        # start of the next one. The owner code sits at its head, an option's
+        # call/put description in its tail.
+        head = flat[matches[i - 1].end() if i else 0 : m.start()]
+        tail = flat[m.end() : matches[i + 1].start() if i + 1 < len(matches) else len(flat)]
+        owner_m = _HOUSE_OWNER_RE.match(head)
+        kind_m = _HOUSE_OPTION_KIND_RE.search(tail) if is_option else None
+        kind = kind_m.group(1).lower() if kind_m else None
         txns.append({
             "ticker": tk,
             "type": _HOUSE_TYPE.get(ty, ty.lower()),
@@ -425,7 +474,8 @@ def _parse_house_text(text: str) -> list[dict]:
             "disclosure_date": nd,
             "amount": f"${lo} - ${hi}" if hi else f"${lo}",
             "asset_type": "option" if is_option else "stock",
-            "asset_name": f"{tk} (option)" if is_option else "",
+            "asset_name": (f"{tk} {kind} option" if kind else f"{tk} (option)") if is_option else "",
+            "owner": sem.normalize_owner(owner_m.group(1) if owner_m else ""),
             "amended": amended,
         })
     return txns
@@ -501,24 +551,11 @@ def sync_house_trades(db: Session) -> int:
                     trade_date = _parse_date(tx["transaction_date"])
                     if not trade_date:
                         continue
-                    exists = db.query(Trade).filter(
-                        Trade.politician_id == politician.id,
-                        Trade.ticker == tx["ticker"],
-                        Trade.trade_date == trade_date,
-                        Trade.transaction_type == tx["type"],
-                    ).first()
-                    if exists:
+                    if _trade_exists(db, politician.id, tx["ticker"], trade_date, tx["type"], tx["amount"]):
                         continue
-                    db.add(Trade(
-                        politician_id=politician.id,
-                        ticker=tx["ticker"],
-                        asset_name=tx.get("asset_name", ""),
-                        transaction_type=tx["type"],
-                        amount_range=tx["amount"],
-                        trade_date=trade_date,
-                        disclosure_date=_parse_date(tx["disclosure_date"]),
-                        source="house",
-                        raw_data=json.dumps({**tx, "ptr_doc_id": doc_id}),
+                    db.add(_new_trade(
+                        politician.id, tx, tx["type"], trade_date, _parse_date(tx["disclosure_date"]),
+                        "house", {**tx, "ptr_doc_id": doc_id},
                     ))
                     db.flush()  # autoflush is off — make this row visible to the next exists-check
                     count += 1

@@ -32,7 +32,7 @@ def project_investment(
         .filter(
             Politician.is_tracked == True,  # noqa: E712
             Trade.ticker == ticker,
-            Trade.transaction_type.ilike("%purchase%"),
+            Trade.direction == "buy",
         )
         .order_by(Trade.disclosure_date.asc())
         .first()
@@ -99,7 +99,7 @@ def growth_simulation(
         .filter(
             Politician.is_tracked == True,  # noqa: E712
             Trade.ticker == ticker,
-            Trade.transaction_type.ilike("%purchase%"),
+            Trade.direction == "buy",
         )
         .order_by(Trade.disclosure_date.asc())
         .first()

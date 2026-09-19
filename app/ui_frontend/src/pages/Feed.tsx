@@ -9,6 +9,8 @@ import TradeCard from "../components/TradeCard";
 interface Filters {
   tracked_only: boolean;
   transaction_type: string;
+  asset_type: string;
+  owner: string;
   politician_id: string;
   ticker: string;
   since: string;
@@ -19,11 +21,16 @@ interface Filters {
 
 function exportFeedCSV(trades: Trade[]) {
   exportCSV(
-    ["ticker", "transaction_type", "amount_range", "trade_date", "disclosure_date", "politician", "party", "state", "chamber"],
+    ["ticker", "transaction_type", "direction", "asset_type", "owner", "amount_range", "amount_low", "amount_high", "trade_date", "disclosure_date", "politician", "party", "state", "chamber"],
     trades.map((t) => [
       t.ticker,
       t.transaction_type,
+      t.direction || "",
+      t.asset_type || "",
+      t.owner || "",
       t.amount_range,
+      t.amount_low ?? "",
+      t.amount_high ?? "",
       t.trade_date,
       t.disclosure_date,
       t.politician?.name || "",
@@ -49,6 +56,8 @@ export default function Feed() {
   const [filters, setFilters] = useState<Filters>({
     tracked_only: false,
     transaction_type: "",
+    asset_type: "",
+    owner: "",
     politician_id: "",
     ticker: "",
     since: "",
@@ -75,6 +84,8 @@ export default function Feed() {
     const params: Record<string, unknown> = { limit };
     if (filters.tracked_only) params.tracked_only = true;
     if (filters.transaction_type) params.transaction_type = filters.transaction_type;
+    if (filters.asset_type) params.asset_type = filters.asset_type;
+    if (filters.owner) params.owner = filters.owner;
     if (filters.politician_id) params.politician_id = filters.politician_id;
     if (filters.ticker) params.ticker = filters.ticker.toUpperCase();
     if (filters.since) params.since = filters.since;
@@ -95,6 +106,8 @@ export default function Feed() {
   const activeFilterCount = [
     filters.tracked_only,
     filters.transaction_type,
+    filters.asset_type,
+    filters.owner,
     filters.politician_id,
     filters.ticker,
     filters.since,
@@ -102,7 +115,7 @@ export default function Feed() {
     filters.risk_level,
   ].filter(Boolean).length;
 
-  const clearAll = () => setFilters({ tracked_only: false, transaction_type: "", politician_id: "", ticker: "", since: "", until: "", risk_level: "", sort_by: "trade_date" });
+  const clearAll = () => setFilters({ tracked_only: false, transaction_type: "", asset_type: "", owner: "", politician_id: "", ticker: "", since: "", until: "", risk_level: "", sort_by: "trade_date" });
 
   return (
     <div>
@@ -175,6 +188,29 @@ export default function Feed() {
             <option value="">All types</option>
             <option value="purchase">Purchases</option>
             <option value="sale">Sales</option>
+          </select>
+        </div>
+
+        {/* Asset */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+          <label style={{ color: C.textDim, fontSize: "0.7rem" }}>Asset</label>
+          <select value={filters.asset_type} onChange={(e) => set("asset_type", e.target.value)} style={inputStyle}>
+            <option value="">All assets</option>
+            <option value="stock">Stock / ETF</option>
+            <option value="option">Options</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        {/* Owner */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+          <label style={{ color: C.textDim, fontSize: "0.7rem" }}>Owner</label>
+          <select value={filters.owner} onChange={(e) => set("owner", e.target.value)} style={inputStyle}>
+            <option value="">Anyone</option>
+            <option value="self">Member</option>
+            <option value="spouse">Spouse</option>
+            <option value="child">Dependent child</option>
+            <option value="joint">Joint</option>
           </select>
         </div>
 

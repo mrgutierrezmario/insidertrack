@@ -83,6 +83,7 @@ class TestParseHouseText:
             "amount": "$15,001 - $50,000",
             "asset_type": "stock",
             "asset_name": "",
+            "owner": "self",
             "amended": False,
         }
 
@@ -128,6 +129,27 @@ class TestParseHouseText:
         assert tx["asset_type"] == "option"
         assert tx["asset_name"] == "MSFT (option)"
 
+    def test_option_call_put_from_description(self):
+        # Real PTRs describe the contract after the amount line.
+        text = (
+            "SP Microsoft Corporation - Common Stock (MSFT) [OP] P 03/25/202604/07/2026$50,001 - $100,000 "
+            "D: Purchased 50 call options with a strike price of $400 and an expiration date of 1/17/2027. "
+            "Nvidia Corporation (NVDA) [OP] P 03/25/202604/07/2026$15,001 - $50,000 "
+            "D: Purchased 20 put options with a strike price of $100."
+        )
+        msft, nvda = _parse_house_text(text)
+        assert msft["asset_name"] == "MSFT call option" and msft["owner"] == "spouse"
+        assert nvda["asset_name"] == "NVDA put option" and nvda["owner"] == "self"
+
+    def test_owner_codes(self):
+        text = (
+            "1 DC Apple Inc. (AAPL) [ST] P 01/02/202601/03/2026$1,001 - $15,000 "
+            "JT Tesla Inc. (TSLA) [ST] S 01/02/202601/03/2026$1,001 - $15,000 "
+            "Ford Motor (F) [ST] S 01/02/202601/03/2026$1,001 - $15,000"
+        )
+        owners = [t["owner"] for t in _parse_house_text(text)]
+        assert owners == ["child", "joint", "self"]
+
     def test_amendment_flagged(self):
         text = "Periodic Transaction Report Amendment\n" + self.SALE
         (tx,) = _parse_house_text(text)
@@ -171,6 +193,17 @@ class TestParseSenateRows:
         assert tx["ticker"] == "VEA"
         assert tx["transaction_date"] == "05/27/2026"
         assert tx["amount"] == "$1,001 - $15,000"
+        assert tx["owner"] == "joint"
+        assert tx["asset_type"] == "stock"
+
+    def test_senate_option_and_spouse(self):
+        html = _senate_table(
+            "<tr><td>1</td><td>05/27/2026</td><td>Spouse</td><td>NVDA</td>"
+            "<td>NVIDIA Corp call option</td><td>Stock Option</td>"
+            "<td>Purchase</td><td>$50,001 - $100,000</td><td>--</td></tr>"
+        )
+        (tx,) = _parse_senate_rows(html)
+        assert tx["owner"] == "spouse" and tx["asset_type"] == "option"
 
     def test_purchase_row(self):
         html = _senate_table(
