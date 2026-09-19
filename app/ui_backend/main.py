@@ -161,6 +161,8 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     logging.getLogger(__name__).exception(
         "Unhandled %s on %s %s [rid=%s]", type(exc).__name__, request.method, request.url.path, rid
     )
+    from services.error_log import record
+    record(type(exc).__name__, f"{request.method} {request.url.path}", rid)
     return JSONResponse(
         _error_payload("InternalServerError", "An unexpected error occurred.", rid),
         status_code=500,
@@ -204,6 +206,36 @@ app.include_router(earnings.router)
 app.include_router(app_settings.router)
 
 
+@app.get("/jobs/running")
+def jobs_running():
+    """Long-running jobs in flight — deploy/start.sh refuses to restart the
+    app while any is running (a restart kills them). In-process jobs report
+    from memory; the skill refresh (which may run via docker exec) leaves a
+    marker in app_settings, treated as stale after 4 h."""
+    from datetime import datetime, timedelta
+    from database import SessionLocal
+    from models.app_setting import AppSetting
+    from services.congress_fetcher import get_backfill_state, get_sync_state
+    from services.track_record import SKILL_JOB_KEY
+
+    running = {}
+    if get_sync_state().get("running"):
+        running["congress_sync"] = get_sync_state().get("started_at")
+    bf = get_backfill_state()
+    if bf.get("running"):
+        running["backfill"] = f"{bf.get('since')} → {bf.get('until')}{' (re-parse)' if bf.get('reparse') else ''}, phase {bf.get('phase')} {bf.get('done')}/{bf.get('total')}"
+    try:
+        with SessionLocal() as db:
+            row = db.query(AppSetting).filter(AppSetting.key == SKILL_JOB_KEY).first()
+            if row and row.value:
+                started = datetime.fromisoformat(row.value)
+                if datetime.now() - started < timedelta(hours=4):
+                    running["skill_refresh"] = row.value
+    except Exception:
+        pass
+    return {"running": running, "any": bool(running)}
+
+
 @app.get("/health")
 def health():
     from sqlalchemy import text
@@ -245,6 +277,8 @@ def health():
             # Data freshness is reported, not enforced: a stale scraper must
             # not flip the container unhealthy (the process is fine).
             "data": sources,
+            # Unhandled exceptions in the last 24 h (in-process; resets on restart).
+            "errors_24h": __import__("services.error_log", fromlist=["summary"]).summary(24),
         },
         status_code=code,
     )

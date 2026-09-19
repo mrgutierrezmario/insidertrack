@@ -80,6 +80,27 @@ def skill_factor(beat_spy_rate: Optional[float], n: int) -> float:
     return round(0.5 + max(0.0, min(100.0, beat_spy_rate)) / 100.0, 2)
 
 
+SKILL_JOB_KEY = "job:skill_refresh"
+
+
+def _job_flag(db: Session, key: str, value: Optional[str]) -> None:
+    """Set/clear a 'running' marker in app_settings so deploy/start.sh can see
+    a job that runs outside the web process (docker exec)."""
+    from models.app_setting import AppSetting
+    try:
+        row = db.query(AppSetting).filter(AppSetting.key == key).first()
+        if value is None:
+            if row:
+                db.delete(row)
+        elif row:
+            row.value = value
+        else:
+            db.add(AppSetting(key=key, value=value))
+        db.commit()
+    except Exception:
+        db.rollback()
+
+
 def refresh_skill(db: Session, span_days: int = 1200) -> dict:
     """Weekly: recompute every member's track record and store the factor.
     One price series per ticker at a fixed span so all members share the
@@ -87,6 +108,16 @@ def refresh_skill(db: Session, span_days: int = 1200) -> dict:
     from models.politician import Politician
     from models.trade import Trade
     ids = [pid for (pid,) in db.query(Trade.politician_id).filter(Trade.direction == "buy").distinct().all()]
+    _job_flag(db, SKILL_JOB_KEY, date.today().isoformat() + "T" + __import__("time").strftime("%H:%M:%S"))
+    updated = 0
+    try:
+        return _refresh_skill_members(db, ids, span_days)
+    finally:
+        _job_flag(db, SKILL_JOB_KEY, None)
+
+
+def _refresh_skill_members(db: Session, ids: list[int], span_days: int) -> dict:
+    from models.politician import Politician
     updated = 0
     for pid in ids:
         try:

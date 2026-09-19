@@ -58,8 +58,10 @@ deploy/start.sh
 docker compose -f deploy/compose.yml logs --tail=100 app
 ```
 
-Restarting the app kills any backfill / re-parse / skill refresh that was
-running — they're idempotent, just start them again afterwards.
+`deploy/start.sh` refuses to restart the app while a backfill, re-parse,
+congressional sync or skill refresh is running (they die with the
+container). Wait for it, or `deploy/start.sh --force` — they're idempotent,
+you just lose the progress.
 
 ## Every few months (5 minutes)
 
@@ -109,7 +111,8 @@ saying what failed; Dependabot will not reopen it.
    `running`/`healthy`. Something restarting in a loop →
    `docker compose -f deploy/compose.yml logs --tail=100 <service>`.
 3. `curl -s http://localhost:8013/health` — `degraded` names the part that is
-   failing (`db` or `scheduler`).
+   failing (`db` or `scheduler`). `errors_24h` counts unhandled exceptions
+   since the last restart (also in the 9 AM email when non-zero).
 4. Reachable locally but not from the internet → Tailscale:
    `docker compose -f deploy/compose.yml logs --tail=50 tailscale`, and check
    the machine in the Tailscale admin console. If the Tailscale container

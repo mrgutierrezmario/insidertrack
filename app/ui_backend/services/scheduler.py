@@ -168,9 +168,20 @@ def _source_health_job():
     """Daily: email the admin if any data source is failing or has gone quiet.
     Only sends when there is something to say."""
     from services.email_sender import send_admin_email
+    from services.error_log import summary as error_summary
     with SessionLocal() as db:
         issues = source_health.problems(db)
+    errors = error_summary(24)
+    if not issues and errors["count"] == 0:
+        return
+    err_html = ""
+    if errors["count"]:
+        by_type = ", ".join(f"{k} ×{v}" for k, v in errors["by_type"].items())
+        latest = "".join(f"<li>{e['at']} — {e['type']} on {e['where']} (rid {e['rid']})</li>" for e in errors["latest"])
+        err_html = (f"<p><b>{errors['count']} unhandled exception(s)</b> in the last 24 h: {by_type}.</p>"
+                    f"<ul>{latest}</ul><p>Details: <code>docker compose -f deploy/compose.yml logs app | grep rid=…</code></p>")
     if not issues:
+        send_admin_email(f"InsiderTrack: {errors['count']} unhandled exception(s) today", err_html)
         return
     rows = "".join(
         f"<tr><td>{i['label']}</td><td><b>{i['status']}</b></td>"
@@ -186,6 +197,7 @@ def _source_health_job():
         "<p><i>failing</i> = the last "
         f"{source_health.FAILING_AFTER}+ runs raised; <i>stale</i> = runs succeed but no new rows "
         "for longer than expected (a site change the parser silently misses looks exactly like this).</p>"
+        + err_html
     )
     send_admin_email(f"InsiderTrack: {len(issues)} data source(s) need attention", html)
 
