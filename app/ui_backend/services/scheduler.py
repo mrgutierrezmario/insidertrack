@@ -152,6 +152,14 @@ def _whale_sync_job():
         logger.info(f"Whale 13F sync: {result}")
 
 
+def _skill_refresh_job():
+    """Weekly: recompute every member's track record → skill_factor used by
+    the Congress sub-score. Thousands of price fetches; Sunday early morning."""
+    from services.track_record import refresh_skill
+    with SessionLocal() as db:
+        logger.info(f"Skill refresh: {refresh_skill(db)}")
+
+
 def _source_health_job():
     """Daily: email the admin if any data source is failing or has gone quiet.
     Only sends when there is something to say."""
@@ -253,6 +261,7 @@ def start_scheduler():
     scheduler.add_job(_whale_sync_job, CronTrigger(day_of_week="sat", hour=6, minute=0, timezone=ET), id="whale_sync", **common)
     # After the morning syncs have run — so today's outcome is what gets judged.
     scheduler.add_job(_source_health_job, CronTrigger(hour=9, minute=0, timezone=ET), id="source_health", **common)
+    scheduler.add_job(_skill_refresh_job, CronTrigger(day_of_week="sun", hour=4, minute=30, timezone=ET), id="skill_refresh", **common)
     # Risk classification depends on trade age — refresh once a day so old rows
     # bucket correctly without the /trades read path doing the work.
     scheduler.add_job(_risk_refresh_job, CronTrigger(hour=5, minute=30, timezone=ET), id="risk_refresh", **common)

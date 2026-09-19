@@ -72,6 +72,11 @@ def _apply_migrations():
         "ALTER TABLE trades ADD COLUMN IF NOT EXISTS direction VARCHAR(4)",
         "CREATE INDEX IF NOT EXISTS ix_trades_asset_type ON trades (asset_type)",
         "CREATE INDEX IF NOT EXISTS ix_trades_direction ON trades (direction)",
+        # Member track-record weight (services.track_record.refresh_skill)
+        "ALTER TABLE politicians ADD COLUMN IF NOT EXISTS skill_factor DOUBLE PRECISION NOT NULL DEFAULT 1.0",
+        "ALTER TABLE politicians ADD COLUMN IF NOT EXISTS skill_n INTEGER",
+        "ALTER TABLE politicians ADD COLUMN IF NOT EXISTS skill_beat_spy DOUBLE PRECISION",
+        "ALTER TABLE politicians ADD COLUMN IF NOT EXISTS skill_as_of DATE",
         # Filing provenance + Senate amendment linkage
         "ALTER TABLE trades ADD COLUMN IF NOT EXISTS filing_id VARCHAR(64)",
         "ALTER TABLE trades ADD COLUMN IF NOT EXISTS amends DATE",

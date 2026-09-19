@@ -40,6 +40,10 @@ def _serialize(p: Politician, trade_count: int = 0) -> dict:
         "description": p.description or "",
         "why_tracked": p.why_tracked or "",
         "trade_count": trade_count,
+        "skill_factor": p.skill_factor if p.skill_factor is not None else 1.0,
+        "skill_n": p.skill_n,
+        "skill_beat_spy": p.skill_beat_spy,
+        "skill_as_of": p.skill_as_of.isoformat() if p.skill_as_of else None,
     }
 
 

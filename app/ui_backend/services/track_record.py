@@ -66,7 +66,52 @@ def _pct(a: float, b: float) -> float:
     return round((b - a) / a * 100, 2)
 
 
-def compute_track_record(db: Session, politician_id: int, force: bool = False) -> dict:
+# ── Member skill factor ───────────────────────────────────────────────────────
+SKILL_MIN_TRADES = 10       # fewer measured buys → factor stays 1.0
+SKILL_WINDOW = "90"         # the window the factor reads from
+
+
+def skill_factor(beat_spy_rate: Optional[float], n: int) -> float:
+    """Map a 90-day beat-SPY rate (%) to a 0.5–1.5 weight. 50% (a coin flip)
+    is 1.0; the mapping is linear so a member who beats SPY 70% of the time
+    counts 1.4× and one at 30% counts 0.6×. Too few trades → 1.0."""
+    if beat_spy_rate is None or n < SKILL_MIN_TRADES:
+        return 1.0
+    return round(0.5 + max(0.0, min(100.0, beat_spy_rate)) / 100.0, 2)
+
+
+def refresh_skill(db: Session, span_days: int = 1200) -> dict:
+    """Weekly: recompute every member's track record and store the factor.
+    One price series per ticker at a fixed span so all members share the
+    cache; slow (thousands of tickers) but it runs off-hours."""
+    from models.politician import Politician
+    from models.trade import Trade
+    ids = [pid for (pid,) in db.query(Trade.politician_id).filter(Trade.direction == "buy").distinct().all()]
+    updated = 0
+    for pid in ids:
+        try:
+            rec = compute_track_record(db, pid, force=True, span_days=span_days)
+        except Exception as exc:
+            logger.warning(f"skill refresh: member {pid} failed: {exc}")
+            continue
+        w = rec["windows"].get(SKILL_WINDOW) or {}
+        n = int(w.get("n") or 0)
+        rate = w.get("beat_spy_rate")
+        p = db.query(Politician).filter(Politician.id == pid).first()
+        if not p:
+            continue
+        p.skill_factor = skill_factor(rate, n)
+        p.skill_n = n
+        p.skill_beat_spy = rate
+        p.skill_as_of = date.today()
+        updated += 1
+        db.commit()
+    logger.info(f"Skill refresh: {updated} member(s) updated")
+    return {"members": updated}
+
+
+def compute_track_record(db: Session, politician_id: int, force: bool = False,
+                         span_days: Optional[int] = None) -> dict:
     key = f"track_record:{politician_id}:v1"
     if not force:
         hit = cache_get(key)
@@ -95,7 +140,7 @@ def compute_track_record(db: Session, politician_id: int, force: bool = False) -
 
     # One history per ticker, long enough for its oldest disclosure.
     oldest = min(t.disclosure_date for t in buys)
-    span = _bucket((today - oldest).days + 10)
+    span = span_days or _bucket((today - oldest).days + 10)
     tickers = sorted({t.ticker for t in buys})
 
     def fetch(tk: str) -> tuple[str, list[dict]]:

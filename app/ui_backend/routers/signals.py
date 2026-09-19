@@ -3,7 +3,8 @@ Technical + composite signal scores per ticker.
 
 Composite score (0-100), SCORE_VERSION 2:
   Smart Money  (0-20): whale 13F position changes
-  Congress     (0-30): congressional buy/sell conviction, dollar-weighted
+  Congress     (0-30): congressional buy/sell conviction, dollar-weighted and
+                       scaled by each member's track record (0.5–1.5×)
   Corporate    (0-25): Form 4 open-market buys vs sells by company insiders
   Momentum     (0-25): SMA20/50 crossover + RSI
   Risk penalty (0-20): reduces score for HIGH-risk recent trades
@@ -52,7 +53,8 @@ _SIGNALS_TTL = 300  # 5 minutes
 # 1 = original weights (through 2026-09-19 AM): smart 30 / congress 25 /
 #     momentum 25 / sentiment 10 / fundamentals stub 10.
 # 2 = Form 4 added, dollar-weighted Congress, sentiment and stub removed.
-SCORE_VERSION = 2
+# 3 = Congress dollars weighted by each member's track record (skill_factor).
+SCORE_VERSION = 3
 
 
 # ── Indicator math ─────────────────────────────────────────────────────────────
@@ -330,7 +332,8 @@ def _compute_technical_signals(db: Session, target_date: date | None = None) -> 
     cutoff = target_date - timedelta(days=45)
 
     rows = (
-        db.query(Trade.ticker, Trade.direction, Trade.trade_date, Trade.amount_low, Trade.amount_high)
+        db.query(Trade.ticker, Trade.direction, Trade.trade_date, Trade.amount_low, Trade.amount_high,
+                 Politician.skill_factor)
         .join(Politician)
         .filter(
             Politician.is_tracked == True,  # noqa: E712
@@ -341,12 +344,15 @@ def _compute_technical_signals(db: Session, target_date: date | None = None) -> 
     )
 
     ticker_activity: dict[str, dict] = {}
-    for ticker, direction, td, lo, hi in rows:
+    for ticker, direction, td, lo, hi, skill in rows:
         if not ticker:
             continue
         if ticker not in ticker_activity:
             ticker_activity[ticker] = {"buys": 0, "sells": 0, "buy_dollars": 0, "sell_dollars": 0, "last_trade_date": None}
-        dollars = sem.amount_midpoint(lo, hi) or _DEFAULT_TRADE_DOLLARS
+        # Dollars × the member's track-record weight (0.5–1.5, 1.0 unknown):
+        # a buy from someone who beats SPY 70% of the time counts more than
+        # the same bracket from a coin-flipper.
+        dollars = (sem.amount_midpoint(lo, hi) or _DEFAULT_TRADE_DOLLARS) * (skill or 1.0)
         # direction is NULL for exchanges, bonds and options with no call/put
         # in the filing — those still put the ticker in the universe (someone
         # in Congress touched it) but don't count as conviction either way.

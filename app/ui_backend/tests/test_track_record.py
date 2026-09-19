@@ -72,3 +72,30 @@ class TestComputeTrackRecord:
         monkeypatch.setattr(tr, "cache_set", lambda k, v, ttl: None)
         out = tr.compute_track_record(db, p.id)
         assert out["evaluated"] == 0 and out["skipped_demo"] == 1
+
+
+class TestSkillFactor:
+    def test_mapping(self):
+        assert tr.skill_factor(50.0, 20) == 1.0
+        assert tr.skill_factor(70.0, 20) == 1.2
+        assert tr.skill_factor(100.0, 20) == 1.5
+        assert tr.skill_factor(0.0, 20) == 0.5
+
+    def test_too_few_trades_or_unknown_is_neutral(self):
+        assert tr.skill_factor(90.0, tr.SKILL_MIN_TRADES - 1) == 1.0
+        assert tr.skill_factor(None, 100) == 1.0
+
+    def test_refresh_stores_on_politician(self, db, monkeypatch):
+        from models.politician import Politician
+        from models.trade import Trade
+        p = Politician(name="Rep Skill", chamber="house"); db.add(p); db.flush()
+        d = date.today() - timedelta(days=120)
+        db.add(Trade(politician_id=p.id, ticker="ZZ", transaction_type="purchase", direction="buy", asset_type="stock",
+                     amount_range="$1,001 - $15,000", trade_date=d, disclosure_date=d, source="house", raw_data="{}"))
+        db.flush()
+        monkeypatch.setattr(tr, "compute_track_record", lambda db, pid, force=False, span_days=None:
+                            {"windows": {"90": {"n": 12, "beat_spy_rate": 75.0}}})
+        out = tr.refresh_skill(db)
+        assert out["members"] >= 1
+        db.refresh(p)
+        assert p.skill_factor == 1.25 and p.skill_n == 12 and p.skill_beat_spy == 75.0
