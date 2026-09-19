@@ -226,13 +226,13 @@ export default function Config() {
         )}
       </section>
 
-      <p style={{ color: C.dividerStrong, fontSize: "0.78rem" }}>
+      <p style={{ color: C.textDim, fontSize: "0.78rem" }}>
         Looking for API keys, subscriber management, or email diagnostics? Those live in the{" "}
         <button onClick={() => navigate("/admin")} style={{ background: "none", border: "none", color: C.accent, cursor: "pointer", padding: 0, fontSize: "0.78rem" }}>
           Admin Panel
         </button>.
       </p>
-      <p style={{ color: C.dividerStrong, fontSize: "0.72rem", marginTop: "2rem" }}>
+      <p style={{ color: C.textDim, fontSize: "0.72rem", marginTop: "2rem" }}>
         <a href="/guide" target="_blank" rel="noreferrer" style={{ color: C.textMuted }}>User guide</a> ·{" "}
         <a href="/privacy" target="_blank" rel="noreferrer" style={{ color: C.textMuted }}>Privacy</a>
         <br />

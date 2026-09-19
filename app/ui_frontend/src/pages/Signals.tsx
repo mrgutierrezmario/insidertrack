@@ -70,9 +70,9 @@ const SUB_TIPS: Record<string, string> = {
 function SubScore({ label, value, max }: { label: string; value: number | null | undefined; max: number }) {
   return (
     <div data-tip={SUB_TIPS[label]} tabIndex={0} style={{ cursor: "help", outline: "none" }}>
-      <div style={{ color: C.dividerStrong, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: "1px dotted var(--c-divider)", display: "inline-block" }}>{label}</div>
+      <div style={{ color: C.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: "1px dotted var(--c-divider)", display: "inline-block" }}>{label}</div>
       <div style={{ color: C.textSoft, fontWeight: 600, fontSize: 12 }}>
-        {value ?? "—"}<span style={{ color: C.divider }}>/{max}</span>
+        {value ?? "—"}<span style={{ color: C.textDim }}>/{max}</span>
       </div>
     </div>
   );
@@ -125,10 +125,10 @@ export default function Signals() {
       <div className="page-head">
         <div>
           <h1>Signal Scores</h1>
-          <p style={{ color: C.dividerStrong, margin: 0, fontSize: 13 }}>
+          <p style={{ color: C.textDim, margin: 0, fontSize: 13 }}>
             Composite scores for all tracked insider tickers — sorted by conviction strength.
             {computedAt && (
-              <span style={{ color: C.divider, marginLeft: 10, fontSize: 11 }}>
+              <span style={{ color: C.textDim, marginLeft: 10, fontSize: 11 }}>
                 · computed {new Date(computedAt).toLocaleString()}
               </span>
             )}
@@ -209,7 +209,7 @@ export default function Signals() {
 
       {/* Count */}
       {!loading && (
-        <p style={{ color: C.divider, fontSize: 12, marginBottom: 14 }}>
+        <p style={{ color: C.textDim, fontSize: 12, marginBottom: 14 }}>
           {filtered.length} ticker{filtered.length !== 1 ? "s" : ""}
         </p>
       )}
@@ -220,7 +220,7 @@ export default function Signals() {
           {[...Array(6)].map((_, i) => <SkeletonCard key={i} lines={3} height={110} />)}
         </div>
       ) : filtered.length === 0 ? (
-        <div style={{ textAlign: "center", color: C.dividerStrong, padding: "60px 0" }}>
+        <div style={{ textAlign: "center", color: C.textDim, padding: "60px 0" }}>
           No signals yet — sync trades from the Dashboard first.
         </div>
       ) : (
@@ -275,7 +275,7 @@ export default function Signals() {
                   )}
                   {s.rsi != null && (
                     <div>
-                      <div style={{ color: C.dividerStrong, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.04em" }}>RSI</div>
+                      <div style={{ color: C.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.04em" }}>RSI</div>
                       <div style={{ color: s.rsi < 30 ? C.success : s.rsi > 70 ? C.danger : C.textSoft, fontWeight: 600, fontSize: 12 }}>
                         {s.rsi}
                       </div>

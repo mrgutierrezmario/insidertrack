@@ -25,7 +25,7 @@ function exportOutcomesCSV(rows: OutcomeRow[]) {
 
 
 function WinRateBar({ up, down, flat, total }: { up: number; down: number; flat: number; total: number }) {
-  if (!total) return <span style={{ color: C.divider, fontSize: 12 }}>No data</span>;
+  if (!total) return <span style={{ color: C.textDim, fontSize: 12 }}>No data</span>;
   const upPct = Math.round((up / total) * 100);
   const downPct = Math.round((down / total) * 100);
   const flatPct = 100 - upPct - downPct;
@@ -96,7 +96,7 @@ function OutcomeChip({ outcome, signalDate, days }: { outcome: OutcomeDirection 
 }
 
 function ReturnCell({ ret, outcome }: { ret: number | null; outcome: OutcomeDirection | null }) {
-  if (ret == null) return <span style={{ color: C.divider, fontSize: 12 }}>—</span>;
+  if (ret == null) return <span style={{ color: C.textDim, fontSize: 12 }}>—</span>;
   const color = outcome === "UP" ? C.success : outcome === "DOWN" ? C.danger : C.textSoft;
   return <span style={{ color, fontSize: 12, fontWeight: 600 }}>{ret > 0 ? "+" : ""}{ret.toFixed(1)}%</span>;
 }
@@ -109,7 +109,7 @@ function SubScoreTooltip({ sub }: { sub: Partial<import("../types/api").SubScore
       <button
         onMouseEnter={() => setShow(true)}
         onMouseLeave={() => setShow(false)}
-        style={{ background: "transparent", border: "none", color: C.divider, cursor: "pointer", fontSize: 12, padding: "0 2px" }}
+        style={{ background: "transparent", border: "none", color: C.textDim, cursor: "pointer", fontSize: 12, padding: "0 2px" }}
         title="Sub-scores"
       >
         ⓘ
@@ -130,7 +130,7 @@ function SubScoreTooltip({ sub }: { sub: Partial<import("../types/api").SubScore
           ].map(([label, val, max]) => val != null && (
             <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 16, marginBottom: 4, fontSize: 11 }}>
               <span style={{ color: C.textMuted }}>{label}</span>
-              <span style={{ color: C.textSoft, fontWeight: 600 }}>{val}<span style={{ color: C.divider }}>/{max}</span></span>
+              <span style={{ color: C.textSoft, fontWeight: 600 }}>{val}<span style={{ color: C.textDim }}>/{max}</span></span>
             </div>
           ))}
         </div>
@@ -184,7 +184,7 @@ export default function Outcomes() {
       <div className="page-head">
         <div>
           <h1>Signal Outcomes</h1>
-          <p style={{ color: C.dividerStrong, margin: 0, fontSize: 13 }}>
+          <p style={{ color: C.textDim, margin: 0, fontSize: 13 }}>
             Tracks whether signal scores predicted price direction at 30, 60, and 90 days.
           </p>
         </div>
@@ -220,7 +220,7 @@ export default function Outcomes() {
                 </span>
               )}
             </span>
-            <span style={{ color: C.divider, fontSize: 11 }}>UP = ≥+2% · DOWN = ≤−2% · FLAT = within ±2%</span>
+            <span style={{ color: C.textDim, fontSize: 11 }}>UP = ≥+2% · DOWN = ≤−2% · FLAT = within ±2%</span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
             {stats.labels.map((s) => <StatsCard key={s.label} stat={s} />)}
@@ -270,7 +270,7 @@ export default function Outcomes() {
           {[...Array(5)].map((_, i) => <SkeletonCard key={i} lines={2} height={50} />)}
         </div>
       ) : rows.length === 0 ? (
-        <div style={{ color: C.dividerStrong, textAlign: "center", padding: "60px 0" }}>
+        <div style={{ color: C.textDim, textAlign: "center", padding: "60px 0" }}>
           No outcome records yet — click "↻ Snapshot Today" to capture today's signals.
         </div>
       ) : (
@@ -285,7 +285,7 @@ export default function Outcomes() {
                   ["d60", "60d"], ["d60pct", "+%"],
                   ["d90", "90d"], ["d90pct", "+%"],
                 ].map(([k, h]) => (
-                  <th key={k} style={{ padding: "10px 12px", color: C.dividerStrong, fontWeight: 600, fontSize: 11, textAlign: "left" }}>{h}</th>
+                  <th key={k} style={{ padding: "10px 12px", color: C.textDim, fontWeight: 600, fontSize: 11, textAlign: "left" }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -320,7 +320,7 @@ export default function Outcomes() {
                         {r.politician_name}
                       </Link>
                     ) : (
-                      <span style={{ color: C.divider, fontSize: 12 }}>—</span>
+                      <span style={{ color: C.textDim, fontSize: 12 }}>—</span>
                     )}
                   </td>
                   <td style={{ padding: "9px 12px" }}>
@@ -343,7 +343,7 @@ export default function Outcomes() {
         </div>
       )}
 
-      <div style={{ marginTop: 16, color: C.divider, fontSize: 11, lineHeight: 1.6 }}>
+      <div style={{ marginTop: 16, color: C.textDim, fontSize: 11, lineHeight: 1.6 }}>
         Snapshots run daily at 7:00 AM ET · Outcomes fill at 7:30 AM ET · ±2% threshold for UP/DOWN classification
       </div>
     </div>

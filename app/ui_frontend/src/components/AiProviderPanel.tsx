@@ -130,7 +130,7 @@ export default function AiProviderPanel({ keys, onChanged, onError }: { keys: Ke
               </div>
               {keyDraft === undefined ? (
                 <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 10 }}>
-                  <span style={{ flex: 1, color: C.divider, fontSize: "0.78rem", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis" }}>{k.masked_value || "—"}</span>
+                  <span style={{ flex: 1, color: C.textDim, fontSize: "0.78rem", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis" }}>{k.masked_value || "—"}</span>
                   <button type="button" style={{ ...btn, background: C.surfaceAlt, color: C.textSoft }} onClick={() => setDraft((d) => ({ ...d, [k.key]: "" }))}>{k.is_set ? "Update" : "Set"}</button>
                   {k.is_set && k.source === "db" && <button type="button" style={{ ...btn, background: "transparent", color: C.textDim }} onClick={() => clear(k.key)}>Clear</button>}
                 </div>

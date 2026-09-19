@@ -146,11 +146,11 @@ export default function Insiders() {
       <div className="page-head">
         <div>
           <h1>Corporate Insiders</h1>
-          <p style={{ color: C.dividerStrong, margin: 0, fontSize: 13 }}>
+          <p style={{ color: C.textDim, margin: 0, fontSize: 13 }}>
             SEC Form 4 filings — officers, directors, and 10%+ owners trading their own company's stock.
           </p>
           {lastSynced && (
-            <p style={{ color: C.divider, fontSize: 11, margin: "2px 0 0" }}>
+            <p style={{ color: C.textDim, fontSize: 11, margin: "2px 0 0" }}>
               Last loaded: {lastSynced.toLocaleTimeString()}
             </p>
           )}
@@ -206,7 +206,7 @@ export default function Insiders() {
           {[...Array(5)].map((_, i) => <SkeletonCard key={i} lines={2} height={50} />)}
         </div>
       ) : rows.length === 0 ? (
-        <div style={{ color: C.dividerStrong, textAlign: "center", padding: "60px 0" }}>
+        <div style={{ color: C.textDim, textAlign: "center", padding: "60px 0" }}>
           {isAdmin
             ? "No Form 4 data yet — pulling from SEC EDGAR automatically…"
             : "No Form 4 data yet — use the Sync button (admin access required)."}
@@ -217,7 +217,7 @@ export default function Insiders() {
             <thead>
               <tr style={{ borderBottom: "1px solid var(--c-surfaceAlt)" }}>
                 {["Ticker", "Insider", "Role", "Type", "Shares", "Price", "Value", "Date"].map((h) => (
-                  <th key={h} style={{ padding: "10px 12px", color: C.dividerStrong, fontWeight: 600, fontSize: 11, textAlign: "left" }}>{h}</th>
+                  <th key={h} style={{ padding: "10px 12px", color: C.textDim, fontWeight: 600, fontSize: 11, textAlign: "left" }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -248,7 +248,7 @@ export default function Insiders() {
         </div>
       )}
 
-      <div style={{ marginTop: 14, color: C.divider, fontSize: 11, lineHeight: 1.6 }}>
+      <div style={{ marginTop: 14, color: C.textDim, fontSize: 11, lineHeight: 1.6 }}>
         Form 4 must be filed within 2 business days of an insider transaction · Codes: P = open-market purchase, S = sale.
       </div>
     </div>

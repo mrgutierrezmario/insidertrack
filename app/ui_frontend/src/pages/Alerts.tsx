@@ -25,7 +25,7 @@ const TYPE_META: Record<string, TypeMeta> = {
   skilled_buy:   { label: "Skilled member buy",  thresholdLabel: "Min beat-SPY %",       thresholdDefault: 60, color: C.info },
 };
 
-const EMPTY_META: TypeMeta = { label: "", thresholdLabel: null, thresholdDefault: null, color: C.dividerStrong };
+const EMPTY_META: TypeMeta = { label: "", thresholdLabel: null, thresholdDefault: null, color: C.textDim };
 
 interface AlertRule {
   id: number;
@@ -121,7 +121,7 @@ function NewRuleForm({ types, onCreated }: { types: AlertTypeOption[]; onCreated
             value={form.threshold} onChange={(e) => setForm({ ...form, threshold: e.target.value })} />
         )}
       </div>
-      {meta.thresholdLabel && <div style={{ color: C.dividerStrong, fontSize: 11 }}>{meta.thresholdLabel}</div>}
+      {meta.thresholdLabel && <div style={{ color: C.textDim, fontSize: 11 }}>{meta.thresholdLabel}</div>}
       <input style={inputStyle} placeholder="Notify email (optional)"
         value={form.notify_email} onChange={(e) => setForm({ ...form, notify_email: e.target.value })} />
       <div style={{ display: "flex", gap: 8 }}>
@@ -150,7 +150,7 @@ function RuleCard({ rule, onToggle, onDelete, canEdit }: { rule: AlertRule; onTo
           <span style={{ color: C.textBright, fontWeight: 600, fontSize: 14 }}>{rule.name}</span>
           {rule.ticker && <span style={{ color: C.accent, fontSize: 12, fontWeight: 700 }}>{rule.ticker}</span>}
         </div>
-        <div style={{ color: C.dividerStrong, fontSize: 12, marginTop: 3 }}>
+        <div style={{ color: C.textDim, fontSize: 12, marginTop: 3 }}>
           {meta.label || rule.alert_type}
           {rule.threshold != null && ` · threshold ${rule.threshold}`}
           {rule.notify_email && ` · emails ${rule.notify_email}`}
@@ -176,7 +176,7 @@ function RuleCard({ rule, onToggle, onDelete, canEdit }: { rule: AlertRule; onTo
           </>
         ) : (
           <button onClick={() => setConfirmDelete(true)}
-            style={{ background: "transparent", color: C.dividerStrong, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer" }}>
+            style={{ background: "transparent", color: C.textDim, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer" }}>
             Delete
           </button>
         )}
@@ -243,11 +243,11 @@ export default function Alerts() {
       <div className="page-head">
         <div>
           <h1>Alerts</h1>
-          <p style={{ color: C.dividerStrong, margin: 0, fontSize: 13 }}>
+          <p style={{ color: C.textDim, margin: 0, fontSize: 13 }}>
             Define conditions on signals, insiders, whales, and earnings — get notified when they fire.
           </p>
           {lastEvaluated && (
-            <p style={{ color: C.divider, margin: "4px 0 0", fontSize: 11 }}>
+            <p style={{ color: C.textDim, margin: "4px 0 0", fontSize: 11 }}>
               Last evaluated: {new Date(lastEvaluated).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
             </p>
           )}
@@ -270,9 +270,9 @@ export default function Alerts() {
         Rules ({rules.length})
       </h2>
       {loading ? (
-        <p style={{ color: C.dividerStrong }}>Loading…</p>
+        <p style={{ color: C.textDim }}>Loading…</p>
       ) : rules.length === 0 ? (
-        <p style={{ color: C.dividerStrong, fontSize: 13 }}>{isAdmin ? "No rules yet. Create one above." : "No alert rules are configured yet."}</p>
+        <p style={{ color: C.textDim, fontSize: 13 }}>{isAdmin ? "No rules yet. Create one above." : "No alert rules are configured yet."}</p>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {rules.map((r) => (
@@ -285,7 +285,7 @@ export default function Alerts() {
         Triggered Alerts ({events.length})
       </h2>
       {events.length === 0 ? (
-        <p style={{ color: C.dividerStrong, fontSize: 13 }}>Nothing has triggered yet. Try "Evaluate Now".</p>
+        <p style={{ color: C.textDim, fontSize: 13 }}>Nothing has triggered yet. Try "Evaluate Now".</p>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {events.map((e) => (
@@ -293,7 +293,7 @@ export default function Alerts() {
               <span style={{ color: C.accent, fontWeight: 700, fontSize: 13, minWidth: 52 }}>{e.ticker}</span>
               <div style={{ flex: 1 }}>
                 <div style={{ color: C.text, fontSize: 13 }}>{e.message}</div>
-                <div style={{ color: C.dividerStrong, fontSize: 11, marginTop: 2 }}>
+                <div style={{ color: C.textDim, fontSize: 11, marginTop: 2 }}>
                   {e.rule_name} · {fmtDate(e.triggered_at)}
                 </div>
               </div>

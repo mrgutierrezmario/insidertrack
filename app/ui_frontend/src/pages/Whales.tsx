@@ -180,7 +180,7 @@ export default function Whales() {
             </p>
           )}
           {lastSynced && (
-            <p style={{ color: C.divider, fontSize: 11, margin: "2px 0 0" }}>
+            <p style={{ color: C.textDim, fontSize: 11, margin: "2px 0 0" }}>
               Last loaded: {lastSynced.toLocaleTimeString()}
             </p>
           )}

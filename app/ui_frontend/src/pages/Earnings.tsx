@@ -62,7 +62,7 @@ export default function Earnings() {
       <div className="page-head">
         <div>
           <h1>Earnings Calendar</h1>
-          <p style={{ color: C.dividerStrong, margin: 0, fontSize: 13 }}>
+          <p style={{ color: C.textDim, margin: 0, fontSize: 13 }}>
             Upcoming earnings for tracked tickers · Nasdaq calendar · cached 24 hrs
           </p>
         </div>
@@ -100,7 +100,7 @@ export default function Earnings() {
                   </Link>
                   <div>
                     <div style={{ color: C.text, fontSize: 13 }}>{e.company}</div>
-                    <div style={{ color: C.dividerStrong, fontSize: 12 }}>
+                    <div style={{ color: C.textDim, fontSize: 12 }}>
                       Reports: {fmtDate(e.report_date)}
                       {e.fiscal_date_ending && ` · FY ending ${e.fiscal_date_ending}`}
                     </div>
@@ -122,7 +122,7 @@ export default function Earnings() {
 
       {recent.length > 0 && (
         <>
-          <h2 style={{ color: C.dividerStrong, fontSize: "0.9rem", fontWeight: 600, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          <h2 style={{ color: C.textDim, fontSize: "0.9rem", fontWeight: 600, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.05em" }}>
             Recent
           </h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -135,7 +135,7 @@ export default function Earnings() {
                   <Link to={`/ticker/${e.ticker}`} style={{ color: C.accent, fontWeight: 700, fontSize: "1rem", textDecoration: "none", minWidth: 56 }}>
                     {e.ticker}
                   </Link>
-                  <div style={{ color: C.dividerStrong, fontSize: 13 }}>Reported {fmtDate(e.report_date)}</div>
+                  <div style={{ color: C.textDim, fontSize: 13 }}>Reported {fmtDate(e.report_date)}</div>
                 </div>
                 <div style={{ color: C.textDim, fontSize: 12 }}>{daysLabel(e.days_until)}</div>
               </div>
@@ -144,7 +144,7 @@ export default function Earnings() {
         </>
       )}
 
-      <div style={{ marginTop: 24, padding: "12px 14px", background: C.bg, borderRadius: 8, border: "1px solid var(--c-surfaceAlt)", fontSize: 12, color: C.dividerStrong }}>
+      <div style={{ marginTop: 24, padding: "12px 14px", background: C.bg, borderRadius: 8, border: "1px solid var(--c-surfaceAlt)", fontSize: 12, color: C.textDim }}>
         Earnings dates are Nasdaq's calendar estimates and can move. Confirm on company IR sites before trading.
       </div>
     </div>

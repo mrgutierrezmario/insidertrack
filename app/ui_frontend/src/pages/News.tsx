@@ -79,7 +79,7 @@ export default function News() {
       <div className="page-head">
         <div>
           <h1>News & Sentiment</h1>
-          <p style={{ color: C.dividerStrong, margin: 0, fontSize: 13 }}>
+          <p style={{ color: C.textDim, margin: 0, fontSize: 13 }}>
             {data?.has_key ? "Headlines for the tickers members are trading most this month · sentiment labels from Alpha Vantage when available · cached 4 hrs" : "Headlines for the tickers members are trading most this month · Google News · cached 4 hrs"}
           </p>
         </div>
@@ -109,7 +109,7 @@ export default function News() {
           }}
         />
         {data && data.tickers.length > 0 && (
-          <span style={{ color: C.dividerStrong, fontSize: 12, marginLeft: 12 }}>
+          <span style={{ color: C.textDim, fontSize: 12, marginLeft: 12 }}>
             Most traded this month: {data.tickers.join(", ")}
           </span>
         )}
@@ -155,8 +155,8 @@ export default function News() {
                       {t}
                     </span>
                   ))}
-                  <span style={{ color: C.divider, fontSize: 11 }}>{item.source}</span>
-                  <span style={{ color: C.divider, fontSize: 11 }}>{fmtDate(item.published)}</span>
+                  <span style={{ color: C.textDim, fontSize: 11 }}>{item.source}</span>
+                  <span style={{ color: C.textDim, fontSize: 11 }}>{fmtDate(item.published)}</span>
                 </div>
               </div>
               <div style={{ flexShrink: 0 }}>
