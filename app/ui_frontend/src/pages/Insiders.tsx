@@ -89,7 +89,7 @@ function SyncButton({ onDone }: { onDone: () => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
       <button onClick={run} disabled={syncing}
-        style={{ background: syncing ? C.surfaceAlt : C.accentSolid, color: "#fff", border: "none", borderRadius: 6, padding: "7px 14px", fontSize: 13, cursor: syncing ? "not-allowed" : "pointer" }}>
+        style={{ background: syncing ? C.surfaceAlt : C.accentSolid, color: syncing ? C.textDim : "#fff", border: "none", borderRadius: 6, padding: "7px 14px", fontSize: 13, cursor: syncing ? "not-allowed" : "pointer" }}>
         {syncing ? "Syncing EDGAR…" : "↻ Sync Form 4 Filings"}
       </button>
       {result && !result.error && (

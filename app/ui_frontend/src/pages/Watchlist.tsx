@@ -209,7 +209,7 @@ export default function Watchlist() {
           <button
             onClick={applyPastedToken}
             disabled={!pasteToken.trim()}
-            style={{ background: pasteToken.trim() ? C.accentSolid : "var(--c-surfaceAlt)", color: "#fff", border: "none", borderRadius: 7, padding: "10px 18px", fontSize: 13, cursor: pasteToken.trim() ? "pointer" : "not-allowed", fontWeight: 600 }}>
+            style={{ background: pasteToken.trim() ? C.accentSolid : "var(--c-surfaceAlt)", color: pasteToken.trim() ? "#fff" : C.textDim, border: "none", borderRadius: 7, padding: "10px 18px", fontSize: 13, cursor: pasteToken.trim() ? "pointer" : "not-allowed", fontWeight: 600 }}>
             Continue
           </button>
         </div>

@@ -107,7 +107,7 @@ function SyncButton({ onRefresh }: { onRefresh: () => void }) {
       <button
         onClick={doSync}
         disabled={syncing}
-        style={{ background: syncing ? C.surfaceAlt : C.accentSolid, color: "#fff", border: "none", borderRadius: 6, padding: "0.45rem 1.1rem", cursor: syncing ? "not-allowed" : "pointer", fontSize: "0.85rem", opacity: syncing ? 0.7 : 1 }}
+        style={{ background: syncing ? C.surfaceAlt : C.accentSolid, color: syncing ? C.textDim : "#fff", border: "none", borderRadius: 6, padding: "0.45rem 1.1rem", cursor: syncing ? "not-allowed" : "pointer", fontSize: "0.85rem", opacity: syncing ? 0.7 : 1 }}
       >
         {syncing ? "Syncing EDGAR…" : "↻ Sync 13F Holdings"}
       </button>
