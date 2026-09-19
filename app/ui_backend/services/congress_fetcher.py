@@ -277,12 +277,13 @@ def _mark_processed(db: Session, source: str, doc_id: str) -> None:
     db.add(ProcessedFiling(source=source, doc_id=doc_id))
 
 
-def _load_processed_one(db: Session, source: str, doc_id: str) -> set[str]:
-    """{doc_id} if already recorded as processed, else empty — for re-parse
-    runs, which must not insert a second ProcessedFiling row."""
-    hit = db.query(ProcessedFiling.doc_id).filter(
+def _mark_processed_once(db: Session, source: str, doc_id: str) -> None:
+    """Record the filing unless it already is — re-parse runs revisit
+    filings that were marked long ago, and (source, doc_id) is unique."""
+    hit = db.query(ProcessedFiling.id).filter(
         ProcessedFiling.source == source, ProcessedFiling.doc_id == doc_id).first()
-    return {doc_id} if hit else set()
+    if not hit:
+        _mark_processed(db, source, doc_id)
 
 
 def _request_with_retry(fn, *, retries: int = 3, backoff: float = 1.5, label: str = "request"):
@@ -528,7 +529,7 @@ def sync_senate_trades(db: Session, start_date: Optional[date] = None,
                     supersede_senate_report(db, politician.id, report_for, rpt["uuid"])
                 elif not rpt.get("amended") and filed and _senate_report_superseded(db, politician.id, filed):
                     logger.info(f"EFD PTR {rpt['uuid']} ({name}, {filed}) already superseded by an amendment — skipped")
-                    _mark_processed(db, "senate", rpt["uuid"])
+                    _mark_processed_once(db, "senate", rpt["uuid"])
                     db.commit()
                     continue
 
@@ -557,8 +558,7 @@ def sync_senate_trades(db: Session, start_date: Optional[date] = None,
                     count += 1
                 if reparse:
                     _drop_stale_filing_rows(db, rpt["uuid"], kept)
-                if rpt["uuid"] not in _load_processed_one(db, "senate", rpt["uuid"]):
-                    _mark_processed(db, "senate", rpt["uuid"])
+                _mark_processed_once(db, "senate", rpt["uuid"])
                 db.commit()
     except Exception as exc:
         # Rows committed per filing are kept; the caller records the failure
@@ -730,7 +730,7 @@ def sync_house_trades(db: Session, start_date: Optional[date] = None,
                     _drop_stale_filing_rows(db, doc_id, kept)
                 seen.add(doc_id)
                 if doc_id not in processed:
-                    _mark_processed(db, "house", doc_id)
+                    _mark_processed_once(db, "house", doc_id)
                     processed.add(doc_id)
                 db.commit()
     except Exception as exc:

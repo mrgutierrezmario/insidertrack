@@ -15,7 +15,7 @@ from sqlalchemy.orm import sessionmaker
 def db_engine():
     engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
     from database import Base
-    import models.trade, models.politician, models.whale, models.signal_outcome, models.watchlist, models.app_setting, models.processed_filing  # noqa: F401
+    import models.trade, models.politician, models.whale, models.signal_outcome, models.watchlist, models.app_setting, models.processed_filing, models.alert, models.insider, models.fed_official  # noqa: F401
     Base.metadata.create_all(bind=engine)
     yield engine
     engine.dispose()

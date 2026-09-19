@@ -467,3 +467,12 @@ class TestReparseHelpers:
         removed = _drop_stale_filing_rows(db, "20099", {t.id})
         assert removed == 1
         assert db.query(Trade).filter(Trade.ticker == "ZZZ").count() == 0
+
+
+class TestMarkProcessedOnce:
+    def test_second_call_is_a_noop(self, db):
+        from models.processed_filing import ProcessedFiling
+        from services.congress_fetcher import _mark_processed_once
+        _mark_processed_once(db, "senate", "uuid-1"); db.flush()
+        _mark_processed_once(db, "senate", "uuid-1"); db.flush()   # would raise on the unique index otherwise
+        assert db.query(ProcessedFiling).filter(ProcessedFiling.doc_id == "uuid-1").count() == 1
