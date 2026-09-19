@@ -186,6 +186,28 @@ def _apply_migrations():
          """),
         ("migration:trades_implausible_dates",
          "UPDATE trades SET disclosure_date = NULL WHERE disclosure_date < DATE '2012-01-01'"),
+        # 2026-09: six hand-entered seed trades from the project's first day
+        # (empty raw_data, no filing, no matching EFD report) attributed to
+        # "Mark Kelly" and a duplicate "Tommy Tuberville" record. Remove the
+        # rows, fold the duplicate's party/state into the real record
+        # ("Thomas H Tuberville", as the EFD names him), drop the duplicate.
+        ("migration:remove_seed_trades",
+         "DELETE FROM trades WHERE filing_id IS NULL AND COALESCE(raw_data, '') = ''"),
+        ("migration:remove_seed_trades",
+         """
+         UPDATE politicians real SET
+           party = COALESCE(NULLIF(real.party, ''), dup.party),
+           state = COALESCE(NULLIF(real.state, ''), dup.state)
+         FROM politicians dup
+         WHERE real.name = 'Thomas H Tuberville' AND dup.name = 'Tommy Tuberville'
+         """),
+        ("migration:remove_seed_trades",
+         """
+         DELETE FROM politicians p
+         WHERE p.name = 'Tommy Tuberville'
+           AND NOT EXISTS (SELECT 1 FROM trades t WHERE t.politician_id = p.id)
+           AND EXISTS (SELECT 1 FROM politicians r WHERE r.name = 'Thomas H Tuberville')
+         """),
         ("migration:trades_derived_columns",
          """
          UPDATE trades SET direction =
