@@ -72,6 +72,16 @@ def _apply_migrations():
         "ALTER TABLE trades ADD COLUMN IF NOT EXISTS direction VARCHAR(4)",
         "CREATE INDEX IF NOT EXISTS ix_trades_asset_type ON trades (asset_type)",
         "CREATE INDEX IF NOT EXISTS ix_trades_direction ON trades (direction)",
+        # Filing provenance + Senate amendment linkage
+        "ALTER TABLE trades ADD COLUMN IF NOT EXISTS filing_id VARCHAR(64)",
+        "ALTER TABLE trades ADD COLUMN IF NOT EXISTS amends DATE",
+        "CREATE INDEX IF NOT EXISTS ix_trades_filing_id ON trades (filing_id)",
+        # raw_data is json.dumps output, so the cast is safe; rows written
+        # after this column existed already have it set.
+        """
+        UPDATE trades SET filing_id = COALESCE(raw_data::jsonb->>'ptr_uuid', raw_data::jsonb->>'ptr_doc_id')
+        WHERE filing_id IS NULL AND raw_data IS NOT NULL AND raw_data <> ''
+        """,
         # Flag distinguishing live snapshots from retroactively-backfilled ones
         "ALTER TABLE signal_outcomes ADD COLUMN IF NOT EXISTS is_backfilled BOOLEAN NOT NULL DEFAULT FALSE",
         # Form 4 sub-score joined the composite in 2026-09

@@ -113,6 +113,8 @@ def _trade_dict(t: Trade, risk: str) -> dict:
         "trade_date": t.trade_date,
         "disclosure_date": t.disclosure_date,
         "source": t.source,
+        "filing_id": t.filing_id,
+        "amends": t.amends,
         "risk_level": risk,
         "politician": {
             "id": t.politician.id,

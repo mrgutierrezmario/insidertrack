@@ -19,6 +19,9 @@ from services.congress_fetcher import (
     _parse_date,
     _norm_name,
     _parse_house_text,
+    _parse_senate_report_date,
+    supersede_senate_report,
+    _senate_report_superseded,
     _parse_senate_rows,
     _request_with_retry,
 )
@@ -378,3 +381,58 @@ class TestPlausibleTradeDate:
         from services.congress_fetcher import _plausible_trade_date
         # a 1935 "notification date" must not reject a fine 2025 trade
         assert _plausible_trade_date(date(2025, 3, 13), date(1935, 3, 28))
+
+
+# ── Senate amendments ─────────────────────────────────────────────────────────
+
+class TestSenateReportDate:
+    def test_amendment_title(self):
+        from datetime import date
+        html = "<h1>Periodic Transaction Report\n\n   for 12/08/2025 (Amendment 1)</h1>"
+        assert _parse_senate_report_date(html) == date(2025, 12, 8)
+
+    def test_original_title(self):
+        from datetime import date
+        assert _parse_senate_report_date("<h1>Periodic Transaction Report for 05/14/2025</h1>") == date(2025, 5, 14)
+
+    def test_missing(self):
+        assert _parse_senate_report_date("<h1>Annual Report</h1>") is None
+
+
+class TestSupersede:
+    def _mk(self, db, pid, uuid, disclosed, amends=None, ticker="AAPL"):
+        from datetime import date
+        from models.trade import Trade
+        t = Trade(politician_id=pid, ticker=ticker, transaction_type="purchase", amount_range="$1,001 - $15,000",
+                  trade_date=date(2025, 4, 16), disclosure_date=disclosed, source="senate",
+                  filing_id=uuid, amends=amends, raw_data="{}")
+        db.add(t); db.flush()
+        return t
+
+    def _pol(self, db):
+        from models.politician import Politician
+        p = Politician(name=f"Sen Test {id(self)}", chamber="senate")
+        db.add(p); db.flush()
+        return p
+
+    def test_amendment_removes_original_and_earlier_amendment(self, db):
+        from datetime import date
+        from models.trade import Trade
+        p = self._pol(db)
+        orig = date(2025, 5, 14)
+        self._mk(db, p.id, "orig-uuid", orig)                      # original
+        self._mk(db, p.id, "am1-uuid", orig, amends=orig)           # amendment 1
+        self._mk(db, p.id, "other-uuid", date(2025, 6, 1))          # unrelated report
+        removed = supersede_senate_report(db, p.id, orig, "am2-uuid")
+        assert removed == 2
+        left = {t.filing_id for t in db.query(Trade).filter(Trade.politician_id == p.id)}
+        assert left == {"other-uuid"}
+
+    def test_original_arriving_after_amendment_is_detected(self, db):
+        from datetime import date
+        p = self._pol(db)
+        orig = date(2025, 5, 14)
+        assert not _senate_report_superseded(db, p.id, orig)
+        self._mk(db, p.id, "am1-uuid", orig, amends=orig)
+        assert _senate_report_superseded(db, p.id, orig)
+        assert not _senate_report_superseded(db, p.id, date(2025, 6, 1))

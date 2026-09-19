@@ -207,7 +207,8 @@ def _plausible_trade_date(trade_date: date, disclosure_date: Optional[date]) -> 
 
 
 def _new_trade(politician_id: int, tx: dict, tx_type: str, trade_date: date,
-               disclosure_date: Optional[date], source: str, raw: dict) -> Trade:
+               disclosure_date: Optional[date], source: str, raw: dict,
+               filing_id: Optional[str] = None, amends: Optional[date] = None) -> Trade:
     """Build a Trade with the derived columns (owner, asset_type, direction,
     amount bounds) filled from the parsed filing row."""
     asset_type = tx.get("asset_type") or sem.ASSET_STOCK
@@ -226,6 +227,8 @@ def _new_trade(politician_id: int, tx: dict, tx_type: str, trade_date: date,
         trade_date=trade_date,
         disclosure_date=disclosure_date,
         source=source,
+        filing_id=filing_id,
+        amends=amends,
         raw_data=json.dumps(raw),
     )
 
@@ -392,13 +395,50 @@ def _parse_senate_rows(html: str) -> list[dict]:
     return txns
 
 
-def _fetch_ptr_transactions(client: httpx.Client, uuid: str) -> list[dict]:
-    """Fetch one electronic Senate PTR detail page and parse its transactions."""
+# "Periodic Transaction Report for 12/08/2025 (Amendment 1)" — the date is
+# the filing date of the report being amended (for an original it's its own).
+_SENATE_TITLE_RE = re.compile(r"Periodic Transaction Report\s+for\s+(\d{2}/\d{2}/\d{4})", re.I)
+
+
+def _parse_senate_report_date(html: str) -> Optional[date]:
+    m = _SENATE_TITLE_RE.search(re.sub(r"\s+", " ", html))
+    return _parse_date(m.group(1)) if m else None
+
+
+def _fetch_ptr_transactions(client: httpx.Client, uuid: str) -> tuple[Optional[date], list[dict]]:
+    """Fetch one electronic Senate PTR detail page → (report "for" date, transactions)."""
     resp = _request_with_retry(
         lambda: client.get(f"{EFD_BASE}/search/view/ptr/{uuid}/"),
         label=f"EFD PTR {uuid}",
     )
-    return _parse_senate_rows(resp.text)
+    return _parse_senate_report_date(resp.text), _parse_senate_rows(resp.text)
+
+
+def supersede_senate_report(db: Session, politician_id: int, original_filed: date, amendment_id: str) -> int:
+    """An amendment replaces the whole report: drop the original's rows
+    (filed on `original_filed`) and any earlier amendment of it. Returns the
+    number of rows removed."""
+    q = db.query(Trade).filter(
+        Trade.politician_id == politician_id,
+        Trade.source == "senate",
+        Trade.filing_id != amendment_id,
+        ((Trade.amends.is_(None)) & (Trade.disclosure_date == original_filed))
+        | (Trade.amends == original_filed),
+    )
+    n = q.delete(synchronize_session=False)
+    if n:
+        logger.info(f"Senate amendment {amendment_id} supersedes report of {original_filed}: removed {n} row(s)")
+    return n
+
+
+def _senate_report_superseded(db: Session, politician_id: int, filed: date) -> bool:
+    """True if an amendment of this senator's report filed on `filed` is
+    already stored — the original then must not be (re)inserted."""
+    return db.query(Trade.id).filter(
+        Trade.politician_id == politician_id,
+        Trade.source == "senate",
+        Trade.amends == filed,
+    ).first() is not None
 
 
 def sync_senate_trades(db: Session, start_date: Optional[date] = None,
@@ -423,16 +463,31 @@ def sync_senate_trades(db: Session, start_date: Optional[date] = None,
                 name = f"{rpt['first']} {rpt['last']}".strip()
                 if not name:
                     continue
-                disclosure_date = _parse_date(rpt["filed"])
+                filed = _parse_date(rpt["filed"])
                 try:
-                    txns = _fetch_ptr_transactions(client, rpt["uuid"])
+                    report_for, txns = _fetch_ptr_transactions(client, rpt["uuid"])
                 except Exception as exc:  # one bad filing shouldn't abort the sync
                     logger.warning(f"EFD PTR {rpt['uuid']} failed: {exc}")
-                    txns = []
+                    report_for, txns = None, []
                 time.sleep(0.6)  # rate-limit detail-page fetches
 
                 party, state = _enrich(rpt["first"], rpt["last"])
                 politician = _get_or_create_politician(db, name, "senate", party=party, state=state)
+
+                # Amendments replace the report they amend. The trades were
+                # public from the original filing, so that stays the
+                # disclosure date; the amendment's own date lives in raw_data.
+                amends = None
+                disclosure_date = filed
+                if rpt.get("amended") and report_for:
+                    amends = report_for
+                    disclosure_date = report_for
+                    supersede_senate_report(db, politician.id, report_for, rpt["uuid"])
+                elif not rpt.get("amended") and filed and _senate_report_superseded(db, politician.id, filed):
+                    logger.info(f"EFD PTR {rpt['uuid']} ({name}, {filed}) already superseded by an amendment — skipped")
+                    _mark_processed(db, "senate", rpt["uuid"])
+                    db.commit()
+                    continue
 
                 for tx in txns:
                     trade_date = _parse_date(tx["transaction_date"])
@@ -446,7 +501,9 @@ def sync_senate_trades(db: Session, start_date: Optional[date] = None,
                         continue
                     db.add(_new_trade(
                         politician.id, tx, tx_type, trade_date, disclosure_date, "senate",
-                        {**tx, "ptr_uuid": rpt["uuid"], "amended": rpt.get("amended", False)},
+                        {**tx, "ptr_uuid": rpt["uuid"], "amended": rpt.get("amended", False),
+                         "amendment_filed": rpt["filed"] if amends else None},
+                        filing_id=rpt["uuid"], amends=amends,
                     ))
                     db.flush()  # autoflush is off — make this row visible to the next exists-check
                     count += 1
@@ -607,6 +664,7 @@ def sync_house_trades(db: Session, start_date: Optional[date] = None,
                     db.add(_new_trade(
                         politician.id, tx, tx["type"], trade_date, filed,
                         "house", {**tx, "ptr_doc_id": doc_id, "filing_date": row.get("FilingDate")},
+                        filing_id=doc_id,
                     ))
                     db.flush()  # autoflush is off — make this row visible to the next exists-check
                     count += 1
@@ -672,6 +730,47 @@ def repair_house_disclosure_dates(db: Session) -> int:
     return fixed
 
 
+def repair_senate_amendments(db: Session) -> dict:
+    """Apply the supersede rule to amended reports stored before `amends`
+    existed. Re-reads each such report's title from EFD to learn which
+    filing it amends (one page per amended report)."""
+    rows = (
+        db.query(Trade)
+        .filter(Trade.source == "senate", Trade.amends.is_(None),
+                Trade.raw_data.like('%"amended": true%'))
+        .all()
+    )
+    by_uuid: dict[str, list[Trade]] = {}
+    for t in rows:
+        if t.filing_id:
+            by_uuid.setdefault(t.filing_id, []).append(t)
+    if not by_uuid:
+        return {"reports": 0, "removed": 0}
+    client = _efd_client()
+    removed = fixed_reports = 0
+    try:
+        for uuid, trades in by_uuid.items():
+            try:
+                report_for, _ = _fetch_ptr_transactions(client, uuid)
+            except Exception as exc:
+                logger.warning(f"EFD PTR {uuid} unavailable during amendment repair: {exc}")
+                continue
+            time.sleep(0.6)
+            if not report_for:
+                continue
+            pid = trades[0].politician_id
+            removed += supersede_senate_report(db, pid, report_for, uuid)
+            for t in trades:
+                t.amends = report_for
+                t.disclosure_date = report_for
+            fixed_reports += 1
+            db.commit()
+    finally:
+        client.close()
+    logger.info(f"Senate amendment repair: {fixed_reports} report(s), {removed} superseded row(s) removed")
+    return {"reports": fixed_reports, "removed": removed}
+
+
 # ── Historical backfill ───────────────────────────────────────────────────────
 # The rolling sync only looks back ~90 days. This walks an explicit range
 # (House: per-year index ZIPs; Senate: EFD date-bounded search) so the
@@ -732,6 +831,10 @@ def backfill(db: Session, since: date, until: Optional[date] = None) -> dict:
             repair_house_disclosure_dates(db)
         except Exception as exc:
             logger.warning(f"disclosure_date repair after backfill failed: {exc}")
+        try:
+            repair_senate_amendments(db)
+        except Exception as exc:
+            logger.warning(f"Senate amendment repair after backfill failed: {exc}")
         # New rows need a staleness bucket; the daily job would get there
         # eventually but the feed filters on it immediately.
         try:

@@ -156,6 +156,8 @@ def get_politician_trades(politician_id: int, limit: int = Query(default=50, ge=
             "trade_date": t.trade_date,
             "disclosure_date": t.disclosure_date,
             "source": t.source,
+            "filing_id": t.filing_id,
+            "amends": t.amends,
             "risk_level": _risk_level(t),
         }
         for t in trades

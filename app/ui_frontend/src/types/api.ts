@@ -37,6 +37,8 @@ export interface Trade {
   trade_date: string | null;       // YYYY-MM-DD
   disclosure_date: string | null;  // YYYY-MM-DD
   source: string;
+  filing_id: string | null;
+  amends: string | null;   // Senate: filing date of the report this amendment replaced
   risk_level: RiskLevel | null;
   politician: {
     id: number;

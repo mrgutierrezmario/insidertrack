@@ -29,6 +29,13 @@ class Trade(Base):
     trade_date = Column(Date, index=True)
     disclosure_date = Column(Date, index=True)
     source = Column(String)            # house | senate
+    # The filing this row came from: Senate PTR uuid or House DocID.
+    filing_id = Column(String(64), index=True)
+    # Senate amendments are full re-filings of an earlier report. When set,
+    # this row came from an amendment and `amends` is the filing date of the
+    # report it replaced (whose rows were deleted). Consumers don't need to
+    # care — only the current version of a report is ever in the table.
+    amends = Column(Date)
     raw_data = Column(Text)
     # Cached risk classification (LOW/MEDIUM/HIGH). Computed by routers.trades._risk_level
     # and refreshed by the daily scheduler job. Storing it as a column lets the

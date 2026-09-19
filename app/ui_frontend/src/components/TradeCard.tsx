@@ -105,6 +105,7 @@ export default function TradeCard({ trade }: TradeCardProps) {
           )}
           {trade.asset_type === "other" && <Tag tip="Not common stock (bond, note, fund). Doesn't count toward the signal.">OTHER</Tag>}
           {ownerLabel && <Tag tip="Who holds the position, per the filing — the STOCK Act covers spouses and dependent children too.">{ownerLabel.toUpperCase()}</Tag>}
+          {trade.amends && <Tag tip={`From an amended report that replaced the one filed ${trade.amends}. Only the corrected version is shown.`}>AMENDED</Tag>}
           <RiskBadge level={trade.risk_level} />
           {trade.ticker && <WatchlistButton ticker={trade.ticker} />}
         </div>
