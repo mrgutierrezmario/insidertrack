@@ -126,6 +126,11 @@ def _form4_job():
 
 def _warm_history_job():
     logger.info("Warming daily price-history cache")
+    try:
+        from services.earnings_fetcher import warm_calendar
+        warm_calendar()
+    except Exception as exc:
+        logger.warning(f"earnings calendar warm failed: {exc}")
     with SessionLocal() as db:
         from routers.signals import _bullish_label  # noqa: F401  (ensure module import)
         from models.politician import Politician

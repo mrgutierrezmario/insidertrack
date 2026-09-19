@@ -79,20 +79,25 @@ def _nasdaq_day(client: httpx.Client, day: date) -> list[dict]:
 
 
 def _nasdaq_calendar(tickers_upper: list[str]) -> list[dict]:
+    from concurrent.futures import ThreadPoolExecutor
     wanted = set(tickers_upper)
     results: list[dict] = []
     today = date.today()
-    with httpx.Client(timeout=20, follow_redirects=True) as client:
-        for i in range(CALENDAR_DAYS_AHEAD + 1):
-            day = today + timedelta(days=i)
-            if day.weekday() >= 5:
-                continue
-            try:
-                rows = _nasdaq_day(client, day)
-            except Exception as exc:
-                logger.warning(f"Nasdaq earnings calendar {day}: {exc}")
-                continue
-            for row in rows:
+    days = [today + timedelta(days=i) for i in range(CALENDAR_DAYS_AHEAD + 1) if (today + timedelta(days=i)).weekday() < 5]
+
+    def fetch(day: date) -> tuple[date, list[dict]]:
+        try:
+            with httpx.Client(timeout=15, follow_redirects=True) as client:
+                return day, _nasdaq_day(client, day)
+        except Exception as exc:
+            logger.warning(f"Nasdaq earnings calendar {day}: {exc}")
+            return day, []
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        per_day = dict(pool.map(fetch, days))
+    for day in days:
+        i = (day - today).days
+        for row in per_day.get(day) or []:
                 if row["symbol"] in wanted:
                     results.append({
                         "ticker": row["symbol"], "company": row["name"] or row["symbol"],
@@ -101,6 +106,25 @@ def _nasdaq_calendar(tickers_upper: list[str]) -> list[dict]:
                         "days_until": i, "is_upcoming": True, "source": "nasdaq",
                     })
     return results
+
+
+def warm_calendar() -> int:
+    """Daily: fetch every day of the calendar into the persistent cache so the
+    page and the alert engine never pay for the walk."""
+    with httpx.Client(timeout=15, follow_redirects=True) as client:
+        today = date.today()
+        n = 0
+        for i in range(CALENDAR_DAYS_AHEAD + 1):
+            day = today + timedelta(days=i)
+            if day.weekday() >= 5:
+                continue
+            try:
+                n += len(_nasdaq_day(client, day))
+            except Exception as exc:
+                logger.warning(f"earnings warm {day}: {exc}")
+    _cache.clear()   # the per-ticker-list L1 results are built from what we just refreshed
+    logger.info(f"Earnings calendar warm: {n} reporting entries over {CALENDAR_DAYS_AHEAD} days")
+    return n
 
 
 def get_earnings_calendar(tickers: list[str]) -> list[dict]:
