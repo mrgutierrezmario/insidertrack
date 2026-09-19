@@ -8,10 +8,11 @@ dist/
 logs/
 *.egg-info/
 .DS_Store
-db_migration.dump
 
 # production stack (deploy/)
 deploy/.env
 deploy/state/
 backups/
-vite.preview.config.mjs
+
+# personal Claude Code settings
+.claude/
