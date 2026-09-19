@@ -123,11 +123,37 @@ def get_sync_state() -> dict:
 LEGISLATORS_URL = "https://unitedstates.github.io/congress-legislators/legislators-current.csv"
 _PARTY_ABBR = {"Democrat": "D", "Republican": "R", "Independent": "I"}
 _legislators: dict[str, tuple[str, str]] = {}   # "first last" → (party, state)
+_roster: dict[str, dict] = {}                    # name key → {full_name, bioguide, party, state}
 _legislators_loaded_on: Optional[date] = None
 
 
-_HONORIFICS = ("hon", "mr", "mrs", "ms", "dr", "rep", "sen")
+_HONORIFICS = ("hon", "honorable", "mr", "mrs", "ms", "dr", "rep", "sen", "senator", "representative")
 _SUFFIXES = ("jr", "sr", "ii", "iii", "iv", "v")
+
+
+def _name_key(name: str) -> str:
+    """One key for every spelling of a person: lowercase, honorifics and
+    generational suffixes dropped, one-letter initials skipped, then the
+    first remaining token + the last. 'C. Scott Franklin', 'Scott Mr
+    Franklin' and 'Scott Scott Franklin' all become 'scott franklin'."""
+    toks = [t for t in re.sub(r"[^a-z ]", " ", (name or "").lower()).split()
+            if t not in _HONORIFICS and t not in _SUFFIXES and len(t) > 1]
+    if not toks:
+        return ""
+    return f"{toks[0]} {toks[-1]}" if len(toks) > 1 else toks[0]
+
+
+def clean_display_name(name: str) -> str:
+    """'Marjorie Taylor Mrs Greene' → 'Marjorie Taylor Greene'; a doubled
+    token from a mangled index row ('Scott Scott Franklin') collapses."""
+    out: list[str] = []
+    for t in (name or "").split():
+        if re.sub(r"[^a-z]", "", t.lower()) in _HONORIFICS:
+            continue
+        if out and out[-1].lower() == t.lower():
+            continue
+        out.append(t)
+    return " ".join(out).strip()
 
 
 def _norm_name(first: str, last: str) -> str:
@@ -154,14 +180,25 @@ def _load_legislators() -> dict[str, tuple[str, str]]:
                          headers={"User-Agent": _USER_AGENT})
         resp.raise_for_status()
         directory: dict[str, tuple[str, str]] = {}
+        roster: dict[str, dict] = {}
         for row in csv.DictReader(io.StringIO(resp.text)):
             party = _PARTY_ABBR.get((row.get("party") or "").strip(), "")
             state = (row.get("state") or "").strip()
             key = _norm_name(row.get("first_name", ""), row.get("last_name", ""))
             if key.strip():
                 directory[key] = (party, state)
+            first, nick, last = row.get("first_name", ""), row.get("nickname", ""), row.get("last_name", "")
+            entry = {"full_name": f"{first} {last}".strip(), "bioguide": (row.get("bioguide_id") or "").strip(),
+                     "party": party, "state": state}
+            # Every spelling the filings might use: first/last, nickname/last,
+            # and the same via _name_key (which also skips initials).
+            for k in {_norm_name(first, last), _norm_name(nick, last) if nick else "",
+                      _name_key(f"{first} {last}"), _name_key(f"{nick} {last}") if nick else ""}:
+                if k:
+                    roster[k] = entry
         if directory:
             _legislators = directory
+            _roster = roster
             _legislators_loaded_on = date.today()
             logger.info(f"Loaded {len(directory)} legislators for party/state enrichment")
     except Exception as exc:
@@ -174,13 +211,40 @@ def _enrich(first: str, last: str) -> tuple[str, str]:
     return _load_legislators().get(_norm_name(first, last), ("", ""))
 
 
+def resolve_identity(name: str) -> tuple[str, str, str, str, str]:
+    """(display_name, name_key, bioguide, party, state) for a filed name —
+    from the roster when it knows the person, else a cleaned spelling."""
+    _load_legislators()
+    key = _name_key(name)
+    hit = _roster.get(key)
+    if hit:
+        return hit["full_name"], _name_key(hit["full_name"]) or key, hit["bioguide"], hit["party"], hit["state"]
+    return clean_display_name(name), key, "", "", ""
+
+
 def _get_or_create_politician(db: Session, name: str, chamber: str, party: str = "", state: str = "") -> Politician:
-    politician = db.query(Politician).filter(Politician.name == name).first()
+    """Find the member behind a filed name whatever its spelling: by bioguide
+    id when the roster knows them, else by name key, else by exact name."""
+    display, key, bioguide, r_party, r_state = resolve_identity(name)
+    party, state = party or r_party, state or r_state
+    politician = None
+    if bioguide:
+        politician = db.query(Politician).filter(Politician.bioguide_id == bioguide).first()
+    if politician is None and key:
+        politician = db.query(Politician).filter(Politician.chamber == chamber, Politician.name_key == key).first()
+    if politician is None:
+        politician = db.query(Politician).filter(Politician.name.in_([name, display])).first()
     if not politician:
-        politician = Politician(name=name, chamber=chamber, party=party, state=state, is_tracked=True)
+        politician = Politician(name=display, chamber=chamber, party=party, state=state, is_tracked=True,
+                                bioguide_id=bioguide or None, name_key=key or None)
         db.add(politician)
         db.flush()
         return politician
+    # Fill identity columns on rows created before they existed.
+    if bioguide and not politician.bioguide_id:
+        politician.bioguide_id = bioguide
+    if key and not politician.name_key:
+        politician.name_key = key
     # Backfill party/state for rows created before enrichment existed.
     if party and not (politician.party or "").strip():
         politician.party = party
@@ -276,6 +340,59 @@ def _new_trade(politician_id: int, tx: dict, tx_type: str, trade_date: date,
         house_tx_id=tx.get("tx_id"),
         raw_data=json.dumps(raw),
     )
+
+
+def merge_duplicate_politicians(db: Session) -> dict:
+    """Fold records that are the same person under different spellings into
+    one: the record with the most trades survives, takes the roster's name
+    (or the cleanest spelling), and the others' trades and outcome rows are
+    re-pointed to it. Runs after every congressional sync — cheap, and the
+    Clerk's index keeps inventing new spellings."""
+    from models.signal_outcome import SignalOutcome
+    from sqlalchemy import func
+    _load_legislators()
+    members = db.query(Politician).all()
+    counts = dict(db.query(Trade.politician_id, func.count(Trade.id)).group_by(Trade.politician_id).all())
+    groups: dict[tuple, list] = {}
+    for p in members:
+        display, key, bioguide, party, state = resolve_identity(p.name)
+        if not p.name_key:
+            p.name_key = key or None
+        if bioguide and not p.bioguide_id:
+            p.bioguide_id = bioguide
+        ident = ("b", bioguide) if bioguide else ("k", p.chamber, key)
+        groups.setdefault(ident, []).append(p)
+    merged = 0
+    for ident, ps in groups.items():
+        if len(ps) < 2:
+            p = ps[0]
+            display = resolve_identity(p.name)[0]
+            if display and p.name != display and not db.query(Politician.id).filter(Politician.name == display, Politician.id != p.id).first():
+                p.name = display
+            continue
+        ps.sort(key=lambda p: -(counts.get(p.id, 0)))
+        keep, rest = ps[0], ps[1:]
+        display = resolve_identity(keep.name)[0]
+        if not ident[0] == "b":
+            # Not in the roster: of all the spellings, the shortest cleaned one
+            # is the least likely to carry index junk.
+            display = min((clean_display_name(p.name) for p in ps), key=lambda n: (len(n.split()), len(n)))
+        for p in rest:
+            db.query(Trade).filter(Trade.politician_id == p.id).update({"politician_id": keep.id}, synchronize_session=False)
+            db.query(SignalOutcome).filter(SignalOutcome.politician_id == p.id).update(
+                {"politician_id": keep.id, "politician_name": display}, synchronize_session=False)
+            keep.party = keep.party or p.party
+            keep.state = keep.state or p.state
+            keep.description = keep.description or p.description
+            keep.why_tracked = keep.why_tracked or p.why_tracked
+            db.delete(p)
+            merged += 1
+            logger.info(f"Merged politician {p.id} '{p.name}' into {keep.id} '{keep.name}'")
+        db.flush()
+        if display and keep.name != display:
+            keep.name = display
+    db.commit()
+    return {"merged": merged}
 
 
 # ── Processed-filing bookkeeping (skip re-downloads) ──────────────────────────
@@ -1037,6 +1154,11 @@ def backfill(db: Session, since: date, until: Optional[date] = None, reparse: bo
             repair_senate_amendments(db)
         except Exception as exc:
             logger.warning(f"Senate amendment repair after backfill failed: {exc}")
+        try:
+            merge_duplicate_politicians(db)
+        except Exception as exc:
+            logger.warning(f"duplicate-member merge after backfill failed: {exc}")
+            db.rollback()
         # New rows need a staleness bucket; the daily job would get there
         # eventually but the feed filters on it immediately.
         try:
@@ -1110,6 +1232,11 @@ def sync_all(db: Session) -> dict:
             result["errors"] = errors
             error = "; ".join(f"{k}: {v}" for k, v in errors.items())
             _sync_state.update(error=error)
+        try:
+            result["merged_members"] = merge_duplicate_politicians(db)["merged"]
+        except Exception as exc:
+            logger.warning(f"duplicate-member merge failed: {exc}")
+            db.rollback()
         _sync_state.update(result=result)
         if len(errors) == 2:
             raise RuntimeError(error)

@@ -243,8 +243,11 @@ def _smart_money_from_positions(positions: list, holder_totals: dict | None = No
     avg = round(weighted / weight_sum) if weight_sum else 10
 
     latest = positions[0]
-    holder_names = list({p.holder.name.split(" (")[0] for p in positions if p.holder})
-    reasons = [f"{', '.join(holder_names[:3])} hold this position"]
+    holder_names = sorted({p.holder.name.split(" (")[0] for p in positions if p.holder})
+    shown = holder_names[:3]
+    more = len(holder_names) - len(shown)
+    who = ", ".join(shown) + (f" and {more} more" if more > 0 else "")
+    reasons = [f"{who} {'holds' if len(holder_names) == 1 else 'hold'} this position"]
     share, conv = top_conviction
     if conv is not None and share >= 0.05 and conv.holder:
         avg = min(20, avg + 3)

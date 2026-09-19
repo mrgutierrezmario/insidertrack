@@ -573,3 +573,58 @@ class TestSenatePaperListing:
         monkeypatch.setattr(cf.time, "sleep", lambda s: None)
         pages = cf._fetch_paper_images(_C(), "bbbb-2222")
         assert len(pages) == 2 and all(p.startswith(b"GIF89a") for p in pages)
+
+
+# ── member identity across spellings ──────────────────────────────────────────
+
+class TestNameKey:
+    def test_spellings_collide(self):
+        from services.congress_fetcher import _name_key, clean_display_name
+        for n in ("C. Scott Franklin", "Scott Mr Franklin", "Scott Scott Franklin", "Scott Franklin", "Hon. Scott Franklin Jr."):
+            assert _name_key(n) == "scott franklin", n
+        assert _name_key("Marjorie Taylor Mrs Greene") == "marjorie greene"
+        assert _name_key("Donald Sternoff Honorable Beyer") == "donald beyer"
+        assert clean_display_name("Marjorie Taylor Mrs Greene") == "Marjorie Taylor Greene"
+        assert clean_display_name("Donald Sternoff Honorable Beyer") == "Donald Sternoff Beyer"
+
+
+class TestMergeDuplicates:
+    def test_merges_spellings_and_repoints_trades(self, db, monkeypatch):
+        from datetime import date
+        from models.politician import Politician
+        from models.signal_outcome import SignalOutcome
+        from models.trade import Trade
+        from services import congress_fetcher as cf
+        # roster knows "Daniel Crenshaw" (nickname Dan) → both spellings map to one bioguide
+        monkeypatch.setattr(cf, "_load_legislators", lambda: None)
+        monkeypatch.setattr(cf, "_roster", {
+            "daniel crenshaw": {"full_name": "Daniel Crenshaw", "bioguide": "C001120", "party": "R", "state": "TX"},
+            "dan crenshaw": {"full_name": "Daniel Crenshaw", "bioguide": "C001120", "party": "R", "state": "TX"},
+        })
+        a = Politician(name="Dan Crenshaw", chamber="house"); b = Politician(name="Daniel Crenshaw", chamber="house", party="R")
+        c1 = Politician(name="Scott Mr Franklin", chamber="house"); c2 = Politician(name="Scott Scott Franklin", chamber="house")
+        db.add_all([a, b, c1, c2]); db.flush()
+        for p, n in ((a, 1), (b, 3), (c1, 1), (c2, 2)):
+            for i in range(n):
+                db.add(Trade(politician_id=p.id, ticker=f"T{i}", transaction_type="purchase", amount_range="$1,001 - $15,000",
+                             trade_date=date(2026, 1, 1 + i), source="house", raw_data="{}"))
+        db.add(SignalOutcome(ticker="T0", signal_date=date(2026, 2, 1), composite_score=50, price_at_signal=1.0, politician_id=a.id, politician_name="Dan Crenshaw"))
+        db.flush()
+        out = cf.merge_duplicate_politicians(db)
+        assert out["merged"] == 2
+        survivors = {p.name: p for p in db.query(Politician).filter(Politician.name_key.in_(["daniel crenshaw", "scott franklin"])).all()}
+        assert set(survivors) == {"Daniel Crenshaw", "Scott Franklin"}
+        dc = survivors["Daniel Crenshaw"]
+        assert dc.bioguide_id == "C001120" and dc.party == "R"
+        assert db.query(Trade).filter(Trade.politician_id == dc.id).count() == 4
+        assert db.query(SignalOutcome).filter(SignalOutcome.politician_id == dc.id).count() == 1
+        assert db.query(Trade).filter(Trade.politician_id == survivors["Scott Franklin"].id).count() == 3
+
+    def test_get_or_create_finds_by_key(self, db, monkeypatch):
+        from models.politician import Politician
+        from services import congress_fetcher as cf
+        monkeypatch.setattr(cf, "_load_legislators", lambda: None)
+        monkeypatch.setattr(cf, "_roster", {})
+        p = cf._get_or_create_politician(db, "Laurel Lee", "house")
+        q = cf._get_or_create_politician(db, "Laurel Mrs Lee", "house")
+        assert p.id == q.id and p.name == "Laurel Lee"

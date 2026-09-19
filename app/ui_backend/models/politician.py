@@ -15,6 +15,12 @@ class Politician(Base):
     # congressional trades". Untracking is an admin opt-out (mute) that removes
     # a member's trades from signals, analysis, alerts and outcome snapshots.
     is_tracked = Column(Boolean, default=True, server_default="true", nullable=False)
+    # Identity across the spellings the House index and EFD use for one
+    # person ("Scott Franklin" / "Scott Mr Franklin" / "C. Scott Franklin"):
+    # the congress-legislators bioguide id when the roster knows them, and a
+    # normalised "first last" key either way. See congress_fetcher._name_key.
+    bioguide_id = Column(String(12), index=True)
+    name_key = Column(String(80), index=True)
     description = Column(Text, default="")
     # Track-record weight applied to this member's trades in the Congress
     # sub-score: 0.5 (always wrong) … 1.5 (always right); 1.0 = unknown / too
