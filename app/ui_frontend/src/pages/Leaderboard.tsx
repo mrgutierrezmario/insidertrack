@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { C } from "../lib/theme";
 import useDocumentTitle from "../hooks/useDocumentTitle";
 import { getLeaderboard } from "../lib/api";
+import { chamberLabel, fmtDate } from "../lib/format";
 import type { Leaderboard as LB, LeaderboardRow } from "../types/api";
 
 function pct(v: number | null | undefined): string {
@@ -19,7 +20,7 @@ function Row({ r }: { r: LeaderboardRow }) {
       <td style={{ padding: "7px 8px", color: C.textMuted, width: 40 }}>{r.rank ?? "—"}</td>
       <td style={{ padding: "7px 8px" }}>
         <Link to={`/politician/${r.id}`} style={{ color: C.accent, fontWeight: 700, textDecoration: "none" }}>{r.name}</Link>
-        <span style={{ color: C.textMuted, fontSize: "0.75rem", marginLeft: 8 }}>{[r.party, r.chamber, r.state].filter(Boolean).join(" · ")}</span>
+        <span style={{ color: C.textMuted, fontSize: "0.75rem", marginLeft: 8 }}>{[r.party, chamberLabel(r.chamber), r.state].filter(Boolean).join(" · ")}</span>
       </td>
       <td style={{ padding: "7px 8px", textAlign: "right", color: C.textSoft }}>{r.buys_measured ?? "—"}</td>
       <td style={{ padding: "7px 8px", textAlign: "right", color: tone(r.beat_spy_rate), fontWeight: 700 }}>{pct(r.beat_spy_rate)}</td>
@@ -47,7 +48,7 @@ export default function Leaderboard() {
         <div>
           <h1>Leaderboard</h1>
           <p>Members ranked by how often their stock buys beat the S&amp;P 500 at 90 days after disclosure. The same number sets each member's weight in the score.</p>
-          {data?.as_of && <p style={{ color: C.textDim, fontSize: 12, margin: "4px 0 0" }}>Measured {data.as_of} · recomputed weekly · at least {data.min_trades} measured buys to rank</p>}
+          {data?.as_of && <p style={{ color: C.textDim, fontSize: 12, margin: "4px 0 0" }}>Measured {fmtDate(data.as_of)} · recomputed weekly · at least {data.min_trades} measured buys to rank</p>}
         </div>
       </div>
       {error && <p style={{ color: C.danger }}>{error}</p>}

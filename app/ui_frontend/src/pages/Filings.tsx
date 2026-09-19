@@ -1,4 +1,5 @@
 import { safeHref } from "../lib/safeUrl";
+import { fmtDate } from "../lib/format";
 import { C } from "../lib/theme";
 import useDocumentTitle from "../hooks/useDocumentTitle";
 import { useEffect, useState } from "react";
@@ -30,10 +31,6 @@ interface Positions {
   positions?: Position[];
 }
 
-function fmtDate(d: string | null | undefined): string {
-  if (!d) return "—";
-  return new Date(d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
 
 function fmtPeriod(d: string | null | undefined): string {
   if (!d) return "—";

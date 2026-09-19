@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fmtDate } from "../lib/format";
 import { Link } from "react-router-dom";
 import { getOutcomeStats, getOutcomes, runOutcomeSnapshot, runOutcomeFill } from "../lib/api";
 import { exportCSV } from "../lib/csv";
@@ -120,7 +121,7 @@ function SubScoreTooltip({ sub }: { sub: Partial<import("../types/api").SubScore
           padding: "10px 14px", zIndex: 100, whiteSpace: "nowrap", boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
         }}>
           {[
-            ["Smart Money", sub.smart_money, 20],
+            ["Smart money", sub.smart_money, 20],
             ["Congress", sub.insider, 30],
             ["Insiders", sub.corporate, 25],
             ["Momentum", sub.momentum, 25],
@@ -292,7 +293,7 @@ export default function Outcomes() {
               {rows.map((r) => (
                 <tr key={r.id} style={{ borderBottom: "1px solid var(--c-surfaceAlt)" }}>
                   <td style={{ padding: "9px 12px", color: C.textMuted, whiteSpace: "nowrap" }}>
-                    {r.signal_date}
+                    {fmtDate(r.signal_date)}
                     {r.is_backfilled && (
                       <span
                         title="Backfilled retroactively from price history and filings dated on or before the signal date"

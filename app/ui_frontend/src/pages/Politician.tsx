@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { getPolitician, getPoliticianTrades, toggleTrack, getTechnicalSignals } from "../lib/api";
 import { LABEL_COLORS , C} from "../lib/theme";
 import useDocumentTitle from "../hooks/useDocumentTitle";
+import { chamberLabel } from "../lib/format";
 import useAdmin from "../hooks/useAdmin";
 import TradeCard from "../components/TradeCard";
 import ActivityChart from "../components/ActivityChart";
@@ -124,7 +125,7 @@ export default function Politician() {
             )}
           </div>
           <p style={{ color: C.textMuted, margin: 0, fontSize: 14 }}>
-            {[politician.chamber, politician.state].filter(Boolean).join(" · ")}
+            {[chamberLabel(politician.chamber), politician.state].filter(Boolean).join(" · ")}
           </p>
         </div>
         {isAdmin ? (
@@ -168,7 +169,7 @@ export default function Politician() {
           </div>
           <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, padding: "0.75rem 1.25rem" }}>
             <div style={{ color: C.text, fontSize: "1.25rem", fontWeight: 700 }}>{trades.length}</div>
-            <div style={{ color: C.textMuted, fontSize: "0.75rem" }}>Total Trades</div>
+            <div style={{ color: C.textMuted, fontSize: "0.75rem" }}>Total trades</div>
           </div>
           <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, padding: "0.75rem 1.25rem" }}>
             <div style={{ color: C.accent, fontSize: "1.25rem", fontWeight: 700 }}>{tickers.length}</div>

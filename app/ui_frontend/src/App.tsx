@@ -47,23 +47,23 @@ const TOP_LINKS: ReadonlyArray<NavEntry> = [
 const NAV_GROUPS: ReadonlyArray<NavGroup> = [
   { label: "Congress", items: [
     { to: "/feed",        label: "Congressional Trades", hint: "STOCK Act disclosures" },
-    { to: "/politicians", label: "Politicians", hint: "Who we track and why" },
-    { to: "/leaderboard", label: "Leaderboard", hint: "Whose buys beat the market" },
+    { to: "/politicians", label: "Politicians", hint: "Every member with a filing" },
+    { to: "/leaderboard", label: "Leaderboard", hint: "Members ranked by results vs. SPY" },
   ]},
   { label: "Institutions", items: [
     { to: "/insiders", label: "Corporate Insiders", hint: "SEC Form 4" },
-    { to: "/whales",   label: "Whales", hint: "13F holdings of big funds" },
+    { to: "/whales",   label: "Whales", hint: "Quarterly 13F holdings" },
     { to: "/filings",  label: "SEC Filings", hint: "Recent filings by institution" },
     { to: "/fed",      label: "Fed Officials", hint: "FOMC roster & disclosures" },
   ]},
   { label: "Signals", items: [
-    { to: "/signals",   label: "Signal Scores", hint: "Composite score per ticker" },
+    { to: "/signals",   label: "Signal Scores", hint: "Composite score, 0–100, per ticker" },
     { to: "/outcomes",  label: "Outcomes", hint: "How past signals played out" },
-    { to: "/simulator", label: "Simulator", hint: "Paper portfolio vs SPY" },
+    { to: "/simulator", label: "Simulator", hint: "Hypothetical returns vs. SPY" },
   ]},
   { label: "Markets", items: [
     { to: "/markets",  label: "Market Overview", hint: "Indices, movers, Fed rate" },
-    { to: "/news",     label: "News", hint: "Sentiment-tagged headlines" },
+    { to: "/news",     label: "News", hint: "Headlines for tracked tickers" },
     { to: "/earnings", label: "Earnings", hint: "Upcoming reports" },
   ]},
   { label: "My Watch", items: [

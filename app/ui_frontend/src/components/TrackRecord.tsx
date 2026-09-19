@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { C } from "../lib/theme";
 import { getTrackRecord } from "../lib/api";
+import { fmtDate } from "../lib/format";
 import type { TrackRecord as TR } from "../types/api";
 
 const WINDOWS = ["30", "60", "90"] as const;
@@ -106,7 +107,7 @@ export default function TrackRecord({ politicianId }: { politicianId: number }) 
             {rows.map((t) => (
               <tr key={t.trade_id} style={{ borderTop: "1px solid var(--c-surfaceAlt)" }}>
                 <td style={{ padding: "5px 8px" }}><Link to={`/ticker/${t.ticker}`} style={{ color: C.accent, fontWeight: 700, textDecoration: "none" }}>{t.ticker}</Link></td>
-                <td style={{ padding: "5px 8px", color: C.textSoft, whiteSpace: "nowrap" }}>{t.disclosure_date}</td>
+                <td style={{ padding: "5px 8px", color: C.textSoft, whiteSpace: "nowrap" }}>{fmtDate(t.disclosure_date)}</td>
                 <td style={{ padding: "5px 8px", color: C.textSoft }}>${t.entry_price.toFixed(2)}</td>
                 {WINDOWS.map((w) => <td key={w} style={{ padding: "5px 8px", textAlign: "right", color: tone(t[`r${w}`]), fontWeight: 600 }}>{pct(t[`r${w}`])}</td>)}
                 {WINDOWS.map((w) => <td key={"x" + w} style={{ padding: "5px 8px", textAlign: "right", color: tone(t[`x${w}`]) }}>{pct(t[`x${w}`])}</td>)}

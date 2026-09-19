@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fmtDate } from "../lib/format";
 import { Link } from "react-router-dom";
 import { isAxiosError } from "axios";
 import { getInsiderTransactions, getInsiderSummary, syncInsiders } from "../lib/api";
@@ -238,7 +239,7 @@ export default function Insiders() {
                     <td style={{ padding: "9px 12px", color: C.textSoft }}>{fmtShares(r.shares)}</td>
                     <td style={{ padding: "9px 12px", color: C.textSoft }}>{r.price ? `$${r.price.toFixed(2)}` : "—"}</td>
                     <td style={{ padding: "9px 12px", color: C.text, fontWeight: 600 }}>{fmtVal(r.value)}</td>
-                    <td style={{ padding: "9px 12px", color: C.textMuted, whiteSpace: "nowrap" }}>{r.transaction_date}</td>
+                    <td style={{ padding: "9px 12px", color: C.textMuted, whiteSpace: "nowrap" }}>{fmtDate(r.transaction_date)}</td>
                   </tr>
                 );
               })}

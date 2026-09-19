@@ -60,6 +60,10 @@ function SectionHead({ title, to, linkLabel = "View all →" }: { title: string;
   );
 }
 
+// The analysis can flag 100+ tickers; the Dashboard shows the first two rows
+// and links to the full list rather than becoming a wall of chips.
+const CHIP_CAP = 18;
+
 const Chip = ({ t, up }: { t: string; up: boolean }) => (
   <Link to={`/ticker/${t}`} style={{
     background: up ? C.successBg : C.dangerBg, color: up ? C.success : C.danger,
@@ -238,7 +242,7 @@ export default function Dashboard() {
         />
         <Stat
           label="Latest read"
-          value={latest ? <>{latest.a.tickers_bullish?.length ?? 0}<span style={{ color: C.success, fontSize: "0.9rem" }}> ↑</span> · {latest.a.tickers_bearish?.length ?? 0}<span style={{ color: C.danger, fontSize: "0.9rem" }}> ↓</span></> : "…"}
+          value={latest ? <><span style={{ color: C.success }}>{latest.a.tickers_bullish?.length ?? 0}</span><span style={{ fontSize: "0.8rem", color: C.textMuted }}> bullish</span> · <span style={{ color: C.danger }}>{latest.a.tickers_bearish?.length ?? 0}</span><span style={{ fontSize: "0.8rem", color: C.textMuted }}> bearish</span></> : "…"}
           sub={latest ? `${latest.period} · ${fmtDate(latest.a.analysis_date)}` : "no analysis yet"}
           to="/signals"
         />
@@ -261,12 +265,14 @@ export default function Dashboard() {
                     <div style={{ color: C.textMuted, fontSize: "0.72rem", textTransform: "uppercase", marginBottom: 6 }}>Bullish</div>
                     <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginBottom: 12 }}>
                       {(latest.a.tickers_bullish ?? []).length === 0 && <span style={{ color: C.textDim, fontSize: "0.82rem" }}>none</span>}
-                      {(latest.a.tickers_bullish ?? []).map((t) => <Chip key={t} t={t} up />)}
+                      {(latest.a.tickers_bullish ?? []).slice(0, CHIP_CAP).map((t) => <Chip key={t} t={t} up />)}
+                      {(latest.a.tickers_bullish ?? []).length > CHIP_CAP && <Link to="/signals" style={{ color: C.textMuted, fontSize: "0.8rem", alignSelf: "center", textDecoration: "none" }}>+{(latest.a.tickers_bullish ?? []).length - CHIP_CAP} more →</Link>}
                     </div>
                     <div style={{ color: C.textMuted, fontSize: "0.72rem", textTransform: "uppercase", marginBottom: 6 }}>Bearish</div>
                     <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
                       {(latest.a.tickers_bearish ?? []).length === 0 && <span style={{ color: C.textDim, fontSize: "0.82rem" }}>none</span>}
-                      {(latest.a.tickers_bearish ?? []).map((t) => <Chip key={t} t={t} up={false} />)}
+                      {(latest.a.tickers_bearish ?? []).slice(0, CHIP_CAP).map((t) => <Chip key={t} t={t} up={false} />)}
+                      {(latest.a.tickers_bearish ?? []).length > CHIP_CAP && <Link to="/signals" style={{ color: C.textMuted, fontSize: "0.8rem", alignSelf: "center", textDecoration: "none" }}>+{(latest.a.tickers_bearish ?? []).length - CHIP_CAP} more →</Link>}
                     </div>
                     <div style={{ color: C.textDim, fontSize: "0.72rem", marginTop: 12 }}>
                       Runs at 8 AM, noon and 6 PM ET.{" "}

@@ -1,4 +1,5 @@
 import { C } from "../lib/theme";
+import { chamberLabel, fmtDate } from "../lib/format";
 import useDocumentTitle from "../hooks/useDocumentTitle";
 import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
@@ -52,7 +53,7 @@ function ActivityRow({ item }: { item: ActivityItem }) {
   return (
     <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 9, padding: "11px 14px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
       <div style={{ flexShrink: 0, width: 80 }}>
-        <div style={{ color: C.dividerStrong, fontSize: 11 }}>{item.trade_date}</div>
+        <div style={{ color: C.dividerStrong, fontSize: 11 }}>{fmtDate(item.trade_date)}</div>
         <SourceBadge source={item._source} />
       </div>
 
@@ -109,7 +110,7 @@ function normalize(results: [FetchResult, FetchResult, FetchResult]): { items: A
         _direction: (t.direction as "buy" | "sell" | null | undefined) ?? null,
         _source: "congressional",
         _who: pol?.name || "Unknown",
-        _role: `${pol?.party || ""} · ${pol?.chamber || ""}`.trim().replace(/^·|·$/, "").trim(),
+        _role: [pol?.party, chamberLabel(pol?.chamber)].filter(Boolean).join(" · "),
       });
     }
   }

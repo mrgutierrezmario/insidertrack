@@ -1,4 +1,5 @@
 import { safeHref } from "../lib/safeUrl";
+import { fmtDate } from "../lib/format";
 import { C } from "../lib/theme";
 import useDocumentTitle from "../hooks/useDocumentTitle";
 import { useEffect, useState } from "react";
@@ -299,7 +300,7 @@ export default function Ticker() {
           <h2 style={{ fontSize: "1rem", fontWeight: 600, color: C.textSoft, marginBottom: "0.75rem" }}>Next Earnings</h2>
           <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, padding: "0.875rem 1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
-              <div style={{ color: C.text, fontWeight: 600 }}>{earnings.report_date}</div>
+              <div style={{ color: C.text, fontWeight: 600 }}>{fmtDate(earnings.report_date)}</div>
               {earnings.fiscal_date_ending && <div style={{ color: C.textMuted, fontSize: "0.8rem" }}>FY ending {earnings.fiscal_date_ending}</div>}
             </div>
             <div style={{ textAlign: "right" }}>

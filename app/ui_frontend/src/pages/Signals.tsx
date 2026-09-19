@@ -60,7 +60,7 @@ function ScoreBar({ score }: { score: number | null | undefined }) {
 }
 
 const SUB_TIPS: Record<string, string> = {
-  "Smart Money": "Institutional 13F holders in this ticker — new or growing positions score higher, weighted by how large the position is in each holder's book (a 5%+ position earns a conviction bonus). A holder's first loaded quarter is neutral. Max 20.",
+  "Smart money": "Institutional 13F holders in this ticker — new or growing positions score higher, weighted by how large the position is in each holder's book (a 5%+ position earns a conviction bonus). A holder's first loaded quarter is neutral. Max 20.",
   "Congress": "Congressional buys vs. sells in the last 45 days, weighted by the disclosed dollar bracket and by each member's own track record (×0.5–1.5 from their 90-day beat-SPY rate; ×1 until 10 buys are measured). Options count by contract direction; unknown contracts and bonds are neutral. Max 30.",
   "Insiders": "Company officers and directors (SEC Form 4) in the last 90 days: open-market buys vs. sells by dollar value. Buying counts more than selling, and several insiders buying together earns a bonus. Max 25.",
   "Momentum": "Price vs. 20/50-day averages and RSI. Oversold with an uptrend scores best. Max 25.",
@@ -266,7 +266,7 @@ export default function Signals() {
 
                 {/* Sub-scores */}
                 <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: 10 }}>
-                  <SubScore label="Smart Money" value={sub.smart_money} max={20} />
+                  <SubScore label="Smart money" value={sub.smart_money} max={20} />
                   <SubScore label="Congress" value={sub.insider} max={30} />
                   <SubScore label="Insiders" value={sub.corporate} max={25} />
                   <SubScore label="Momentum" value={sub.momentum} max={25} />

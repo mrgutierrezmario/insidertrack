@@ -5,6 +5,7 @@ import WatchlistButton from "./WatchlistButton";
 import useAdmin from "../hooks/useAdmin";
 import { deleteTrade } from "../lib/api";
 import { safeHref } from "../lib/safeUrl";
+import { fmtDate } from "../lib/format";
 import type { RiskLevel, Trade } from "../types/api";
 
 interface RiskMetaEntry {
@@ -63,11 +64,6 @@ function Tag({ children, tip }: { children: string; tip: string }) {
   );
 }
 
-function fmtDate(str: string | null | undefined): string {
-  if (!str) return "—";
-  const d = new Date(str + "T12:00:00");
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
 
 interface TradeCardProps {
   trade: Trade;

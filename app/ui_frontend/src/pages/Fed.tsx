@@ -1,4 +1,5 @@
 import { safeHref } from "../lib/safeUrl";
+import { fmtDate } from "../lib/format";
 import { C } from "../lib/theme";
 import useDocumentTitle from "../hooks/useDocumentTitle";
 import useAdmin from "../hooks/useAdmin";
@@ -103,7 +104,7 @@ function TradeRow({ trade }: { trade: FedTrade }) {
   const typeColor = TYPE_COLOR[trade.transaction_type] || C.textSoft;
   return (
     <tr style={{ borderBottom: "1px solid var(--c-surfaceAlt)" }}>
-      <td style={{ padding: "9px 12px", color: C.textMuted, whiteSpace: "nowrap", fontSize: 12 }}>{trade.trade_date}</td>
+      <td style={{ padding: "9px 12px", color: C.textMuted, whiteSpace: "nowrap", fontSize: 12 }}>{fmtDate(trade.trade_date)}</td>
       <td style={{ padding: "9px 12px" }}>
         <div style={{ fontSize: 12, color: C.textSoft, lineHeight: 1.3 }}>
           <div style={{ color: C.textBright, fontWeight: 600 }}>{trade.official_name}</div>
