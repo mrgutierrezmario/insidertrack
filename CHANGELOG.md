@@ -61,4 +61,4 @@ notes gained Claude / Gemini / OpenAI providers on 2026-09-17; and 2026-09-19
 brought the data-model pass above. Commit history before that date was
 rewritten once to remove attribution trailers; contents are unchanged.
 
-[1.0.0]: https://github.com/mrgutierrezmario/stock-tracker/releases/tag/v1.0.0
+[1.0.0]: https://github.com/mrgutierrezmario/insidertrack/releases/tag/v1.0.0

@@ -1,7 +1,7 @@
 # InsiderTrack
 
-[![Release](https://img.shields.io/github/v/release/mrgutierrezmario/stock-tracker?display_name=tag&color=0b74f6)](https://github.com/mrgutierrezmario/stock-tracker/releases)
-[![CI](https://github.com/mrgutierrezmario/stock-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/mrgutierrezmario/stock-tracker/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/mrgutierrezmario/insidertrack?display_name=tag&color=0b74f6)](https://github.com/mrgutierrezmario/insidertrack/releases)
+[![CI](https://github.com/mrgutierrezmario/insidertrack/actions/workflows/ci.yml/badge.svg)](https://github.com/mrgutierrezmario/insidertrack/actions/workflows/ci.yml)
 [![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB.svg?logo=python&logoColor=white)](app/ui_backend)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688.svg?logo=fastapi&logoColor=white)](app/ui_backend)
@@ -98,7 +98,8 @@ own machine from free public data sources; cloud AI providers are optional.
 ## Quick Start
 
 ```bash
-cd stock-tracker
+git clone https://github.com/mrgutierrezmario/insidertrack.git
+cd insidertrack
 bash start.sh
 ```
 
@@ -273,7 +274,7 @@ Trigger any job manually from **API docs** at `/docs` or the relevant page in th
 ## Project Structure
 
 ```
-stock-tracker/
+insidertrack/
 ├── start.sh                      ← Run this to start everything
 ├── deploy/                       ← Production stack: compose.yml, Dockerfile, start.sh
 ├── docker-compose.yml            ← Dev-only Postgres fallback for start.sh
@@ -415,7 +416,7 @@ tail -f logs/backend.log
 The version lives in the `VERSION` file at the repository root — the backend,
 the frontend build and `/health` all read it, and Settings shows it in the
 footer. Releases are git tags (`v1.0.0`) with notes on the
-[Releases](https://github.com/mrgutierrezmario/stock-tracker/releases) page;
+[Releases](https://github.com/mrgutierrezmario/insidertrack/releases) page;
 [CHANGELOG.md](CHANGELOG.md) keeps the history. Semantic versioning: patch
 for fixes, minor for features, major for breaking changes.
 
@@ -458,7 +459,7 @@ and what the score was really measuring.
 | When | What |
 |---|---|
 | **May 2026** | First version: congressional trade feed from community mirrors, a composite score, alerts, simulator, watchlist. Five audit passes in the same month closed security, performance and data-integrity gaps and added the first test suite |
-| **September 16, 2026** | The community data mirrors had gone dark; fetchers rewritten against the House Clerk and Senate EFD directly. Deployment rebuilt as a Docker stack with a fixed public URL; the project became a git repository |
+| **September 16, 2026** | The community data mirrors had gone dark; fetchers rewritten against the House Clerk and Senate EFD directly. Deployment rebuilt as a Docker stack with a fixed public URL; the project became a git repository (as `stock-tracker`, renamed `insidertrack` at the public release) |
 | **September 17, 2026** | AI research notes with Claude / Gemini / OpenAI providers and bring-your-own keys |
 | **September 19, 2026** | The data-model pass: every member tracked, owner / asset / direction / dollar columns, options scored by contract, amendments reconciled, three years of history, market-wide Form 4, paper filings read by a vision model, per-member track records feeding the score, scraper health, off-site backups, CI — released as **v1.0.0** |
 
