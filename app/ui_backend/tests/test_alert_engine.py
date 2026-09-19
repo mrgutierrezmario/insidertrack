@@ -97,3 +97,30 @@ class TestEvaluate:
         _rule(clean, "momentum")
         ae.evaluate_alerts(clean)
         assert _quiet_feeds and _quiet_feeds[-1][0]["ticker"] == "AAPL"
+
+
+class TestPerRuleCap:
+    def test_cap_and_overflow_summary(self, clean, monkeypatch):
+        from models.politician import Politician
+        from models.trade import Trade
+        monkeypatch.setattr(ae, "MAX_EVENTS_PER_RULE", 3)
+        p = Politician(name="Rep Flood", chamber="house", is_tracked=True)
+        clean.add(p); clean.flush()
+        recent = date.today() - timedelta(days=1)
+        for i in range(10):
+            clean.add(Trade(politician_id=p.id, ticker=f"T{i}", transaction_type="purchase", direction="buy",
+                            asset_type="stock", amount_range="$1,001 - $15,000", trade_date=recent, source="house", raw_data="{}"))
+        clean.flush()
+        _rule(clean, "insider_buy", threshold=7, name="any buy")
+        # other tests leave tracked buys in the shared session — count what the rule will see
+        matching = (clean.query(Trade).join(Politician)
+                    .filter(Politician.is_tracked == True, Trade.direction == "buy",  # noqa: E712
+                            Trade.trade_date >= date.today() - timedelta(days=7)).count())
+        out = ae.evaluate_alerts(clean)
+        # 3 real events + 1 overflow summary
+        assert out["new_events"] == 4
+        summary = [e for e in out["events"] if "more match" in e["message"]]
+        assert len(summary) == 1 and summary[0]["message"].startswith(f"{matching - 3} more")
+        # second run: the 3 are deduped, the next 3 come through, one new summary is NOT re-added today
+        out2 = ae.evaluate_alerts(clean)
+        assert out2["new_events"] == 3

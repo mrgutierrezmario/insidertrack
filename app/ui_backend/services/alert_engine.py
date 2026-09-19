@@ -25,13 +25,43 @@ from models.whale import WhaleHolder, WhalePosition
 logger = logging.getLogger(__name__)
 
 
+# With every member tracked, a rule with no ticker ("any politician buy")
+# matches dozens of trades per run. Cap new events per rule per evaluation;
+# the overflow is summarised in one extra event so nothing is silently lost.
+MAX_EVENTS_PER_RULE = 15
+_emitted: dict[int, int] = {}
+_overflow: dict[int, int] = {}
+
+
 def _emit(db: Session, rule: AlertRule, ticker: str, message: str, dedup_key: str) -> bool:
-    """Create an AlertEvent if one with this dedup_key does not already exist."""
+    """Create an AlertEvent if one with this dedup_key does not already exist
+    and the rule hasn't hit its per-run cap."""
     exists = db.query(AlertEvent).filter(AlertEvent.dedup_key == dedup_key).first()
     if exists:
         return False
+    if _emitted.get(rule.id, 0) >= MAX_EVENTS_PER_RULE:
+        _overflow[rule.id] = _overflow.get(rule.id, 0) + 1
+        return False
     db.add(AlertEvent(rule_id=rule.id, ticker=ticker, message=message, dedup_key=dedup_key))
+    _emitted[rule.id] = _emitted.get(rule.id, 0) + 1
     return True
+
+
+def _flush_overflow(db: Session, rules: list, today) -> list[dict]:
+    """One summary event per rule that exceeded the cap this run."""
+    extra = []
+    by_id = {r.id: r for r in rules}
+    for rid, n in _overflow.items():
+        rule = by_id.get(rid)
+        if not rule:
+            continue
+        key = f"{rid}:overflow:{today}"
+        msg = (f"{n} more match(es) for this rule today beyond the first {MAX_EVENTS_PER_RULE}. "
+               f"Add a ticker to the rule to narrow it.")
+        if not db.query(AlertEvent).filter(AlertEvent.dedup_key == key).first():
+            db.add(AlertEvent(rule_id=rid, ticker=rule.ticker or "", message=msg, dedup_key=key))
+            extra.append({"ticker": rule.ticker or "", "message": msg, "rule": rule.name})
+    return extra
 
 
 def _matches_ticker(rule: AlertRule, ticker: str) -> bool:
@@ -46,6 +76,7 @@ def evaluate_alerts(db: Session) -> dict:
 
     today = date.today()
     new_events: list[dict] = []
+    _emitted.clear(); _overflow.clear()
 
     # Compute signals once and reuse across rules.
     signals = []
@@ -140,6 +171,7 @@ def evaluate_alerts(db: Session) -> dict:
                     if _emit(db, rule, e["ticker"], msg, key):
                         new_events.append({"ticker": e["ticker"], "message": msg, "rule": rule.name})
 
+    new_events.extend(_flush_overflow(db, rules, today))
     db.commit()
 
     # Email any rules that asked for notification.
