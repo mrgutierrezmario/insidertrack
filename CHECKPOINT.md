@@ -40,18 +40,24 @@ the dev container — see memory note). Branch `main` is pushed; CI runs on push
 Local Python is 3.14 and can't install the pinned deps. Use the app image:
 throwaway `postgres:18-alpine` on a user network + `tar cz app/ui_backend | docker run -i … stock-tracker-app:latest` + `pip install pytest` + `python -c 'from database import init_db; init_db()'` + `pytest -q`. Bind mounts of dev-container paths are refused by Docker Desktop, hence the tar pipe.
 
-## Still open (see the gap review at the end of the 2026-09-19 session)
+## Gap list — 2026-09-19 evening (worked in this order)
 
-- **Off-site backups not activated** — run `deploy/backup-setup.sh` on the Mac once (Google sign-in + passphrase printed once).
-- **Smart money is thin** — 7 tracked 13F holders; 85 of 141 scored tickers get the neutral 10. Add more filers via Admin (data entry) + weekly sync.
-- **Paper (scanned) filings invisible** for both chambers — needs OCR.
-- **House amendments** not reconciled (Senate is).
-- **Form 4 only for the congressional universe**, 15 filings/ticker cap.
-- **Sentiment has no source** — dropped from the score; the News page still uses AV.
-- No error tracking beyond container logs; single uvicorn worker shares scheduler + syncs + requests.
-- `risk_level` → staleness rename — cosmetic; leave it.
-
----
+| # | Gap | Status |
+|---|---|---|
+| 1 | Senate paper filings (GIF scans on EFD) read by the vision model | **done** — code path verified to the model call; Gemini free-tier quota was exhausted, first real readings at the next 8 AM sync |
+| 2 | Paper rows: link to the filing + admin "Remove misread row" | **done** (`filing_url` on every trade, `DELETE /trades/{id}`) |
+| 3 | Backfill 2021–2022 | queued — run after the batch's last deploy (deploys kill running jobs) |
+| 4 | First market-wide Form 4 run; Insiders page at that size | tomorrow 6:30 — check row count and page load |
+| 5 | Smart money: weight by position size / holder | pending |
+| 6 | Sentiment has no source; News page mostly empty | pending |
+| 7 | Track record for sells | pending |
+| 8 | Member leaderboard | pending |
+| 9 | Alert types: cluster buy, high-skill member buy | pending |
+| 10 | Review the email reports after the universe change | tomorrow's morning report |
+| 11 | Verify the off-site half of the backup | tomorrow after 03:00: `deploy/state/backups/backup.log` should end "Off-site copy up to date" |
+| 12 | Error tracking beyond container logs | pending |
+| 13 | Single uvicorn worker shares scheduler + syncs + requests | noted; split only if 8:00–8:15 feels slow |
+| 14 | Deploy guard: refuse `deploy/start.sh` while a backfill / skill refresh runs | pending |
 
 ## Deployment gotchas (from the 2026-09-16 rebuild; still true)
 
