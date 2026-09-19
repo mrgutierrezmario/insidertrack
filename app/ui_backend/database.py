@@ -218,6 +218,14 @@ def _apply_migrations():
            AND NOT EXISTS (SELECT 1 FROM trades t WHERE t.politician_id = p.id)
            AND EXISTS (SELECT 1 FROM politicians r WHERE r.name = 'Thomas H Tuberville')
          """),
+        # 2026-09: a holder's first loaded quarter has nothing to compare
+        # against, so its positions read "new" — relabel them "initial".
+        ("migration:whale_initial_quarter",
+         """
+         UPDATE whale_positions p SET change_type = 'initial'
+         FROM (SELECT holder_id, min(quarter) AS q0 FROM whale_positions GROUP BY holder_id) f
+         WHERE p.holder_id = f.holder_id AND p.quarter = f.q0 AND p.change_type = 'new'
+         """),
         ("migration:trades_derived_columns",
          """
          UPDATE trades SET direction =

@@ -88,10 +88,12 @@ class TestChangeType:
     def test_new_increased_decreased_stable(self, db):
         from models.whale import WhalePosition
         h = self._holder(db)
-        assert ef._change_type(h.id, "AAPL", 1_000_000, db) == "new"
+        # a holder with no history at all: nothing to compare against
+        assert ef._change_type(h.id, "AAPL", 1_000_000, db) == "initial"
         db.add(WhalePosition(holder_id=h.id, ticker="AAPL", company_name="Apple", value_usd=1_000_000,
-                             filing_date=date(2026, 5, 15), quarter="2026-Q1", change_type="new"))
+                             filing_date=date(2026, 5, 15), quarter="2026-Q1", change_type="initial"))
         db.flush()
+        assert ef._change_type(h.id, "MSFT", 500_000, db) == "new"           # holder has history, ticker doesn't
         assert ef._change_type(h.id, "AAPL", 1_100_000, db) == "increased"   # +10%
         assert ef._change_type(h.id, "AAPL", 900_000, db) == "decreased"     # -10%
         assert ef._change_type(h.id, "AAPL", 1_030_000, db) == "stable"      # +3%, inside ±5%

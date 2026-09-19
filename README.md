@@ -218,11 +218,11 @@ Every sync records its outcome per source. `GET /health` reports each source as 
 
 ## How Signals Work
 
-Every ticker with a congressional trade in the last 45 days gets a **composite score (0–100)** built from four sub-scores (scoring **v3**, since 2026-09-19):
+Every ticker with a congressional trade in the last 45 days gets a **composite score (0–100)** built from four sub-scores (scoring **v4**, since 2026-09-19):
 
 | Component | Max points | What it measures |
 |---|---|---|
-| Smart money | 20 | Whale 13F activity for this ticker (new / increased / reduced / closed positions) |
+| Smart money | 20 | Whale 13F activity for this ticker (new / increased / reduced / closed), each holder's position weighted by its share of that holder's book; a 5%+ position earns a conviction bonus. A holder's first loaded quarter is neutral |
 | Congress | 30 | Congressional buys vs. sells (45-day window), weighted by the disclosed dollar bracket **and by the member's own track record** — ×0.5 to ×1.5 from their 90-day beat-SPY rate (×1 until 10 buys are measured; recomputed weekly). Options count by contract direction (long call / short put = bullish); unknown contracts and bonds are neutral |
 | Corporate insiders | 25 | SEC Form 4 open-market buys vs. sells by officers, directors and 10% owners (90-day window), by dollar value. Buying counts more than selling; several insiders buying together earns a bonus |
 | Momentum | 25 | SMA20/50 crossovers, RSI, price trend |

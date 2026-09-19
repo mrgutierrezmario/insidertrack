@@ -327,7 +327,16 @@ def _quarter(date_str: str) -> str:
         return ""
 
 
-def _change_type(holder_id: int, ticker: str, current_value: int, db: Session) -> str:
+def _change_type(holder_id: int, ticker: str, current_value: int, db: Session,
+                 holder_has_history: bool | None = None) -> str:
+    """new / increased / decreased / stable vs the holder's previous filing.
+    A holder's very first quarter has nothing to compare against: every
+    position would read "new", which is not information — those are
+    "initial" and score as neutral."""
+    if holder_has_history is None:
+        holder_has_history = db.query(WhalePosition.id).filter(WhalePosition.holder_id == holder_id).first() is not None
+    if not holder_has_history:
+        return "initial"
     prev = (
         db.query(WhalePosition)
         .filter(WhalePosition.holder_id == holder_id, WhalePosition.ticker == ticker)
@@ -436,13 +445,16 @@ def sync_whale_positions(db: Session) -> dict:
 
         count = 0
         unmapped = 0
+        # Decide once per filing whether this holder has an earlier quarter —
+        # rows added in this loop must not make the holder look "historic".
+        has_history = db.query(WhalePosition.id).filter(WhalePosition.holder_id == holder.id).first() is not None
         for h in holdings[:MAX_POSITIONS]:
             ticker = _lookup_ticker(h["company_name"], ticker_map)
             if not ticker:
                 unmapped += 1
                 continue
 
-            ct = _change_type(holder.id, ticker, h["value_usd"], db)
+            ct = _change_type(holder.id, ticker, h["value_usd"], db, holder_has_history=has_history)
             db.add(WhalePosition(
                 holder_id=holder.id,
                 ticker=ticker,
