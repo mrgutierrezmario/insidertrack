@@ -126,7 +126,7 @@ export default function Politicians() {
       <div className="page-head">
         <div>
           <h1>Politicians</h1>
-          <p>{isAdmin ? "Why we track each person — and add new ones to watch." : "Who we track, and why their trades are worth watching."}</p>
+          <p>{isAdmin ? "Every member with a filed disclosure is tracked. Mute anyone whose trades should stay out of signals and alerts." : "Every member with a filed disclosure is tracked — their trades feed the signals, analysis and alerts."}</p>
         </div>
         <div className="page-head__actions">
           <input
@@ -204,7 +204,7 @@ export default function Politicians() {
             onCancelEdit={() => setEditId(null)} onDelete={setDeleteTarget}
             editId={editId} editNotes={editNotes} setEditNotes={setEditNotes} navigate={navigate} isAdmin={isAdmin} />
           {untracked.length > 0 && (
-            <PoliticianGroup title={`Not tracking (${untracked.length})`} items={untracked}
+            <PoliticianGroup title={`Muted — excluded from signals (${untracked.length})`} items={untracked}
               onTrack={handleTrack} onEdit={startEdit} onSaveEdit={saveEdit}
               onCancelEdit={() => setEditId(null)} onDelete={setDeleteTarget}
               editId={editId} editNotes={editNotes} setEditNotes={setEditNotes} navigate={navigate} isAdmin={isAdmin} muted />
@@ -287,7 +287,7 @@ function PoliticianCard({ p, muted, onTrack, onEdit, onSaveEdit, onCancelEdit, o
           </button>
           <button onClick={() => onTrack(p)}
             style={{ background: p.is_tracked ? "#7c3aed22" : C.surfaceAlt, color: p.is_tracked ? C.info : C.textMuted, border: `1px solid ${p.is_tracked ? "#7c3aed44" : C.surfaceAlt}`, padding: "0.3rem 0.75rem", borderRadius: 5, cursor: "pointer", fontSize: "0.78rem" }}>
-            {p.is_tracked ? "✓ Tracking" : "Track"}
+            {p.is_tracked ? "✓ Tracking" : "Muted"}
           </button>
           <button onClick={() => onDelete(p)}
             style={{ background: "transparent", color: "var(--c-textDim)", border: "none", padding: "0.3rem 0.5rem", borderRadius: 5, cursor: "pointer", fontSize: "0.78rem" }}

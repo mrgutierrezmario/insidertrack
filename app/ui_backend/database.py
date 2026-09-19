@@ -117,6 +117,34 @@ def _apply_migrations():
             except Exception:
                 pass  # table may not exist yet on a fresh install — create_all handles that
 
+    # One-shot data migrations: run exactly once per database, recorded in
+    # app_settings so an admin's later edits are not overwritten on restart.
+    one_shot = [
+        # 2026-09: every member is tracked by default (was Pelosi-only). Flip the
+        # existing rows once; untracking afterwards is a deliberate admin choice.
+        ("migration:politicians_tracked_by_default",
+         "UPDATE politicians SET is_tracked = TRUE WHERE is_tracked IS NOT TRUE"),
+        ("migration:politicians_tracked_by_default",
+         "ALTER TABLE politicians ALTER COLUMN is_tracked SET DEFAULT TRUE, ALTER COLUMN is_tracked SET NOT NULL"),
+    ]
+    with engine.begin() as conn:
+        done = {
+            k for (k,) in conn.execute(
+                text("SELECT key FROM app_settings WHERE key LIKE 'migration:%'")
+            ).all()
+        }
+        applied: set[str] = set()
+        for key, sql in one_shot:
+            if key in done:
+                continue
+            conn.execute(text(sql))
+            applied.add(key)
+        for key in applied:
+            conn.execute(
+                text("INSERT INTO app_settings (key, value) VALUES (:k, NOW()::text) ON CONFLICT (key) DO NOTHING"),
+                {"k": key},
+            )
+
 
 def init_db():
     from models import trade, politician, whale, analysis, subscriber, app_setting, signal_outcome, access, alert, insider, watchlist, fed_official, filing_institution, market_cache, processed_filing  # noqa: F401

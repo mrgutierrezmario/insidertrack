@@ -11,7 +11,10 @@ class Politician(Base):
     chamber = Column(String, nullable=False)  # house | senate
     party = Column(String)
     state = Column(String)
-    is_tracked = Column(Boolean, default=False)
+    # Every member is tracked by default — the signal universe is "all
+    # congressional trades". Untracking is an admin opt-out (mute) that removes
+    # a member's trades from signals, analysis, alerts and outcome snapshots.
+    is_tracked = Column(Boolean, default=True, server_default="true", nullable=False)
     description = Column(Text, default="")
     why_tracked = Column(Text, default="")
 

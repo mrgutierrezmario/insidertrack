@@ -156,7 +156,7 @@ def _enrich(first: str, last: str) -> tuple[str, str]:
 def _get_or_create_politician(db: Session, name: str, chamber: str, party: str = "", state: str = "") -> Politician:
     politician = db.query(Politician).filter(Politician.name == name).first()
     if not politician:
-        politician = Politician(name=name, chamber=chamber, party=party, state=state)
+        politician = Politician(name=name, chamber=chamber, party=party, state=state, is_tracked=True)
         db.add(politician)
         db.flush()
         return politician
@@ -573,14 +573,6 @@ def sync_all(db: Session) -> dict:
     try:
         senate = sync_senate_trades(db)
         house = sync_house_trades(db)
-
-        # Auto-flag known high-interest politicians as tracked
-        tracked_names = ["Nancy Pelosi", "Paul Pelosi"]
-        for name in tracked_names:
-            politician = db.query(Politician).filter(Politician.name.ilike(f"%{name}%")).first()
-            if politician and not politician.is_tracked:
-                politician.is_tracked = True
-        db.commit()
 
         result = {"house": house, "senate": senate}
         _sync_state.update(result=result)
