@@ -89,9 +89,8 @@ docker compose -f deploy/compose.yml logs -f app
 
   Backups are encrypted before they leave the machine (rclone crypt); the
   passphrase is printed once by the setup script — keep it in a password
-  manager. The Google Drive connection can be shared with lecture-note-app
-  (same `gdrive` rclone remote, separate encrypted folder). Failures email
-  `MAIL_ADMIN_TO`.
+  manager. Uses its own Google account / rclone remote (`gdrive-stock-tracker`),
+  separate from the lecture-notes backups. Failures email `MAIL_ADMIN_TO`.
 - If the Tailscale container restarts, the app notices within ~45 s that its
   network namespace is gone and restarts itself onto the new one.
 

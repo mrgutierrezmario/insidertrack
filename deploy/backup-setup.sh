@@ -19,7 +19,10 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 REPO=$(cd .. && pwd)
-GDRIVE_REMOTE=gdrive   # shared with lecture-note-app if already set up
+# Its own Google Drive remote, deliberately NOT the `gdrive` one lecture-note-app
+# uses — sign in with a different Google account so the two apps' backups don't
+# share a drive (or a blast radius).
+GDRIVE_REMOTE=gdrive-stock-tracker
 CRYPT_REMOTE="${RCLONE_REMOTE:-stock-tracker-backup:}"; CRYPT_REMOTE=${CRYPT_REMOTE%:}
 DRIVE_FOLDER=InsiderTrackBackups
 log() { echo "[backup-setup] $*"; }
@@ -36,6 +39,7 @@ if rclone listremotes | grep -qx "$GDRIVE_REMOTE:"; then
 else
   echo
   echo "  A browser window will open. Sign in with the Google account that should"
+  echo "  hold THESE backups — a different one from the lecture-notes backups."
   echo "  hold the backups and click Allow. (If you are on a machine without a"
   echo "  browser, rclone prints a link to open elsewhere.)"
   echo
