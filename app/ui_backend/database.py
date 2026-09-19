@@ -1,6 +1,10 @@
+import logging
+
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 from config import settings
+
+logger = logging.getLogger(__name__)
 
 # pool_pre_ping recycles stale connections (e.g. after a Postgres restart)
 # instead of returning them and erroring on first use. Pool sizing is generous
@@ -121,12 +125,16 @@ def _apply_migrations():
           AND so.politician_id IS NULL
         """,
     ]
-    with engine.begin() as conn:
-        for sql in migrations:
-            try:
+    # Each statement runs in its own transaction so one failure can't poison
+    # the rest, and every failure is logged: a typo here used to vanish
+    # silently and surface later as a missing column.
+    for sql in migrations:
+        try:
+            with engine.begin() as conn:
                 conn.execute(text(sql))
-            except Exception:
-                pass  # table may not exist yet on a fresh install — create_all handles that
+        except Exception as exc:
+            head = " ".join(sql.split())[:90]
+            logger.error(f"Migration failed: {head!r}: {exc}")
 
     # One-shot data migrations: run exactly once per database, recorded in
     # app_settings so an admin's later edits are not overwritten on restart.
