@@ -140,7 +140,7 @@ Only electronically-filed reports are parsed (scanned paper filings have no text
 |---|---|---|
 | SEC EDGAR | Quarterly | 45–60 days after quarter end |
 
-Pre-loaded funds: Berkshire Hathaway, Soros Fund Management, Renaissance Technologies, Bridgewater Associates, Pershing Square (Bill Ackman).
+Pre-loaded filers (21): Berkshire, Soros, Renaissance, Bridgewater, Pershing Square, Scion, ARK, Tiger Global, Duquesne, Appaloosa, Baupost, Third Point, Elliott, Coatue, Lone Pine, Viking, Greenlight, Trian, Starboard, Altimeter, Icahn. Discretionary managers only — quant/multi-strat shops hold thousands of hedged positions that say nothing about conviction. Add more in Admin → Filings institutions.
 
 ### Federal Reserve Officials
 Roster only (seeded at startup, refreshable from the page). Board members have been barred from holding individual stocks since 2022, and OGE publishes disclosures as PDFs with no API, so the Fed page shows who is on the Board with an empty (compliant) trade list.

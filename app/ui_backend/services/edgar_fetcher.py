@@ -32,6 +32,24 @@ KNOWN_WHALES = [
     {"name": "Renaissance Technologies",     "cik": "0001037389", "type": "fund"},
     {"name": "Bridgewater Associates",       "cik": "0001350694", "type": "fund"},
     {"name": "Bill Ackman / Pershing Square","cik": "0001336528", "type": "fund"},
+    # Added 2026-09-19 (CIKs verified against EDGAR submissions). Discretionary
+    # managers only — quant / multi-strat shops (Citadel, Millennium, D.E. Shaw,
+    # Two Sigma, Point72) hold thousands of hedged positions that say nothing
+    # about conviction.
+    {"name": "Tiger Global Management",      "cik": "0001167483", "type": "fund"},
+    {"name": "Duquesne Family Office (Druckenmiller)", "cik": "0001536411", "type": "fund"},
+    {"name": "Appaloosa (Tepper)",           "cik": "0001656456", "type": "fund"},
+    {"name": "Baupost Group (Klarman)",      "cik": "0001061768", "type": "fund"},
+    {"name": "Third Point (Loeb)",           "cik": "0001040273", "type": "fund"},
+    {"name": "Elliott Investment Management","cik": "0001791786", "type": "fund"},
+    {"name": "Coatue Management",            "cik": "0001135730", "type": "fund"},
+    {"name": "Lone Pine Capital",            "cik": "0001061165", "type": "fund"},
+    {"name": "Viking Global Investors",      "cik": "0001103804", "type": "fund"},
+    {"name": "Greenlight Capital (Einhorn)", "cik": "0001079114", "type": "fund"},
+    {"name": "Trian Fund Management (Peltz)","cik": "0001345471", "type": "fund"},
+    {"name": "Starboard Value",              "cik": "0001517137", "type": "fund"},
+    {"name": "Altimeter Capital",            "cik": "0001541617", "type": "fund"},
+    {"name": "Carl Icahn",                   "cik": "0000921669", "type": "individual"},
 ]
 
 # Small override table for names that don't normalize cleanly
