@@ -17,6 +17,10 @@ own machine from free public data sources; cloud AI providers are optional.
 
 **By M.G. Network and Technology Solutions.**
 
+**Live site: [mgnts-stock-tracker.tail3659a6.ts.net](https://mgnts-stock-tracker.tail3659a6.ts.net)** — no
+account needed; it runs on a Mac mini at home, so if it is ever down, it is
+being worked on.
+
 ![The Dashboard in dark mode: this week's disclosures, the top signal, the latest bullish/bearish read and alerts fired; the latest analysis as ticker chips beside a watchlist with prices, 7-day change and each ticker's score; then top signals and latest disclosures](design/screenshots/dashboard-dark.png)
 
 <p align="center"><em>The Dashboard: what changed this week, the top signal, the latest read, and your watchlist — every saved ticker with price, 7-day change and score, scrolling inside its card. Dark mode; light mode below.</em></p>
