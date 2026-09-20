@@ -173,9 +173,13 @@ refuses everything. It reads the public API only.
   `curl -s -o /dev/null -w '%{http_code}' -X POST https://<host>/mcp` → `401`.
 - **Log**: `docker compose -f deploy/compose.yml logs mcp` — one line per
   tool call (client name, tool, arguments, rows, duration; never the token).
-- The `/mcp` path is a second handler in the Tailscale `serve.json`; changing
-  that file restarts the tailscale container **and the app** (shared network),
-  so do it outside job windows, like any full `start.sh`.
+- The `/mcp` path is a second handler in the Tailscale `serve.json`. Tailscale
+  reloads that file in place (no restart). **After any `up -d` on the stack**,
+  confirm both handlers are live —
+  `docker compose -f deploy/compose.yml exec tailscale tailscale funnel status`
+  should list `/` and `/mcp`. If `/mcp` is missing, re-run the writer:
+  `docker compose -f deploy/compose.yml run --rm --no-deps tailscale-config`
+  (touches nothing else).
 
 ## Where things live
 

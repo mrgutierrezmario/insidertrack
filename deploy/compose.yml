@@ -38,9 +38,13 @@ services:
       - sh
       - -c
       - |
-        cat > /config/serve.json <<'EOF'
+        # Written to a temp file and moved into place: tailscale reloads the
+        # file the moment it changes, and a half-written file once dropped the
+        # /mcp handler (2026-09-20).
+        cat > /config/serve.json.tmp <<'EOF'
         {"TCP":{"443":{"HTTPS":true}},"Web":{"$${TS_CERT_DOMAIN}:443":{"Handlers":{"/":{"Proxy":"http://127.0.0.1:8003"},"/mcp":{"Proxy":"http://mcp:8100"}}}},"AllowFunnel":{"$${TS_CERT_DOMAIN}:443":true}}
         EOF
+        mv /config/serve.json.tmp /config/serve.json
 
   tailscale:
     image: tailscale/tailscale:latest
