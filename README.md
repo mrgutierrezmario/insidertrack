@@ -17,9 +17,9 @@ own machine from free public data sources; cloud AI providers are optional.
 
 **By M.G. Network and Technology Solutions.**
 
-![The Dashboard in dark mode: this week's disclosures, the top signal, the latest bullish/bearish read and alerts fired, then the latest analysis as ticker chips](design/screenshots/dashboard-dark.png)
+![The Dashboard in dark mode: this week's disclosures, the top signal, the latest bullish/bearish read and alerts fired; the latest analysis as ticker chips beside a watchlist with prices, 7-day change and each ticker's score; then top signals and latest disclosures](design/screenshots/dashboard-dark.png)
 
-<p align="center"><em>The Dashboard: what changed this week, the top signal, the latest read. Dark mode; light mode below.</em></p>
+<p align="center"><em>The Dashboard: what changed this week, the top signal, the latest read, your watchlist with each ticker's score. Dark mode; light mode below.</em></p>
 
 | | |
 |---|---|
