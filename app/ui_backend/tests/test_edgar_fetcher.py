@@ -67,8 +67,9 @@ class TestFilingSelection:
             "form": ["8-K", "13F-HR/A", "13F-HR"],
             "accessionNumber": ["0001-24-1", "0001-24-2", "0001-24-3"],
             "reportDate": ["", "2026-06-30", "2026-03-31"],
+            "filingDate": ["2026-08-01", "2026-08-14", "2026-05-15"],
         }}}
-        assert ef._latest_13f(subs) == ("0001242", "2026-06-30", "1067983")
+        assert ef._latest_13f(subs) == ("0001242", "2026-06-30", "1067983", "2026-08-14")
 
     def test_latest_13f_none(self):
         assert ef._latest_13f({"filings": {"recent": {"form": ["8-K"]}}}) is None
@@ -88,10 +89,12 @@ class TestChangeType:
     def test_new_increased_decreased_stable(self, db):
         from models.whale import WhalePosition
         h = self._holder(db)
-        assert ef._change_type(h.id, "AAPL", 1_000_000, db) == "new"
+        # a holder with no history at all: nothing to compare against
+        assert ef._change_type(h.id, "AAPL", 1_000_000, db) == "initial"
         db.add(WhalePosition(holder_id=h.id, ticker="AAPL", company_name="Apple", value_usd=1_000_000,
-                             filing_date=date(2026, 5, 15), quarter="2026-Q1", change_type="new"))
+                             filing_date=date(2026, 5, 15), quarter="2026-Q1", change_type="initial"))
         db.flush()
+        assert ef._change_type(h.id, "MSFT", 500_000, db) == "new"           # holder has history, ticker doesn't
         assert ef._change_type(h.id, "AAPL", 1_100_000, db) == "increased"   # +10%
         assert ef._change_type(h.id, "AAPL", 900_000, db) == "decreased"     # -10%
         assert ef._change_type(h.id, "AAPL", 1_030_000, db) == "stable"      # +3%, inside ±5%

@@ -16,6 +16,8 @@ const Markets     = lazy(() => import("./pages/Markets"));
 const News        = lazy(() => import("./pages/News"));
 const Earnings    = lazy(() => import("./pages/Earnings"));
 const Politicians = lazy(() => import("./pages/Politicians"));
+const Leaderboard = lazy(() => import("./pages/Leaderboard"));
+const ModelDesk = lazy(() => import("./pages/ModelDesk"));
 const Politician  = lazy(() => import("./pages/Politician"));
 const Ticker      = lazy(() => import("./pages/Ticker"));
 const Simulator   = lazy(() => import("./pages/Simulator"));
@@ -46,22 +48,24 @@ const TOP_LINKS: ReadonlyArray<NavEntry> = [
 const NAV_GROUPS: ReadonlyArray<NavGroup> = [
   { label: "Congress", items: [
     { to: "/feed",        label: "Congressional Trades", hint: "STOCK Act disclosures" },
-    { to: "/politicians", label: "Politicians", hint: "Who we track and why" },
+    { to: "/politicians", label: "Politicians", hint: "Every member with a filing" },
+    { to: "/leaderboard", label: "Leaderboard", hint: "Members ranked by results vs. SPY" },
   ]},
   { label: "Institutions", items: [
     { to: "/insiders", label: "Corporate Insiders", hint: "SEC Form 4" },
-    { to: "/whales",   label: "Whales", hint: "13F holdings of big funds" },
+    { to: "/whales",   label: "Whales", hint: "Quarterly 13F holdings" },
     { to: "/filings",  label: "SEC Filings", hint: "Recent filings by institution" },
     { to: "/fed",      label: "Fed Officials", hint: "FOMC roster & disclosures" },
   ]},
   { label: "Signals", items: [
-    { to: "/signals",   label: "Signal Scores", hint: "Composite score per ticker" },
+    { to: "/signals",   label: "Signal Scores", hint: "Composite score, 0–100, per ticker" },
     { to: "/outcomes",  label: "Outcomes", hint: "How past signals played out" },
-    { to: "/simulator", label: "Simulator", hint: "Paper portfolio vs SPY" },
+    { to: "/ai-desk", label: "AI Desk", hint: "The AI's daily calls, scored" },
+    { to: "/simulator", label: "Simulator", hint: "Hypothetical returns vs. SPY" },
   ]},
   { label: "Markets", items: [
     { to: "/markets",  label: "Market Overview", hint: "Indices, movers, Fed rate" },
-    { to: "/news",     label: "News", hint: "Sentiment-tagged headlines" },
+    { to: "/news",     label: "News", hint: "Headlines for tracked tickers" },
     { to: "/earnings", label: "Earnings", hint: "Upcoming reports" },
   ]},
   { label: "My Watch", items: [
@@ -175,7 +179,7 @@ function Drawer({ open, onClose, alerts }: { open: boolean; onClose: () => void;
           <img src="/logo-mark.svg" alt="" />
           <div>
             <div>Insider<b>Track</b></div>
-            <small>M.G. Network &amp; Technology Solutions · v{__APP_VERSION__}</small>
+            <small>M.G. Network &amp; Technology Solutions · v{__APP_VERSION__} · <a href="/guide" style={{ color: "inherit" }}>Guide</a> · <a href="/privacy" style={{ color: "inherit" }}>Privacy</a></small>
           </div>
         </div>
       </div>
@@ -228,6 +232,8 @@ export default function App() {
           <Route path="/markets" element={<Markets />} />
           <Route path="/signals" element={<Signals />} />
           <Route path="/politicians" element={<Politicians />} />
+          <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/ai-desk" element={<ModelDesk />} />
           <Route path="/fed" element={<Fed />} />
           <Route path="/activity" element={<Activity />} />
           <Route path="/politician/:id" element={<Politician />} />

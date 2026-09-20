@@ -12,21 +12,15 @@ Regional bank presidents publish disclosures on their own bank websites.
 """
 
 import logging
-import time
-from datetime import date, datetime
-from typing import Optional
 
-import httpx
 from sqlalchemy.orm import Session
 
-from models.fed_official import FedOfficial, FedTrade
+from models.fed_official import FedOfficial
 
 logger = logging.getLogger(__name__)
 
-HEADERS = {"User-Agent": "InsiderTrack/1.0 contact@insidertrack.local"}
-# Placeholder: OGE publishes 278/278-T reports as PDFs, not a JSON API. This
-# host does not exist, so sync_oge_trades() currently fetches nothing.
-OGE_API = "https://efts.usethical.com/EOGE/api"
+# OGE publishes 278/278-T reports as PDFs behind a request form — there is
+# no machine-readable trade feed, so this module only maintains the roster.
 
 # ── Known FOMC / Fed officials roster ─────────────────────────────────────────
 # Board of Governors (permanent FOMC voters) + Regional presidents
@@ -272,48 +266,6 @@ FED_OFFICIALS_SEED = [
     },
 ]
 
-# Notable historical trades (from 2021 disclosed transactions + OGE filings)
-# These are documented public record trades that led to the 2021 scandal
-# No seeded trades. Earlier versions shipped a few hard-coded rows attributed to
-# sitting governors; they were placeholders, not disclosures, and were removed.
-# Board members have been barred from buying individual stocks since the 2022
-# investment policy, so an empty table here is the expected state.
-FED_TRADES_SEED: list[dict] = []
-
-
-# ── OGE EFTS API ───────────────────────────────────────────────────────────────
-
-def _oge_search(name: str) -> list[dict]:
-    """Search OGE EFTS for filings by a Fed official by name."""
-    try:
-        with httpx.Client(timeout=15, headers=HEADERS) as client:
-            r = client.get(f"{OGE_API}/filing/get_records/", params={
-                "searchText": name,
-                "filerTypes": "1",   # Executive branch filers
-                "agencies": "FRB",   # Federal Reserve Board
-                "pageSize": 10,
-            })
-            r.raise_for_status()
-            data = r.json()
-            return data.get("results", []) or []
-    except Exception as e:
-        logger.debug(f"OGE search for {name} failed: {e}")
-        return []
-
-
-def _oge_transactions(filing_id: str) -> list[dict]:
-    """Fetch transaction schedule (Part 4) from an OGE filing."""
-    try:
-        with httpx.Client(timeout=15, headers=HEADERS) as client:
-            r = client.get(f"{OGE_API}/filing/{filing_id}/transactions/")
-            r.raise_for_status()
-            return r.json().get("results", []) or []
-    except Exception:
-        return []
-
-
-# ── Seed / sync helpers ────────────────────────────────────────────────────────
-
 def seed_officials(db: Session) -> int:
     """Insert known officials if they don't already exist."""
     added = 0
@@ -352,121 +304,3 @@ def seed_officials(db: Session) -> int:
     db.commit()
     logger.info(f"Fed officials seeded: {added} new")
     return added
-
-
-def seed_trades(db: Session) -> int:
-    """Insert known seed trades (from disclosed public records)."""
-    added = 0
-    for t in FED_TRADES_SEED:
-        official = db.query(FedOfficial).filter(FedOfficial.name == t["official_name"]).first()
-        if not official:
-            continue
-        td = date.fromisoformat(t["trade_date"])
-        existing = db.query(FedTrade).filter(
-            FedTrade.official_id == official.id,
-            FedTrade.ticker == t["ticker"],
-            FedTrade.trade_date == td,
-            FedTrade.transaction_type == t["transaction_type"],
-        ).first()
-        if existing:
-            continue
-        db.add(FedTrade(
-            official_id=official.id,
-            ticker=t["ticker"],
-            asset_name=t.get("asset_name"),
-            transaction_type=t["transaction_type"],
-            amount_range=t.get("amount_range"),
-            trade_date=td,
-            disclosure_date=date.fromisoformat(t["disclosure_date"]) if t.get("disclosure_date") else None,
-            filing_year=t.get("filing_year"),
-            source=t.get("source", "oge"),
-            source_url=t.get("source_url"),
-        ))
-        added += 1
-    db.commit()
-    logger.info(f"Fed seed trades inserted: {added}")
-    return added
-
-
-def sync_oge_trades(db: Session) -> dict:
-    """
-    Placeholder. OGE has no public JSON API for 278/278-T reports (they are
-    PDFs behind a request form), so there is nothing to fetch programmatically.
-    Returns zero counts without making network calls; the roster is what the
-    Fed page shows.
-    """
-    logger.info("Fed: no machine-readable transaction source; skipping OGE fetch")
-    return {"fetched": 0, "stored": 0}
-    board_members = (
-        db.query(FedOfficial)
-        .filter(FedOfficial.role == "board", FedOfficial.is_active == True)  # noqa: E712
-        .all()
-    )
-    fetched = 0
-    stored = 0
-
-    for official in board_members:
-        try:
-            filings = _oge_search(official.name)
-            for filing in filings[:3]:  # only most recent filings
-                filing_id = filing.get("id") or filing.get("filing_id")
-                if not filing_id:
-                    continue
-                filing_year = filing.get("year") or filing.get("reportYear")
-                transactions = _oge_transactions(str(filing_id))
-                fetched += len(transactions)
-                for tx in transactions:
-                    ticker = (tx.get("ticker") or tx.get("asset_ticker") or "").upper().strip()
-                    if not ticker or len(ticker) > 10:
-                        continue
-                    tx_type_raw = (tx.get("type") or tx.get("transactionType") or "").lower()
-                    tx_type = "purchase" if "purchase" in tx_type_raw or "buy" in tx_type_raw else \
-                              "sale" if "sale" in tx_type_raw or "sell" in tx_type_raw else "other"
-                    td_str = tx.get("date") or tx.get("transactionDate") or tx.get("trade_date")
-                    if not td_str:
-                        continue
-                    try:
-                        td = date.fromisoformat(td_str[:10])
-                    except ValueError:
-                        continue
-                    existing = db.query(FedTrade).filter(
-                        FedTrade.official_id == official.id,
-                        FedTrade.ticker == ticker,
-                        FedTrade.trade_date == td,
-                        FedTrade.transaction_type == tx_type,
-                    ).first()
-                    if existing:
-                        continue
-                    db.add(FedTrade(
-                        official_id=official.id,
-                        ticker=ticker,
-                        asset_name=tx.get("asset_name") or tx.get("assetName") or "",
-                        transaction_type=tx_type,
-                        amount_range=tx.get("amount") or tx.get("value_range") or "",
-                        trade_date=td,
-                        filing_year=filing_year,
-                        source="oge",
-                        source_url=f"https://efts.usethical.com/EOGE/api/filing/{filing_id}/",
-                    ))
-                    stored += 1
-            time.sleep(0.5)  # be polite to OGE API
-        except Exception as e:
-            logger.warning(f"OGE sync failed for {official.name}: {e}")
-
-    if stored:
-        db.commit()
-    logger.info(f"OGE sync: {fetched} transactions found, {stored} new stored")
-    return {"fetched": fetched, "stored": stored}
-
-
-def sync_all(db: Session) -> dict:
-    """Full sync: seed officials → seed known trades → try OGE live fetch."""
-    officials_added = seed_officials(db)
-    trades_seeded = seed_trades(db)
-    oge_result = sync_oge_trades(db)
-    return {
-        "officials_added": officials_added,
-        "trades_seeded": trades_seeded,
-        "oge_fetched": oge_result["fetched"],
-        "oge_stored": oge_result["stored"],
-    }

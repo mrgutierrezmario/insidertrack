@@ -14,7 +14,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from config import settings
 from database import init_db
-from routers import access, ai, alerts, analysis, app_settings, config, earnings, fed, filings, insiders, market, news, outcomes, politicians, search, signals, simulator, trades, watchlist, whales
+from routers import access, ai, alerts, analysis, app_settings, config, earnings, fed, filings, insiders, market, model_desk, news, outcomes, politicians, search, signals, simulator, trades, watchlist, whales
 from services.scheduler import start_scheduler, stop_scheduler
 
 # ── Logging setup ─────────────────────────────────────────────────────────────
@@ -161,6 +161,8 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     logging.getLogger(__name__).exception(
         "Unhandled %s on %s %s [rid=%s]", type(exc).__name__, request.method, request.url.path, rid
     )
+    from services.error_log import record
+    record(type(exc).__name__, f"{request.method} {request.url.path}", rid)
     return JSONResponse(
         _error_payload("InternalServerError", "An unexpected error occurred.", rid),
         status_code=500,
@@ -190,6 +192,7 @@ app.include_router(market.router)
 app.include_router(signals.router)
 app.include_router(outcomes.router)
 app.include_router(alerts.router)
+app.include_router(model_desk.router)
 app.include_router(ai.router)
 app.include_router(insiders.router)
 app.include_router(watchlist.router)
@@ -202,6 +205,36 @@ app.include_router(access.router)
 app.include_router(news.router)
 app.include_router(earnings.router)
 app.include_router(app_settings.router)
+
+
+@app.get("/jobs/running")
+def jobs_running():
+    """Long-running jobs in flight — deploy/start.sh refuses to restart the
+    app while any is running (a restart kills them). In-process jobs report
+    from memory; the skill refresh (which may run via docker exec) leaves a
+    marker in app_settings, treated as stale after 4 h."""
+    from datetime import datetime, timedelta
+    from database import SessionLocal
+    from models.app_setting import AppSetting
+    from services.congress_fetcher import get_backfill_state, get_sync_state
+    from services.track_record import SKILL_JOB_KEY
+
+    running = {}
+    if get_sync_state().get("running"):
+        running["congress_sync"] = get_sync_state().get("started_at")
+    bf = get_backfill_state()
+    if bf.get("running"):
+        running["backfill"] = f"{bf.get('since')} → {bf.get('until')}{' (re-parse)' if bf.get('reparse') else ''}, phase {bf.get('phase')} {bf.get('done')}/{bf.get('total')}"
+    try:
+        with SessionLocal() as db:
+            row = db.query(AppSetting).filter(AppSetting.key == SKILL_JOB_KEY).first()
+            if row and row.value:
+                started = datetime.fromisoformat(row.value)
+                if datetime.now() - started < timedelta(hours=4):
+                    running["skill_refresh"] = row.value
+    except Exception:
+        pass
+    return {"running": running, "any": bool(running)}
 
 
 @app.get("/health")
@@ -245,6 +278,8 @@ def health():
             # Data freshness is reported, not enforced: a stale scraper must
             # not flip the container unhealthy (the process is fine).
             "data": sources,
+            # Unhandled exceptions in the last 24 h (in-process; resets on restart).
+            "errors_24h": __import__("services.error_log", fromlist=["summary"]).summary(24),
         },
         status_code=code,
     )
@@ -259,6 +294,9 @@ if DIST_DIR.exists():
         # Root-level static files from the build (favicons, manifest, logos,
         # fonts) are served as-is; anything else is a client-side route and
         # gets the SPA shell. The resolve() check keeps ".." inside dist.
+        # Static pages (user guide, privacy) work without the .html extension.
+        if full_path in ("guide", "privacy"):
+            full_path += ".html"
         if full_path:
             candidate = (DIST_DIR / full_path).resolve()
             if candidate.is_file() and DIST_DIR.resolve() in candidate.parents:

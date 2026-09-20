@@ -1,4 +1,4 @@
-"""services.trade_semantics — owner/asset/direction/amount normalisation."""
+"""services.trade_semantics — owner/asset/direction/amount normalization."""
 
 import pytest
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { C, card } from "../lib/theme";
 import { getInsiderClusters } from "../lib/api";
+import { fmtDate } from "../lib/format";
 import type { InsiderCluster } from "../types/api";
 import WatchlistButton from "./WatchlistButton";
 
@@ -55,7 +56,7 @@ export default function ClusterBuys() {
                 <td style={{ padding: "5px 8px", textAlign: "right", color: C.success, fontWeight: 700 }}>{c.buyers}</td>
                 <td style={{ padding: "5px 8px", textAlign: "right", color: C.textSoft }}>{c.buys}</td>
                 <td style={{ padding: "5px 8px", textAlign: "right", color: C.text, fontWeight: 600 }}>{dollars(c.dollars)}</td>
-                <td style={{ padding: "5px 8px", color: C.textMuted, whiteSpace: "nowrap" }}>{c.last_buy ?? "—"}</td>
+                <td style={{ padding: "5px 8px", color: C.textMuted, whiteSpace: "nowrap" }}>{fmtDate(c.last_buy)}</td>
               </tr>
             ))}
           </tbody>

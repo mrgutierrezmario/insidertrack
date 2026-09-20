@@ -1,4 +1,5 @@
 import { C, LABEL_COLORS } from "../lib/theme";
+import ModelDeskCard from "../components/ModelDeskCard";
 import useDocumentTitle from "../hooks/useDocumentTitle";
 import useAdmin from "../hooks/useAdmin";
 import { useEffect, useMemo, useState } from "react";
@@ -59,6 +60,10 @@ function SectionHead({ title, to, linkLabel = "View all →" }: { title: string;
     </div>
   );
 }
+
+// The analysis can flag 100+ tickers; the Dashboard shows the first two rows
+// and links to the full list rather than becoming a wall of chips.
+const CHIP_CAP = 18;
 
 const Chip = ({ t, up }: { t: string; up: boolean }) => (
   <Link to={`/ticker/${t}`} style={{
@@ -238,7 +243,7 @@ export default function Dashboard() {
         />
         <Stat
           label="Latest read"
-          value={latest ? <>{latest.a.tickers_bullish?.length ?? 0}<span style={{ color: C.success, fontSize: "0.9rem" }}> ↑</span> · {latest.a.tickers_bearish?.length ?? 0}<span style={{ color: C.danger, fontSize: "0.9rem" }}> ↓</span></> : "…"}
+          value={latest ? <><span style={{ color: C.success }}>{latest.a.tickers_bullish?.length ?? 0}</span><span style={{ fontSize: "0.8rem", color: C.textMuted }}> bullish</span> · <span style={{ color: C.danger }}>{latest.a.tickers_bearish?.length ?? 0}</span><span style={{ fontSize: "0.8rem", color: C.textMuted }}> bearish</span></> : "…"}
           sub={latest ? `${latest.period} · ${fmtDate(latest.a.analysis_date)}` : "no analysis yet"}
           to="/signals"
         />
@@ -261,12 +266,14 @@ export default function Dashboard() {
                     <div style={{ color: C.textMuted, fontSize: "0.72rem", textTransform: "uppercase", marginBottom: 6 }}>Bullish</div>
                     <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginBottom: 12 }}>
                       {(latest.a.tickers_bullish ?? []).length === 0 && <span style={{ color: C.textDim, fontSize: "0.82rem" }}>none</span>}
-                      {(latest.a.tickers_bullish ?? []).map((t) => <Chip key={t} t={t} up />)}
+                      {(latest.a.tickers_bullish ?? []).slice(0, CHIP_CAP).map((t) => <Chip key={t} t={t} up />)}
+                      {(latest.a.tickers_bullish ?? []).length > CHIP_CAP && <Link to="/signals" style={{ color: C.textMuted, fontSize: "0.8rem", alignSelf: "center", textDecoration: "none" }}>+{(latest.a.tickers_bullish ?? []).length - CHIP_CAP} more →</Link>}
                     </div>
                     <div style={{ color: C.textMuted, fontSize: "0.72rem", textTransform: "uppercase", marginBottom: 6 }}>Bearish</div>
                     <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
                       {(latest.a.tickers_bearish ?? []).length === 0 && <span style={{ color: C.textDim, fontSize: "0.82rem" }}>none</span>}
-                      {(latest.a.tickers_bearish ?? []).map((t) => <Chip key={t} t={t} up={false} />)}
+                      {(latest.a.tickers_bearish ?? []).slice(0, CHIP_CAP).map((t) => <Chip key={t} t={t} up={false} />)}
+                      {(latest.a.tickers_bearish ?? []).length > CHIP_CAP && <Link to="/signals" style={{ color: C.textMuted, fontSize: "0.8rem", alignSelf: "center", textDecoration: "none" }}>+{(latest.a.tickers_bearish ?? []).length - CHIP_CAP} more →</Link>}
                     </div>
                     <div style={{ color: C.textDim, fontSize: "0.72rem", marginTop: 12 }}>
                       Runs at 8 AM, noon and 6 PM ET.{" "}
@@ -282,12 +289,14 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div>
+            <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
               <SectionHead title="Your watchlist" to="/watchlist" linkLabel={watch ? "Manage →" : "Set up →"} />
-              <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 10, padding: watch && watch.length ? "0.25rem 0" : "1rem" }}>
+              {/* Fills the column to match the card on the left; longer lists scroll inside. */}
+              <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 10, padding: watch && watch.length ? "0.25rem 0" : "1rem",
+                            flex: "1 1 0px", minHeight: 0, overflowY: "auto" }}>
                 {watch && watch.length > 0 ? (
-                  watch.slice(0, 6).map((w) => (
-                    <Link key={w.id} to={`/ticker/${w.ticker}`} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.55rem 1rem", textDecoration: "none", borderBottom: "1px solid var(--c-surfaceAlt)" }}>
+                  watch.map((w) => (
+                    <Link key={w.id} to={`/ticker/${w.ticker}`} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.55rem 1rem", textDecoration: "none", borderBottom: "1px solid var(--c-surfaceAlt)", flexShrink: 0 }}>
                       <span style={{ color: C.accent, fontWeight: 700, width: 60 }}>{w.ticker}</span>
                       <span style={{ color: C.textSoft, fontSize: "0.85rem", fontVariantNumeric: "tabular-nums", width: 80 }}>{w.current_price != null ? `$${w.current_price.toLocaleString()}` : "—"}</span>
                       <span style={{ color: (w.price_7d_change ?? 0) >= 0 ? C.success : C.danger, fontSize: "0.8rem", width: 60 }}>
@@ -306,6 +315,8 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+
+          <ModelDeskCard />
 
           {/* ── Top signals + latest disclosures ──────────────────────── */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1.25rem", marginBottom: "1.75rem" }}>
@@ -374,7 +385,7 @@ export default function Dashboard() {
       {/* ── 30-day performance ────────────────────────────────────────── */}
       <div style={{ marginBottom: "1rem" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem", gap: 8, flexWrap: "wrap" }}>
-          <h2 style={{ fontSize: "0.95rem", fontWeight: 600, color: C.textSoft, margin: 0 }}>30-day performance of signalled tickers</h2>
+          <h2 style={{ fontSize: "0.95rem", fontWeight: 600, color: C.textSoft, margin: 0 }}>30-day performance of signaled tickers</h2>
           {perfDemo && (
             <span style={{ background: C.warningBg, color: C.warningSolid, border: "1px solid var(--c-warningDeep)", fontSize: "0.68rem", padding: "1px 8px", borderRadius: 4 }}>
               demo data

@@ -274,7 +274,7 @@ function AdminPanel() {
   };
 
   return (
-    <div style={{ maxWidth: 720 }}>
+    <div style={{ maxWidth: 800, margin: "0 auto" }}>
       {confirm && (
         <ConfirmModal
           message={confirm.message}
@@ -347,7 +347,7 @@ function AdminPanel() {
                   {k.link && <> · <a href={safeHref(k.link)} target="_blank" rel="noreferrer" style={{ color: C.accent }}>Get one →</a></>}
                 </div>
                 {k.is_set && !isEditing && k.masked_value && (
-                  <div style={{ color: C.divider, fontSize: "0.78rem", fontFamily: "monospace", marginTop: 3 }}>{k.masked_value}</div>
+                  <div style={{ color: C.textDim, fontSize: "0.78rem", fontFamily: "monospace", marginTop: 3 }}>{k.masked_value}</div>
                 )}
                 {isEditing && (
                   <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.4rem" }}>
@@ -486,7 +486,7 @@ function AdminPanel() {
             <div key={inst.cik} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.bg, borderRadius: 6, padding: "0.4rem 0.75rem" }}>
               <div>
                 <span style={{ color: C.text, fontSize: "0.88rem" }}>{inst.name}</span>
-                <span style={{ color: C.divider, fontSize: "0.75rem", fontFamily: "monospace", marginLeft: 10 }}>{inst.cik}</span>
+                <span style={{ color: C.textDim, fontSize: "0.75rem", fontFamily: "monospace", marginLeft: 10 }}>{inst.cik}</span>
               </div>
               <button
                 onClick={() => handleDeleteInstitution(inst)}

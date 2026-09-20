@@ -52,15 +52,43 @@ KEYS = {
         "placeholder": "sk-...",
         "group": "ai",
     },
+    "ollama_base_url": {
+        "label": "Ollama server",
+        "description": "A local model server — free and unlimited, no API key. Runs the Model Desk brief by default.",
+        "help": "Ollama on the same Mac: http://host.docker.internal:11434",
+        "link": "https://ollama.com/download",
+        "sensitive": False,
+        "placeholder": "http://host.docker.internal:11434",
+        "group": "ai",
+    },
     "ai_provider": {
         "label": "Research notes provider",
-        "description": "Which provider writes the bull/bear notes. Any other provider with a key saved is used as a fallback.",
-        "help": "claude | gemini | openai",
+        "description": "Which provider writes the bull/bear notes. Any other configured provider is used as a fallback.",
+        "help": "ollama | claude | gemini | openai",
         "link": None,
         "sensitive": False,
         "placeholder": "claude",
         "group": "ai_model",
-        "choices": ["claude", "gemini", "openai"],
+        "choices": ["ollama", "claude", "gemini", "openai"],
+    },
+    "ai_batch_provider": {
+        "label": "Scheduled jobs provider",
+        "description": "Writes the daily Model Desk brief. Ollama costs nothing; if it is not configured or fails, the research-notes provider is used.",
+        "help": "ollama | claude | gemini | openai",
+        "link": None,
+        "sensitive": False,
+        "placeholder": "ollama",
+        "group": "ai_model",
+        "choices": ["ollama", "claude", "gemini", "openai"],
+    },
+    "ollama_model": {
+        "label": "Ollama model",
+        "description": "Model name as pulled on the Ollama server. The list is fetched live from the server.",
+        "help": "e.g. llama3, gemma3, mistral",
+        "link": None,
+        "sensitive": False,
+        "placeholder": "llama3",
+        "group": "ai_model",
     },
     "claude_model": {
         "label": "Claude model",
@@ -131,17 +159,29 @@ def _mask(value: str) -> str:
 
 # Non-secret settings that must never be blank: clearing them restores the
 # config.py default instead of leaving an empty model name behind.
-_DEFAULTED = {"ai_provider", "claude_model", "gemini_model", "openai_model", "mail_from_name"}
+_DEFAULTED = {"ai_provider", "ai_batch_provider", "claude_model", "gemini_model", "openai_model", "ollama_model", "mail_from_name"}
+
+
+# What each setting was before any Admin-panel override: the .env / environment
+# value the process started with. Clearing an override falls back to this —
+# not to "", which used to silently switch off whatever .env provided until
+# the next restart (that is how a stale saved mail_username, paired with the
+# .env password for a different account, produced Gmail 'BadCredentials').
+_ENV_BASELINE: dict[str, object] = {k: getattr(settings, k) for k in type(settings).model_fields}
 
 
 def _apply_to_settings(key: str, value: str):
-    """Push a new value into the live settings object."""
-    if not value and key in _DEFAULTED:
-        value = type(settings).model_fields[key].default
+    """Push a new value into the live settings object; an empty value means
+    'no override' and restores the environment/default value."""
+    if not value:
+        value = _ENV_BASELINE.get(key, "")
+        if not value and key in _DEFAULTED:
+            value = type(settings).model_fields[key].default
     if hasattr(settings, key):
         object.__setattr__(settings, key, value)
     # Bust caches that depend on this key
-    if key in ("ai_provider", "claude_model", "gemini_model", "openai_model", "anthropic_api_key", "gemini_api_key", "openai_api_key"):
+    if key in ("ai_provider", "ai_batch_provider", "claude_model", "gemini_model", "openai_model", "ollama_model", "ollama_base_url",
+               "anthropic_api_key", "gemini_api_key", "openai_api_key"):
         from services.ai_summary import _cache as _summary_cache
         _summary_cache.clear()
     if key == "alpha_vantage_key":
@@ -234,11 +274,20 @@ def ai_status():
         "configured": active is not None,
         "active": active,
         "chosen": settings.ai_provider,
+        "batch_chosen": settings.ai_batch_provider,
+        "batch_active": providers.batch_provider() or active,
         "providers": {
             p: {"label": providers.LABELS[p], "configured": providers.configured(p), "model": providers.model_for(p)}
             for p in providers.PROVIDERS
         },
     }
+
+
+@router.get("/ai/usage")
+def ai_usage(_: None = Depends(require_admin)):
+    """Admin: calls and tokens per job and provider since start-up, plus today's slice."""
+    from services import providers
+    return providers.usage_snapshot()
 
 
 @router.get("/ai/models")

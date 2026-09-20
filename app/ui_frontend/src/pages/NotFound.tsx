@@ -8,7 +8,7 @@ export default function NotFound() {
     <div style={{ textAlign: "center", padding: "80px 24px" }}>
       <div style={{ fontSize: 64, marginBottom: 16 }}>404</div>
       <div style={{ color: C.textBright, fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Page not found</div>
-      <div style={{ color: C.dividerStrong, fontSize: 14, marginBottom: 32 }}>
+      <div style={{ color: C.textDim, fontSize: 14, marginBottom: 32 }}>
         That route doesn't exist. Check the URL or head back home.
       </div>
       <Link
