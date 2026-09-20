@@ -11,5 +11,6 @@ Pillow==12.3.0
 yfinance==1.7.0
 apscheduler==3.11.3
 pydantic==2.13.5
+email-validator==2.3.0  # EmailStr; no longer pulled in by pydantic itself
 pydantic-settings==2.15.0
 anthropic==1.6.0
