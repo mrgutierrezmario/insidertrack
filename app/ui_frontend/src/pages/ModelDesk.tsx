@@ -63,6 +63,13 @@ export default function ModelDesk() {
           {Object.entries(stats.by_horizon).map(([h, v]) => <Stat key={h} label={`${h}-day calls`} value={`${v.hit_rate}% · n=${v.n}`} />)}
         </div>
       )}
+      {stats && stats.resolved === 0 && calls.length > 0 && (
+        <p style={{ color: C.textMuted, fontSize: "0.85rem", margin: "-0.5rem 0 1.5rem" }}>
+          Nothing has scored yet — a call is only judged once its horizon has passed. First call scores on{" "}
+          <strong style={{ color: C.textSoft }}>{fmtDate([...calls].sort((a, b) => a.resolves_on.localeCompare(b.resolves_on))[0].resolves_on)}</strong>;
+          the hit-rate starts to mean something after a few dozen. Calls are never written after the fact, so the wait is the point.
+        </p>
+      )}
 
       {today?.brief && (
         <div style={{ marginBottom: "1.5rem" }}>
