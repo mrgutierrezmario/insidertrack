@@ -178,7 +178,8 @@ Optional keys unlock additional features. Set them in the Admin panel (no restar
 | Key | Feature | Where to get it |
 |---|---|---|
 | `ALPHA_VANTAGE_KEY` | Minute-by-minute intraday charts; news with sentiment labels (without it the News page shows Google News headlines with a keyword-based label) | alphavantage.co — free tier: 25 req/day |
-| `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` / `OPENAI_API_KEY` | AI bull/bear research notes on ticker pages. `AI_PROVIDER` picks the writer (claude / gemini / openai); other configured providers are fallbacks. Visitors can also bring their own key in Settings | console.anthropic.com / aistudio.google.com / platform.openai.com — cached 6h per ticker |
+| `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` / `OPENAI_API_KEY` | AI bull/bear research notes on ticker pages. `AI_PROVIDER` picks the writer (ollama / claude / gemini / openai); other configured providers are fallbacks. Visitors can also bring their own key in Settings | console.anthropic.com / aistudio.google.com / platform.openai.com — cached 6h per ticker |
+| `OLLAMA_BASE_URL` (+ `OLLAMA_MODEL`) | A local model server — free, unlimited, no key. `AI_BATCH_PROVIDER` (default `ollama`) picks who writes the daily Model Desk brief, so the cloud keys are spent only on visitor-facing notes and on reading scanned filings (which need a vision model: a cloud provider, or `OLLAMA_VISION_MODEL=llava`). Admin → AI shows calls and tokens per job and provider | [ollama.com](https://ollama.com) — native on the same Mac it is `http://host.docker.internal:11434` |
 | `MAIL_USERNAME` + `MAIL_PASSWORD` | Email reports, alert notifications, data-source notices | Gmail address + App Password (myaccount.google.com/apppasswords) |
 | `MAIL_ADMIN_TO` | Where operational notices go (a scraper failing or gone quiet). Defaults to the sender | — |
 

@@ -8,6 +8,15 @@ All notable changes to InsiderTrack. The format follows
 ## [Unreleased]
 
 ### Added
+- **Ollama** as a fourth AI provider (local model server, no key, no quota). `AI_BATCH_PROVIDER`
+  (default `ollama`) chooses who writes the daily Model Desk brief so the cloud free tiers are not
+  exhausted by scheduled work; the cloud provider remains the fallback. Image requests (scanned paper
+  filings) skip Ollama unless `OLLAMA_VISION_MODEL` is set.
+- Admin → AI: a second provider choice for scheduled jobs, an Ollama card (server URL, live model
+  list from the server, Test), and a usage table — calls, failures and tokens per job and provider,
+  since start-up and today (`GET /settings/ai/usage`; one `ai_usage` log line per call).
+
+### Added
 - **AI Desk**: each morning (8:30 ET) the site's AI model reads the day's disclosures and makes 3–5 directional calls with a horizon and reasoning; every call is stored unedited and scored at its horizon against SPY, with a running hit-rate. Dashboard card + `/ai-desk` page under Signals; admin can generate/regenerate. One provider call a day.
 - **Fund track records**: each 13F holder's new/increased positions (and trims/exits, inverted) measured 30/60/90 days after the filing date against SPY; a "Fund track records" ranking on the Whales page and a section on every fund's page. `GET /whales/leaderboard`, `GET /whales/{id}/track-record`; `whale_positions.filed_on` now holds the real SEC filing date.
 - Watchlist page shows the AI Desk calls on your own tickers; new alert type **AI Desk call** (threshold = minimum confidence %).

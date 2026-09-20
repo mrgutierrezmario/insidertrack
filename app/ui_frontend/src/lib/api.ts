@@ -280,9 +280,16 @@ export interface AiStatus { configured: boolean; provider: string | null; label:
 export const getAiStatus = (): Resp<AiStatus> => api.get("/ai/status");
 export interface AiSettings {
   configured: boolean; active: string | null; chosen: string;
+  batch_chosen: string; batch_active: string | null;
   providers: Record<string, { label: string; configured: boolean; model: string }>;
 }
 export const getAiSettings = (): Resp<AiSettings> => api.get("/settings/ai");
+export interface AiUsageRow {
+  calls: number; failures: number; input_tokens: number; output_tokens: number; ms: number;
+  calls_today: number; failures_today: number; input_tokens_today: number; output_tokens_today: number;
+}
+export interface AiUsage { day: string; jobs: Record<string, Record<string, AiUsageRow>> }
+export const getAiUsage = (): Resp<AiUsage> => api.get("/settings/ai/usage");
 // Visitor's own key (headers added by the interceptor)
 export const testOwnAiKey = (): Resp<{ provider: string; ok: boolean; message: string }> => api.post("/ai/test");
 // Explicit headers so the list can load for a key that is typed but not yet saved.
