@@ -27,7 +27,8 @@ def test_google_news_shapes_items(monkeypatch):
     assert [i["title"] for i in items] == ["Nvidia hits record", "Chips rally"]   # dedup by link, newest first
     first = items[0]
     assert first["source"] == "Reuters" and first["provider"] == "google-news"
-    assert first["overall_label"] == "Headline" and first["sentiment_value"] == 50
+    assert first["overall_label"] == "Neutral" and first["sentiment_value"] == 50 and first["sentiment_source"] == "keywords"
+    assert items[1]["overall_label"] == "Somewhat-Bullish"                          # "rally"
     assert first["published"].startswith("2026-09-19T14:02")
     assert first["tickers"] == ["NVDA"]
 
@@ -37,3 +38,13 @@ def test_get_news_uses_google_without_a_key(monkeypatch):
     monkeypatch.setattr(nf.settings, "alpha_vantage_key", "")
     nf._cache.clear()
     assert nf.get_news(["NVDA"])[0]["provider"] == "google-news"
+
+
+class TestHeadlineSentiment:
+    def test_keyword_labels(self):
+        from services.news_fetcher import headline_sentiment as hs
+        assert hs("Nvidia shares surge after earnings beat") == "Somewhat-Bullish"
+        assert hs("Boeing plunges as FAA opens probe into 737 recall") == "Somewhat-Bearish"
+        assert hs("Apple to hold event on September 9") == "Neutral"
+        assert hs("Stock jumps then falls back") == "Neutral"                 # tie
+        assert hs("") == "Neutral"

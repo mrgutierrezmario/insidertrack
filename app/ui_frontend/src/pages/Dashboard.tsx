@@ -1,4 +1,5 @@
 import { C, LABEL_COLORS } from "../lib/theme";
+import ModelDeskCard from "../components/ModelDeskCard";
 import useDocumentTitle from "../hooks/useDocumentTitle";
 import useAdmin from "../hooks/useAdmin";
 import { useEffect, useMemo, useState } from "react";
@@ -288,12 +289,14 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div>
+            <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
               <SectionHead title="Your watchlist" to="/watchlist" linkLabel={watch ? "Manage →" : "Set up →"} />
-              <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 10, padding: watch && watch.length ? "0.25rem 0" : "1rem" }}>
+              {/* Fills the column to match the card on the left; longer lists scroll inside. */}
+              <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 10, padding: watch && watch.length ? "0.25rem 0" : "1rem",
+                            flex: "1 1 0px", minHeight: 0, overflowY: "auto" }}>
                 {watch && watch.length > 0 ? (
-                  watch.slice(0, 6).map((w) => (
-                    <Link key={w.id} to={`/ticker/${w.ticker}`} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.55rem 1rem", textDecoration: "none", borderBottom: "1px solid var(--c-surfaceAlt)" }}>
+                  watch.map((w) => (
+                    <Link key={w.id} to={`/ticker/${w.ticker}`} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.55rem 1rem", textDecoration: "none", borderBottom: "1px solid var(--c-surfaceAlt)", flexShrink: 0 }}>
                       <span style={{ color: C.accent, fontWeight: 700, width: 60 }}>{w.ticker}</span>
                       <span style={{ color: C.textSoft, fontSize: "0.85rem", fontVariantNumeric: "tabular-nums", width: 80 }}>{w.current_price != null ? `$${w.current_price.toLocaleString()}` : "—"}</span>
                       <span style={{ color: (w.price_7d_change ?? 0) >= 0 ? C.success : C.danger, fontSize: "0.8rem", width: 60 }}>
@@ -312,6 +315,8 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+
+          <ModelDeskCard />
 
           {/* ── Top signals + latest disclosures ──────────────────────── */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1.25rem", marginBottom: "1.75rem" }}>

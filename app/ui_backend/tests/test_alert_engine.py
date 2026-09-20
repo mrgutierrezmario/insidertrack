@@ -156,3 +156,19 @@ class TestNewAlertTypes:
         out = ae.evaluate_alerts(clean)
         assert [e["ticker"] for e in out["events"]] == ["SHRP"]
         assert "beat SPY 72%" in out["events"][0]["message"]
+
+
+class TestAiCallAlert:
+    def test_fires_for_recent_calls_above_confidence(self, clean):
+        from models.model_call import ModelCall
+        d = date.today() - timedelta(days=1)
+        clean.add_all([
+            ModelCall(call_date=d, ticker="KMX", direction="bullish", horizon_days=60, confidence=0.82, reasoning="Insiders buying."),
+            ModelCall(call_date=d, ticker="GME", direction="bullish", horizon_days=30, confidence=0.4, reasoning="Cluster."),
+            ModelCall(call_date=d - timedelta(days=10), ticker="OLD", direction="bearish", horizon_days=30, confidence=0.9),
+        ])
+        clean.flush()
+        _rule(clean, "ai_call", threshold=70)
+        out = ae.evaluate_alerts(clean)
+        assert [e["ticker"] for e in out["events"]] == ["KMX"]
+        assert "BULLISH on KMX over 60 days" in out["events"][0]["message"]

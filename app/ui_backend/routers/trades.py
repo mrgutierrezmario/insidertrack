@@ -223,6 +223,23 @@ def delete_trade(trade_id: int, _: None = Depends(require_admin), db: Session = 
     return {"deleted": trade_id}
 
 
+@router.post("/{trade_id}/reread")
+def reread_trade_filing(trade_id: int, _: None = Depends(require_admin), db: Session = Depends(get_db)):
+    """Admin: fetch this row's filing again and refresh every row from it in
+    place — for a paper filing, a fresh vision-model reading (one AI call).
+    Rows the new reading no longer supports are dropped."""
+    from services.congress_fetcher import reread_filing
+    t = db.query(Trade).filter(Trade.id == trade_id).first()
+    if not t:
+        raise HTTPException(404, "Trade not found")
+    try:
+        out = reread_filing(db, t)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    logger.info(f"Admin re-read filing {out['filing_id']} ({t.source}): {out['rows']} row(s)")
+    return out
+
+
 @router.post("/sync")
 def trigger_sync(background_tasks: BackgroundTasks, _: None = Depends(require_admin)):
     """Kick off the House + Senate sync in the background.

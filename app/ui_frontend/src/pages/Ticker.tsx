@@ -328,7 +328,7 @@ export default function Ticker() {
                     </span>
                   )}
                 </div>
-                <div style={{ color: C.dividerStrong, fontSize: 11, marginTop: 4 }}>{n.source}</div>
+                <div style={{ color: C.textDim, fontSize: 11, marginTop: 4 }}>{n.source}</div>
               </a>
             ))}
           </div>

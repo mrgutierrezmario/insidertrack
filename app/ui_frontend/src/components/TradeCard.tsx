@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useState } from "react";
 import WatchlistButton from "./WatchlistButton";
 import useAdmin from "../hooks/useAdmin";
-import { deleteTrade } from "../lib/api";
+import { deleteTrade, rereadFiling } from "../lib/api";
 import { safeHref } from "../lib/safeUrl";
 import { fmtDate } from "../lib/format";
 import type { RiskLevel, Trade } from "../types/api";
@@ -68,14 +68,29 @@ function Tag({ children, tip }: { children: string; tip: string }) {
 interface TradeCardProps {
   trade: Trade;
   onRemoved?: (id: number) => void;
+  /** Called after an admin re-read the row's filing; the list should reload. */
+  onReread?: () => void;
 }
 
-export default function TradeCard({ trade, onRemoved }: TradeCardProps) {
+export default function TradeCard({ trade, onRemoved, onReread }: TradeCardProps) {
   const color = tradeColor(trade);
   const ownerLabel = trade.owner ? OWNER_LABEL[trade.owner] : "";
   const isPaper = (trade.source || "").endsWith("-paper");
   const isAdmin = useAdmin();
   const [removing, setRemoving] = useState(false);
+  const [rereading, setRereading] = useState(false);
+  const [rereadMsg, setRereadMsg] = useState("");
+  const reread = async () => {
+    if (!window.confirm(`Re-read the filing behind this ${trade.ticker} row? The model reads the scan again and every row from that filing is refreshed (one AI call).`)) return;
+    setRereading(true); setRereadMsg("");
+    try {
+      const r = await rereadFiling(trade.id);
+      setRereadMsg(`Re-read: ${r.data.rows} row${r.data.rows === 1 ? "" : "s"} on this filing now`);
+      onReread?.();
+    } catch {
+      setRereadMsg("Re-read failed — provider quota or the filing is unavailable");
+    } finally { setRereading(false); }
+  };
   const remove = async () => {
     if (!window.confirm(`Remove this ${trade.ticker} row? It was read by the AI model from a scanned filing.`)) return;
     setRemoving(true);
@@ -146,10 +161,17 @@ export default function TradeCard({ trade, onRemoved }: TradeCardProps) {
           )}
         </div>
         {isAdmin && isPaper && (
-          <button onClick={remove} disabled={removing}
-            style={{ marginTop: 6, background: "none", border: "1px solid var(--c-surfaceAlt)", color: C.danger, borderRadius: 5, padding: "2px 8px", fontSize: "0.7rem", cursor: "pointer" }}>
-            {removing ? "Removing…" : "Remove misread row"}
-          </button>
+          <div style={{ marginTop: 6, display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+            <button onClick={reread} disabled={rereading || removing}
+              style={{ background: "none", border: "1px solid var(--c-surfaceAlt)", color: C.accent, borderRadius: 5, padding: "2px 8px", fontSize: "0.7rem", cursor: "pointer" }}>
+              {rereading ? "Reading again…" : "Re-read filing"}
+            </button>
+            <button onClick={remove} disabled={removing || rereading}
+              style={{ background: "none", border: "1px solid var(--c-surfaceAlt)", color: C.danger, borderRadius: 5, padding: "2px 8px", fontSize: "0.7rem", cursor: "pointer" }}>
+              {removing ? "Removing…" : "Remove misread row"}
+            </button>
+            {rereadMsg && <span style={{ color: C.textMuted, fontSize: "0.7rem" }}>{rereadMsg}</span>}
+          </div>
         )}
       </div>
     </div>

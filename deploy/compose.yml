@@ -38,9 +38,13 @@ services:
       - sh
       - -c
       - |
-        cat > /config/serve.json <<'EOF'
-        {"TCP":{"443":{"HTTPS":true}},"Web":{"$${TS_CERT_DOMAIN}:443":{"Handlers":{"/":{"Proxy":"http://127.0.0.1:8003"}}}},"AllowFunnel":{"$${TS_CERT_DOMAIN}:443":true}}
+        # Written to a temp file and moved into place: tailscale reloads the
+        # file the moment it changes, and a half-written file once dropped the
+        # /mcp handler (2026-09-20).
+        cat > /config/serve.json.tmp <<'EOF'
+        {"TCP":{"443":{"HTTPS":true}},"Web":{"$${TS_CERT_DOMAIN}:443":{"Handlers":{"/":{"Proxy":"http://127.0.0.1:8003"},"/mcp":{"Proxy":"http://mcp:8100"}}}},"AllowFunnel":{"$${TS_CERT_DOMAIN}:443":true}}
         EOF
+        mv /config/serve.json.tmp /config/serve.json
 
   tailscale:
     image: tailscale/tailscale:latest
@@ -89,6 +93,11 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       AI_PROVIDER: ${AI_PROVIDER:-claude}
+      # Local model server (free). Native Ollama on the Mac is reachable from
+      # the container at host.docker.internal; leave empty to disable.
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3}
+      AI_BATCH_PROVIDER: ${AI_BATCH_PROVIDER:-ollama}
       AI_DAILY_CAP: ${AI_DAILY_CAP:-150}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
@@ -100,6 +109,28 @@ services:
       BACKUP_DIR: /backups
     volumes:
       - backups:/backups
+
+  # InsiderTrack MCP (github.com/mrgutierrezmario/insidertrack-mcp): lets an AI
+  # assistant ask the site questions. Reaches the app on this network, holds no
+  # database credentials and no volumes; the Funnel forwards /mcp to it.
+  mcp:
+    image: insidertrack-mcp:latest
+    build:
+      context: ../../insidertrack-mcp
+      dockerfile: deploy/Dockerfile
+    restart: *restart
+    environment:
+      INSIDERTRACK_URL: http://tailscale:8003
+      MCP_TOKENS: ${MCP_TOKENS:-}
+      MCP_ALLOW_WRITES: ${MCP_ALLOW_WRITES:-0}
+      INSIDERTRACK_WATCHLIST_EMAIL: ${INSIDERTRACK_WATCHLIST_EMAIL:-}
+      INSIDERTRACK_WATCHLIST_TOKEN: ${INSIDERTRACK_WATCHLIST_TOKEN:-}
+    depends_on:
+      app:
+        condition: service_started
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
 
 volumes:
   postgres-data:

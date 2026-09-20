@@ -28,13 +28,15 @@
   --c-dividerStrong: #34497a;
 
   /* Text (dim → bright) */
-  --c-textDimmest:   #3a4b74;
-  --c-textDim:       #55688f;
-  --c-textMuted:     #7f92b8;
-  --c-textSoft:      #9aaac9;
+  /* Every text tier clears WCAG AA (4.5:1) on both bg and surface — the
+     dim tiers used to sit at 2–3:1 and secondary text was unreadable. */
+  --c-textDimmest:   #7385ab;
+  --c-textDim:       #7e91b7;
+  --c-textMuted:     #8fa2c6;
+  --c-textSoft:      #a6b4d0;
   --c-text:          #e7ecf7;
   --c-textBright:    #ffffff;
-  --c-textFaint:     #6d7fa6;
+  --c-textFaint:     #7e91b7;
 
   /* Semantic */
   --c-accent:        #38bdf8;
@@ -76,13 +78,13 @@
   --c-divider:       #dee4ee;
   --c-dividerStrong: #b9c6db;
 
-  --c-textDimmest:   #b3bfd2;
-  --c-textDim:       #8a97ae;
-  --c-textMuted:     #5b6b86;
-  --c-textSoft:      #44546f;
+  --c-textDimmest:   #68788f;
+  --c-textDim:       #5f6f8a;
+  --c-textMuted:     #546480;
+  --c-textSoft:      #3f4e69;
   --c-text:          #0f1f3d;
   --c-textBright:    #061f52;
-  --c-textFaint:     #8a97ae;
+  --c-textFaint:     #5f6f8a;
 
   --c-accent:        #0b74f6;
   --c-accentSolid:   #0b74f6;

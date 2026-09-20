@@ -183,7 +183,7 @@ Rules: Never say a trade is guaranteed. Never tell the user to buy or sell. Note
     try:
         if cred is None:
             _site_budget_spend()
-        gen = generate_text(prompt, max_tokens=700, timeout=45.0, cred=cred)
+        gen = generate_text(prompt, max_tokens=700, timeout=45.0, cred=cred, job="notes")
         text = gen.text
         if text.startswith("```"):
             text = text.split("```")[1].lstrip("json").strip()

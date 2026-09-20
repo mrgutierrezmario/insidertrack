@@ -72,6 +72,10 @@ def _apply_migrations():
         "ALTER TABLE trades ADD COLUMN IF NOT EXISTS direction VARCHAR(4)",
         "CREATE INDEX IF NOT EXISTS ix_trades_asset_type ON trades (asset_type)",
         "CREATE INDEX IF NOT EXISTS ix_trades_direction ON trades (direction)",
+        # 13F: when the filing became public (backfilled as quarter end + 45 days)
+        "ALTER TABLE whale_positions ADD COLUMN IF NOT EXISTS filed_on DATE",
+        "CREATE INDEX IF NOT EXISTS ix_whale_positions_filed_on ON whale_positions (filed_on)",
+        "UPDATE whale_positions SET filed_on = filing_date + 45 WHERE filed_on IS NULL",
         # Member identity across name spellings (congress_fetcher._name_key)
         "ALTER TABLE politicians ADD COLUMN IF NOT EXISTS bioguide_id VARCHAR(12)",
         "ALTER TABLE politicians ADD COLUMN IF NOT EXISTS name_key VARCHAR(80)",
@@ -266,6 +270,6 @@ def _apply_migrations():
 
 
 def init_db():
-    from models import trade, politician, whale, analysis, subscriber, app_setting, signal_outcome, access, alert, insider, watchlist, fed_official, filing_institution, market_cache, processed_filing  # noqa: F401
+    from models import trade, politician, whale, analysis, subscriber, app_setting, signal_outcome, access, alert, insider, watchlist, fed_official, filing_institution, market_cache, processed_filing, model_call  # noqa: F401
     Base.metadata.create_all(bind=engine)
     _apply_migrations()

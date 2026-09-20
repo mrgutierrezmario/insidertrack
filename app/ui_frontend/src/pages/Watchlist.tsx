@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { isAxiosError } from "axios";
 import {
   getWatchlistSignals,
+  getModelDeskCalls,
   addToWatchlist,
   removeFromWatchlist,
   recoverWatchlistToken,
@@ -10,8 +11,9 @@ import {
 import { EMAIL_KEY, WATCHLIST_TOKEN_KEY } from "../lib/storage";
 import { card, LABEL_COLORS , C} from "../lib/theme";
 import useDocumentTitle from "../hooks/useDocumentTitle";
-import type { SignalLabel } from "../types/api";
+import type { ModelCall, SignalLabel } from "../types/api";
 import SkeletonCard from "../components/SkeletonCard";
+import { CallRow } from "../components/ModelDeskCard";
 
 // The /watchlist/signals endpoint enriches each row with current signal
 // state — backend shape lives in `routers/watchlist.py:watchlist_with_signals`.
@@ -55,6 +57,8 @@ export default function Watchlist() {
   const [state, setState] = useState<LoadState>("idle");
   const [newTicker, setNewTicker] = useState("");
   const [err, setErr] = useState("");
+  const [calls, setCalls] = useState<ModelCall[]>([]);
+  useEffect(() => { getModelDeskCalls().then((r) => setCalls(r.data.items)).catch(() => setCalls([])); }, []);
 
   // Recovery UI state
   const [pasteToken, setPasteToken] = useState("");
@@ -147,7 +151,7 @@ export default function Watchlist() {
     return (
       <div style={{ maxWidth: 460, margin: "60px auto", textAlign: "center" }}>
         <h1>My Watchlist</h1>
-        <p style={{ color: C.dividerStrong, fontSize: 13, marginBottom: 20 }}>
+        <p style={{ color: C.textDim, fontSize: 13, marginBottom: 20 }}>
           Enter your email to create or load your watchlist. No password needed.
         </p>
         <div style={{ display: "flex", gap: 8 }}>
@@ -209,7 +213,7 @@ export default function Watchlist() {
           <button
             onClick={applyPastedToken}
             disabled={!pasteToken.trim()}
-            style={{ background: pasteToken.trim() ? C.accentSolid : "var(--c-surfaceAlt)", color: "#fff", border: "none", borderRadius: 7, padding: "10px 18px", fontSize: 13, cursor: pasteToken.trim() ? "pointer" : "not-allowed", fontWeight: 600 }}>
+            style={{ background: pasteToken.trim() ? C.accentSolid : "var(--c-surfaceAlt)", color: pasteToken.trim() ? "#fff" : C.textDim, border: "none", borderRadius: 7, padding: "10px 18px", fontSize: 13, cursor: pasteToken.trim() ? "pointer" : "not-allowed", fontWeight: 600 }}>
             Continue
           </button>
         </div>
@@ -223,7 +227,7 @@ export default function Watchlist() {
       <div className="page-head">
         <div>
           <h1 style={{ color: C.textBright, margin: "0 0 4px", fontSize: "1.4rem" }}>My Watchlist</h1>
-          <p style={{ color: C.dividerStrong, margin: 0, fontSize: 13 }}>{email}</p>
+          <p style={{ color: C.textDim, margin: 0, fontSize: 13 }}>{email}</p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button
@@ -259,7 +263,7 @@ export default function Watchlist() {
           {[...Array(3)].map((_, i) => <SkeletonCard key={i} lines={2} height={64} />)}
         </div>
       ) : items.length === 0 ? (
-        <div style={{ color: C.dividerStrong, textAlign: "center", padding: "50px 0" }}>
+        <div style={{ color: C.textDim, textAlign: "center", padding: "50px 0" }}>
           Your watchlist is empty. Add a ticker above to start tracking its signal score.
         </div>
       ) : (
@@ -273,7 +277,7 @@ export default function Watchlist() {
                 {it.label ? (
                   <span style={{ color: LABEL_COLORS[it.label] || C.textSoft, fontSize: 13, fontWeight: 600 }}>{it.label}</span>
                 ) : (
-                  <span style={{ color: C.divider, fontSize: 12 }}>No signal data</span>
+                  <span style={{ color: C.textDim, fontSize: 12 }}>No signal data</span>
                 )}
                 <ChangeChip pct={it.price_7d_change} />
               </div>
@@ -281,14 +285,14 @@ export default function Watchlist() {
                 {it.composite_score != null && (
                   <div style={{ textAlign: "right" }}>
                     <div style={{ color: C.textBright, fontWeight: 700, fontSize: 18 }}>{it.composite_score}</div>
-                    <div style={{ color: C.dividerStrong, fontSize: 10 }}>composite</div>
+                    <div style={{ color: C.textDim, fontSize: 10 }}>composite</div>
                   </div>
                 )}
                 {it.current_price != null && (
                   <div style={{ color: C.textSoft, fontSize: 13 }}>${it.current_price.toLocaleString()}</div>
                 )}
                 <button onClick={() => remove(it.id)}
-                  style={{ background: "transparent", color: C.dividerStrong, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer" }}>
+                  style={{ background: "transparent", color: C.textDim, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer" }}>
                   Remove
                 </button>
               </div>
@@ -296,6 +300,31 @@ export default function Watchlist() {
           ))}
         </div>
       )}
+
+      {items.length > 0 && (() => {
+        const mine = new Set(items.map((it) => it.ticker));
+        const hits = calls.filter((c) => mine.has(c.ticker));
+        return (
+          <div style={{ ...card, padding: "14px 16px", marginTop: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+              <div style={{ color: C.textSoft, fontSize: 12, fontWeight: 600 }}>AI Desk calls on your tickers</div>
+              <Link to="/ai-desk" style={{ color: C.accent, fontSize: 12, textDecoration: "none" }}>All calls →</Link>
+            </div>
+            {hits.length === 0 ? (
+              <p style={{ color: C.textDim, fontSize: 12, margin: "4px 0 0" }}>
+                The AI Desk hasn't made a call on any of your tickers yet. It picks a handful each morning from the day's filings; add an alert of type "AI Desk call" to be told when one lands.
+              </p>
+            ) : (
+              <>
+                <p style={{ color: C.textDim, fontSize: 12, margin: "0 0 8px" }}>
+                  {hits.length} call{hits.length === 1 ? "" : "s"} · the AI's own research view, scored against SPY once the horizon passes.
+                </p>
+                {hits.map((c) => <CallRow key={c.id} c={c} />)}
+              </>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }

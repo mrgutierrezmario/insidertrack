@@ -1,11 +1,12 @@
-import { C } from "../lib/theme";
+import { C, card } from "../lib/theme";
 import useDocumentTitle from "../hooks/useDocumentTitle";
 import useAdmin from "../hooks/useAdmin";
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import { isAxiosError } from "axios";
-import { getWhales, getWhaleFeed, syncWhales } from "../lib/api";
+import { getWhales, getWhaleFeed, getWhaleLeaderboard, syncWhales } from "../lib/api";
+import type { HolderLeaderboardRow } from "../types/api";
 import { exportCSV } from "../lib/csv";
 import WatchlistButton from "../components/WatchlistButton";
 
@@ -107,7 +108,7 @@ function SyncButton({ onRefresh }: { onRefresh: () => void }) {
       <button
         onClick={doSync}
         disabled={syncing}
-        style={{ background: syncing ? C.surfaceAlt : C.accentSolid, color: "#fff", border: "none", borderRadius: 6, padding: "0.45rem 1.1rem", cursor: syncing ? "not-allowed" : "pointer", fontSize: "0.85rem", opacity: syncing ? 0.7 : 1 }}
+        style={{ background: syncing ? C.surfaceAlt : C.accentSolid, color: syncing ? C.textDim : "#fff", border: "none", borderRadius: 6, padding: "0.45rem 1.1rem", cursor: syncing ? "not-allowed" : "pointer", fontSize: "0.85rem", opacity: syncing ? 0.7 : 1 }}
       >
         {syncing ? "Syncing EDGAR…" : "↻ Sync 13F Holdings"}
       </button>
@@ -143,10 +144,13 @@ export default function Whales() {
       .finally(() => setLoading(false));
   };
 
+  const [board, setBoard] = useState<HolderLeaderboardRow[]>([]);
   useEffect(() => {
     getWhales().then((r) => setHolders(r.data as Holder[])).catch(() => {});
+    getWhaleLeaderboard().then((r) => setBoard(r.data.items)).catch(() => setBoard([]));
     loadFeed();
   }, []);
+  const ranked = board.filter((b) => b.computed && (b.n ?? 0) >= 5);
 
   const set = <K extends keyof Filters>(k: K, v: Filters[K]) => {
     const next = { ...filters, [k]: v };
@@ -180,7 +184,7 @@ export default function Whales() {
             </p>
           )}
           {lastSynced && (
-            <p style={{ color: C.divider, fontSize: 11, margin: "2px 0 0" }}>
+            <p style={{ color: C.textDim, fontSize: 11, margin: "2px 0 0" }}>
               Last loaded: {lastSynced.toLocaleTimeString()}
             </p>
           )}
@@ -189,6 +193,44 @@ export default function Whales() {
           <SyncButton onRefresh={() => { getWhales().then((r) => setHolders(r.data)).catch(() => {}); loadFeed(); }} />
         )}
       </div>
+
+      {/* Fund track records */}
+      {ranked.length > 0 && (
+        <div style={{ ...card, padding: "12px 16px", marginBottom: "1.5rem" }}>
+          <div style={{ color: C.textSoft, fontSize: 12, fontWeight: 600, marginBottom: 2 }}>Fund track records</div>
+          <p style={{ color: C.textMuted, fontSize: 12, margin: "0 0 8px" }}>
+            How each fund's new and increased positions did after the 13F was filed, versus SPY — at the longest of 30/60/90 days with data so far. Funds with fewer than five measured positions are left out.
+          </p>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr style={{ color: C.textDim, fontSize: 11, textAlign: "left" }}>
+                  <th style={{ padding: "4px 8px" }}>#</th>
+                  <th style={{ padding: "4px 8px" }}>Fund</th>
+                  <th style={{ padding: "4px 8px", textAlign: "right" }}>Positions</th>
+                  <th style={{ padding: "4px 8px", textAlign: "right" }}>Window</th>
+                  <th style={{ padding: "4px 8px", textAlign: "right" }}>Beat SPY</th>
+                  <th style={{ padding: "4px 8px", textAlign: "right" }}>Avg vs SPY</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ranked.map((b, i) => (
+                  <tr key={b.id} style={{ borderTop: "1px solid var(--c-surfaceAlt)" }}>
+                    <td style={{ padding: "6px 8px", color: C.textDim }}>{i + 1}</td>
+                    <td style={{ padding: "6px 8px" }}><Link to={`/whale/${b.id}`} style={{ color: C.accent, fontWeight: 600, textDecoration: "none" }}>{b.name.split(" / ")[0]}</Link></td>
+                    <td style={{ padding: "6px 8px", textAlign: "right", color: C.textSoft }}>{b.n}</td>
+                    <td style={{ padding: "6px 8px", textAlign: "right", color: C.textMuted }}>{b.window}d</td>
+                    <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: 700, color: (b.beat_spy_rate ?? 0) >= 50 ? C.success : C.danger }}>{b.beat_spy_rate?.toFixed(0)}%</td>
+                    <td style={{ padding: "6px 8px", textAlign: "right", color: (b.avg_excess ?? 0) > 0 ? C.success : (b.avg_excess ?? 0) < 0 ? C.danger : C.textSoft }}>
+                      {b.avg_excess == null ? "—" : `${b.avg_excess > 0 ? "+" : ""}${b.avg_excess.toFixed(1)}%`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Holder cards row */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "0.75rem", marginBottom: "1.5rem" }}>

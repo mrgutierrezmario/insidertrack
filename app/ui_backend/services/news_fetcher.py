@@ -8,6 +8,7 @@ no sentiment (labelled "Headline"). Either way the composite score no longer
 uses sentiment (scoring v2+); this feed is for reading.
 """
 
+import re
 import logging
 import time
 from datetime import datetime
@@ -152,9 +153,37 @@ def _parse_rss_time(s: str) -> str:
         return s
 
 
+# Headline-keyword sentiment for the keyless feed. Deliberately small and
+# financial: a headline is labelled only when it uses words the market
+# press reserves for a clear direction, and only as "Somewhat-" so it reads
+# as weaker than a provider's model. Ties and no hits stay Neutral.
+_BULL_WORDS = re.compile(r"\b(surg\w*|soar\w*|jump\w*|rall\w*|climb\w*|gain\w*|beat\w*|tops?|record high|all-time high|"
+                         r"upgrad\w*|outperform\w*|raise[sd]? (?:guidance|outlook|forecast|target)|boost\w*|"
+                         r"buyback|dividend (?:hike|increase|raise)|strong (?:quarter|results|demand|sales)|"
+                         r"profit rises?|revenue rises?|breakout|bullish|approv\w*|wins?)\b", re.I)
+_BEAR_WORDS = re.compile(r"\b(plung\w*|plummet\w*|tumbl\w*|sink\w*|slump\w*|slide\w*|drops?|falls?|fell|"
+                         r"miss\w*|downgrad\w*|underperform\w*|cuts? (?:guidance|outlook|forecast|target|jobs|dividend)|"
+                         r"lawsuit|probe|investigat\w*|recall\w*|layoffs?|bankrupt\w*|default\w*|"
+                         r"warn\w*|weak (?:quarter|results|demand|sales)|loss(?:es)?|selloff|sell-off|bearish|halt\w*|"
+                         r"record low|52-week low|delist\w*|fraud|sec charges?)\b", re.I)
+
+
+def headline_sentiment(title: str) -> str:
+    """'Somewhat-Bullish' / 'Somewhat-Bearish' / 'Neutral' from the words in
+    one headline. Crude by design — it never enters the score."""
+    bull = len(_BULL_WORDS.findall(title or ""))
+    bear = len(_BEAR_WORDS.findall(title or ""))
+    if bull > bear:
+        return "Somewhat-Bullish"
+    if bear > bull:
+        return "Somewhat-Bearish"
+    return "Neutral"
+
+
 def _google_news(tickers: list[str], limit: int = 20) -> list[dict]:
     """Keyless headlines from Google News RSS, a few per ticker, newest
-    first. No sentiment — every item is a plain "Headline"."""
+    first. Sentiment is a keyword read of the headline (see
+    headline_sentiment), marked as such so the page can say so."""
     import xml.etree.ElementTree as ET
     per = max(3, limit // max(len(tickers), 1))
     out: list[dict] = []
@@ -176,13 +205,15 @@ def _google_news(tickers: list[str], limit: int = 20) -> list[dict]:
                     continue
                 seen.add(link)
                 src = item.find("source")
+                label = headline_sentiment(title)
                 out.append({
                     "title": title, "url": link,
                     "source": (src.text or "").strip() if src is not None else "",
                     "published": _parse_rss_time(item.findtext("pubDate") or ""),
                     "summary": "",
-                    "overall_label": "Headline", "overall_score": None,
-                    "overall_color": "#94a3b8", "sentiment_value": 50,
+                    "overall_label": label, "overall_score": None,
+                    "overall_color": SENTIMENT_COLORS[label], "sentiment_value": _sentiment_score(label),
+                    "sentiment_source": "keywords",
                     "provider": "google-news",
                     "tickers": [t], "ticker_sentiment": {},
                 })

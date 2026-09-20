@@ -3,8 +3,13 @@ import type { AxiosResponse } from "axios";
 
 import type {
   Health,
+  HolderLeaderboardRow,
+  HolderRecord,
   InsiderCluster,
   Leaderboard,
+  ModelCall,
+  ModelDeskStats,
+  ModelDeskToday,
   OutcomeRow,
   OutcomeStats,
   Politician,
@@ -61,6 +66,9 @@ export const getTrades = (params: Record<string, unknown> = {}): Resp<PaginatedT
   api.get("/trades/", { params });
 export const syncTrades = (): Resp<{ status: string }> => api.post("/trades/sync");
 export const deleteTrade = (id: number): Resp<{ deleted: number }> => api.delete(`/trades/${id}`);
+// Admin: fetch the row's filing again and refresh its rows (a fresh AI reading for paper). Slow — one model call.
+export const rereadFiling = (id: number): Resp<{ filing_id: string; rows: number }> =>
+  api.post(`/trades/${id}/reread`, null, { timeout: 180_000 });
 
 export interface BackfillStatus {
   running: boolean;
@@ -94,6 +102,11 @@ export const getPoliticians = (params: Record<string, unknown> = {}): Resp<Polit
   api.get("/politicians/", { params });
 export const getPolitician = (id: number): Resp<Politician> => api.get(`/politicians/${id}`);
 export const getTrackRecord = (id: number): Resp<TrackRecord> => api.get(`/politicians/${id}/track-record`);
+export const getModelDeskToday = (): Resp<ModelDeskToday> => api.get("/ai-desk/today");
+export const getModelDeskCalls = (limit = 300): Resp<{ items: ModelCall[]; stats: ModelDeskStats }> =>
+  api.get("/ai-desk/calls", { params: { limit } });
+export const generateModelDesk = (force = false): Resp<{ status: string }> =>
+  api.post("/ai-desk/generate", null, { params: { force } });
 export const getLeaderboard = (minTrades = 10): Resp<Leaderboard> => api.get("/politicians/leaderboard", { params: { min_trades: minTrades } });
 export const createPolitician = (body: Partial<Politician>): Resp<Politician> =>
   api.post("/politicians/", body);
@@ -158,6 +171,8 @@ export const getWhaleFeed = (params: Record<string, unknown> = {}): Resp<WhalePo
   api.get("/whales/feed", { params });
 export const getWhalePositions = (id: number): Resp<unknown> => api.get(`/whales/${id}/positions`);
 export const getWhaleDetail = (id: number): Resp<unknown> => api.get(`/whales/${id}/detail`);
+export const getWhaleLeaderboard = (): Resp<{ items: HolderLeaderboardRow[] }> => api.get("/whales/leaderboard");
+export const getWhaleTrackRecord = (id: number): Resp<HolderRecord> => api.get(`/whales/${id}/track-record`);
 export const syncWhales = (): Resp<{ status: string }> =>
   api.post("/whales/sync");
 
@@ -265,9 +280,16 @@ export interface AiStatus { configured: boolean; provider: string | null; label:
 export const getAiStatus = (): Resp<AiStatus> => api.get("/ai/status");
 export interface AiSettings {
   configured: boolean; active: string | null; chosen: string;
+  batch_chosen: string; batch_active: string | null;
   providers: Record<string, { label: string; configured: boolean; model: string }>;
 }
 export const getAiSettings = (): Resp<AiSettings> => api.get("/settings/ai");
+export interface AiUsageRow {
+  calls: number; failures: number; input_tokens: number; output_tokens: number; ms: number;
+  calls_today: number; failures_today: number; input_tokens_today: number; output_tokens_today: number;
+}
+export interface AiUsage { day: string; jobs: Record<string, Record<string, AiUsageRow>> }
+export const getAiUsage = (): Resp<AiUsage> => api.get("/settings/ai/usage");
 // Visitor's own key (headers added by the interceptor)
 export const testOwnAiKey = (): Resp<{ provider: string; ok: boolean; message: string }> => api.post("/ai/test");
 // Explicit headers so the list can load for a key that is typed but not yet saved.

@@ -53,7 +53,7 @@ that week instead of waiting.
 look at the app log:
 
 ```bash
-git checkout v1.0.0                      # the last tag that worked
+git checkout v1.1.0                      # the last tag that worked
 deploy/start.sh
 docker compose -f deploy/compose.yml logs --tail=100 app
 ```
@@ -151,6 +151,36 @@ machine, `deploy/backup-setup.sh` first to reconnect the off-site remote.
   the repo. `AI_DAILY_CAP` in `deploy/.env` bounds what the site's keys can
   spend on research notes per day; paper-filing readings use the same keys.
 
+## MCP (AI assistants asking the site questions)
+
+The `mcp` service ([insidertrack-mcp](https://github.com/mrgutierrezmario/insidertrack-mcp))
+answers at `https://<host>/mcp` and needs a bearer token; without one it
+refuses everything. It reads the public API only.
+
+- **Add or rotate a token**: edit `MCP_TOKENS` in `deploy/.env`
+  (`name:token,name2:token2`; mint with
+  `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`), then
+  `docker compose -f deploy/compose.yml up -d mcp` — only that container
+  restarts.
+- **Update the server** after pulling the MCP repo:
+  `docker compose -f deploy/compose.yml up -d --build mcp`.
+- **Connect a client**: claude.ai → Settings → Connectors → Add custom
+  connector → URL `https://<host>/mcp`, Authentication *No sign-in*, request
+  header `X-API-Key` = the token (claude.ai reserves `Authorization`).
+  Claude Code: `claude mcp add --transport http insidertrack https://<host>/mcp
+  --header "Authorization: Bearer <token>"`.
+- **Check it**: `curl -s https://<host>/mcp/health` → `{"status":"ok",…}`;
+  `curl -s -o /dev/null -w '%{http_code}' -X POST https://<host>/mcp` → `401`.
+- **Log**: `docker compose -f deploy/compose.yml logs mcp` — one line per
+  tool call (client name, tool, arguments, rows, duration; never the token).
+- The `/mcp` path is a second handler in the Tailscale `serve.json`. Tailscale
+  reloads that file in place (no restart). **After any `up -d` on the stack**,
+  confirm both handlers are live —
+  `docker compose -f deploy/compose.yml exec tailscale tailscale funnel status`
+  should list `/` and `/mcp`. If `/mcp` is missing, re-run the writer:
+  `docker compose -f deploy/compose.yml run --rm --no-deps tailscale-config`
+  (touches nothing else).
+
 ## Where things live
 
 | | |
@@ -161,4 +191,5 @@ machine, `deploy/backup-setup.sh` first to reconnect the off-site remote.
 | Backup schedule | `~/Library/LaunchAgents/com.mgnetwork.stock-tracker-backup.plist` |
 | Rollback DB snapshots | `deploy/state/*.dump` (restored automatically only into an empty database) |
 | App log | `docker compose -f deploy/compose.yml logs app` |
+| MCP tokens | `MCP_TOKENS` in `deploy/.env`; MCP log: `… logs mcp` |
 | Version running | Settings footer, or `/health` |

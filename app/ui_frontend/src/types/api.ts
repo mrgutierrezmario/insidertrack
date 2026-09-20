@@ -61,6 +61,38 @@ export interface InsiderCluster {
   last_buy: string | null;
 }
 
+// ── AI Desk ────────────────────────────────────────────────────────────────
+export interface ModelCall {
+  id: number;
+  call_date: string;
+  ticker: string;
+  direction: "bullish" | "bearish";
+  horizon_days: 30 | 60 | 90;
+  confidence: number | null;
+  reasoning: string | null;
+  provider: string | null;
+  price_at_call: number | null;
+  price_at_horizon: number | null;
+  return_pct: number | null;
+  spy_return_pct: number | null;
+  excess_pct: number | null;
+  outcome: "hit" | "miss" | null;
+  resolves_on: string;
+}
+export interface ModelDeskStats {
+  resolved: number;
+  pending: number;
+  hit_rate: number | null;
+  avg_excess: number | null;
+  by_horizon: Record<string, { n: number; hit_rate: number; avg_excess: number }>;
+  by_direction: Record<string, { n: number; hit_rate: number }>;
+}
+export interface ModelDeskToday {
+  brief: { date: string; summary: string; provider: string | null } | null;
+  calls: ModelCall[];
+  stats: ModelDeskStats;
+}
+
 // ── Track record ──────────────────────────────────────────────────────────────
 export interface TrackRecordWindow {
   n: number;
@@ -90,6 +122,41 @@ export interface TrackRecord {
   trades: TrackRecordTrade[];
   // Sells, measured the same way; here a NEGATIVE return is the good call.
   sells?: { evaluated: number; windows: Record<"30" | "60" | "90", TrackRecordWindow | undefined>; trades: TrackRecordTrade[] };
+}
+
+// ── 13F holder record ─────────────────────────────────────────────────────────
+export interface HolderRecordTrade {
+  position_id: number;
+  ticker: string;
+  company: string | null;
+  change: "new" | "increased" | "decreased" | "closed";
+  quarter: string | null;
+  value_usd: number | null;
+  public_on: string;
+  entry_date: string;
+  entry_price: number;
+  r30: number | null; r60: number | null; r90: number | null;
+  x30: number | null; x60: number | null; x90: number | null;
+}
+export interface HolderRecordSide {
+  evaluated: number;
+  windows: Record<"30" | "60" | "90", TrackRecordWindow | undefined>;
+  trades: HolderRecordTrade[];
+}
+export interface HolderRecord {
+  holder_id: number;
+  buys: HolderRecordSide;
+  sells: HolderRecordSide;
+  skipped_demo: number;
+}
+export interface HolderLeaderboardRow {
+  id: number;
+  name: string;
+  computed: boolean;
+  window: 30 | 60 | 90 | null;
+  n: number | null;
+  beat_spy_rate: number | null;
+  avg_excess: number | null;
 }
 
 export interface LeaderboardRow {

@@ -159,6 +159,11 @@ def _whale_sync_job():
             source_health.record(db, "whale", ok=False, error=str(exc))
             raise
         logger.info(f"Whale 13F sync: {result}")
+        try:
+            from services.holder_record import refresh_all
+            logger.info(f"Holder records refreshed: {refresh_all(db)}")
+        except Exception as exc:
+            logger.warning(f"holder record refresh failed: {exc}")
 
 
 def _skill_refresh_job():
@@ -167,6 +172,16 @@ def _skill_refresh_job():
     from services.track_record import refresh_skill
     with SessionLocal() as db:
         logger.info(f"Skill refresh: {refresh_skill(db)}")
+
+
+def _model_desk_job():
+    """AI Desk, daily 08:30 ET, after the sync and the alert run: score any calls whose
+    horizon has passed, then have the model read today's data and make its
+    calls. One provider call a day on the site's keys."""
+    from services.model_desk import generate_brief, resolve_calls
+    with SessionLocal() as db:
+        resolve_calls(db)
+        logger.info(f"Model desk: {generate_brief(db)}")
 
 
 def _source_health_job():
@@ -282,6 +297,7 @@ def start_scheduler():
     scheduler.add_job(_whale_sync_job, CronTrigger(day_of_week="sat", hour=6, minute=0, timezone=ET), id="whale_sync", **common)
     # After the morning syncs have run — so today's outcome is what gets judged.
     scheduler.add_job(_source_health_job, CronTrigger(hour=9, minute=0, timezone=ET), id="source_health", **common)
+    scheduler.add_job(_model_desk_job, CronTrigger(hour=8, minute=30, timezone=ET), id="model_desk", **common)
     scheduler.add_job(_skill_refresh_job, CronTrigger(day_of_week="sun", hour=4, minute=30, timezone=ET), id="skill_refresh", **common)
     # Risk classification depends on trade age — refresh once a day so old rows
     # bucket correctly without the /trades read path doing the work.

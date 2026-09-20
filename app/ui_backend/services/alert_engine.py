@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from models.alert import AlertEvent, AlertRule
 from models.insider import Form4Transaction
+from models.model_call import ModelCall
 from models.politician import Politician
 from models.trade import Trade
 from models.whale import WhaleHolder, WhalePosition
@@ -199,6 +200,21 @@ def evaluate_alerts(db: Session) -> dict:
                        f"({tr.amount_range or 'amount n/a'}) on {tr.trade_date}.")
                 if _emit(db, rule, tr.ticker, msg, key):
                     new_events.append({"ticker": tr.ticker, "message": msg, "rule": rule.name})
+
+        elif t == "ai_call":
+            min_conf = (float(thr) / 100.0) if thr else 0.0
+            cutoff = today - timedelta(days=3)
+            q = db.query(ModelCall).filter(ModelCall.call_date >= cutoff)
+            if rule.ticker:
+                q = q.filter(ModelCall.ticker == rule.ticker.upper())
+            for c in q.all():
+                if min_conf and (c.confidence or 0) < min_conf:
+                    continue
+                key = f"{rule.id}:ai_call:{c.id}"
+                msg = (f"AI Desk: {c.direction.upper()} on {c.ticker} over {c.horizon_days} days"
+                       f"{f' (confidence {round(c.confidence * 100)}%)' if c.confidence is not None else ''} — {c.reasoning or ''}")
+                if _emit(db, rule, c.ticker, msg, key):
+                    new_events.append({"ticker": c.ticker, "message": msg, "rule": rule.name})
 
         elif t == "earnings_soon":
             window = int(thr) if thr else 7

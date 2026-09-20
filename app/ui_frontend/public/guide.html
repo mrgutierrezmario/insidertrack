@@ -50,7 +50,7 @@
     <p>Only electronically filed reports can be read directly. About one House filing in eight is a
     scanned, often handwritten form; those are read by an AI vision model and marked
     <strong>PAPER · AI-READ</strong> with the model's confidence — open the filing before relying
-    on one.</p>
+    on one. Admins can have a paper filing read again or remove a misread row.</p>
 
     <h2 id="trades">3. Reading a trade</h2>
     <p>Each congressional trade shows the ticker, the type (purchase, sale, exchange), who holds the
@@ -99,7 +99,9 @@
     <p><strong>Corporate Insiders</strong> lists Form 4 trades. The <strong>Cluster buys</strong> table at the top
     shows companies where two or more insiders bought on the open market in the last 30 days — across the
     whole market, including companies no member of Congress traded. <strong>Whales</strong> shows each tracked
-    fund's latest quarterly holdings and what changed.</p>
+    fund's latest quarterly holdings and what changed. Each fund also has a <strong>track record</strong>: its
+    new and increased positions (and, inverted, its trims and exits) measured 30/60/90 days after the 13F was
+    filed — the first day anyone could have copied it — against SPY. The Whales page ranks funds by it.</p>
 
     <h2 id="outcomes">7. Outcomes and the simulator</h2>
     <p>Every score is snapshotted daily and checked 30, 60 and 90 days later. <strong>Outcomes</strong> shows
@@ -111,13 +113,20 @@
     <p>Save tickers with <strong>+ Watch</strong>; enter an email under Settings to keep the list across
     browsers and to receive the morning, midday and evening reports. <strong>Alerts</strong> are rules you
     create — a score above a threshold, a member buy, a new fund position, an insider cluster buy, a buy by a
-    member with a strong track record, earnings within N days — evaluated three times a day, with one digest
+    member with a strong track record, an AI Desk call on a ticker, earnings within N days — evaluated three times a day, with one digest
     email per run.</p>
 
-    <h2 id="ai">9. AI research notes</h2>
+    <h2 id="ai">9. AI research notes and the AI Desk</h2>
     <p>A ticker page can show a short bull/bear note written by an AI model from the data on the page. The site
     may provide this with its own key; you can also use your own Claude, Gemini or OpenAI key under
     Settings — it is sent only with your own requests and never stored.</p>
+    <p>The <strong>AI Desk</strong> (Dashboard card, full page under Signals, and a section of your Watchlist
+    for the calls on your own tickers) goes one step further: each
+    morning the model reads the day's disclosures and makes three to five directional calls with a horizon and its
+    reasoning. Every call is stored as written and scored at its horizon against the S&amp;P 500, the same way
+    members' trades are — so the page's real content is the running hit-rate, not the calls. A model has no
+    information the site doesn't already show; the desk exists to find out whether reading it well is worth
+    anything.</p>
 
     <h2 id="limits">10. What it can't tell you</h2>
     <ul>

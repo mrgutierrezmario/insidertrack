@@ -75,7 +75,7 @@ function MoverCard({ m, showVol }: { m: Mover; showVol?: boolean }) {
           <span style={{ color: C.textBright, fontWeight: 700, fontSize: 14 }}>{m.ticker}</span>
         </Link>
         {showVol && (
-          <span style={{ color: C.dividerStrong, fontSize: 11, marginLeft: 8 }}>Vol {fmtVol(m.volume)}</span>
+          <span style={{ color: C.textDim, fontSize: 11, marginLeft: 8 }}>Vol {fmtVol(m.volume)}</span>
         )}
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -105,9 +105,9 @@ function MoverPanel({ title, icon, items, showVol = false, loading }: { title: s
         <span>{icon}</span> {title}
       </h3>
       {loading ? (
-        <div style={{ color: C.dividerStrong, fontSize: 13 }}>Loading…</div>
+        <div style={{ color: C.textDim, fontSize: 13 }}>Loading…</div>
       ) : items.length === 0 ? (
-        <div style={{ color: C.dividerStrong, fontSize: 13 }}>No data</div>
+        <div style={{ color: C.textDim, fontSize: 13 }}>No data</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {items.map((m) => <MoverCard key={m.ticker} m={m} showVol={showVol} />)}
@@ -182,17 +182,17 @@ function SignalCard({ s }: { s: MarketSignal }) {
       {/* Date range + last activity */}
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 6 }}>
         {s.window_start && s.window_end && (
-          <span style={{ color: C.divider, fontSize: 11 }}>
+          <span style={{ color: C.textDim, fontSize: 11 }}>
             Window: {new Date(s.window_start).toLocaleDateString("en-US", { month: "short", day: "numeric" })} – {new Date(s.window_end).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
           </span>
         )}
         {s.last_trade_date && (
-          <span style={{ color: C.divider, fontSize: 11 }}>
+          <span style={{ color: C.textDim, fontSize: 11 }}>
             Last trade: {new Date(s.last_trade_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
           </span>
         )}
         {s.last_filing_date && (
-          <span style={{ color: C.divider, fontSize: 11 }}>
+          <span style={{ color: C.textDim, fontSize: 11 }}>
             Last filing: {new Date(s.last_filing_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
           </span>
         )}
@@ -209,7 +209,7 @@ function SignalCard({ s }: { s: MarketSignal }) {
 function Stat({ label, value, color = C.textSoft }: { label: string; value: ReactNode; color?: string }) {
   return (
     <div>
-      <div style={{ color: C.dividerStrong, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</div>
+      <div style={{ color: C.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</div>
       <div style={{ color, fontWeight: 600, fontSize: 13 }}>{value}</div>
     </div>
   );
@@ -286,7 +286,7 @@ export default function Markets() {
                 : (pos ? C.success : C.danger);
               return (
                 <div key={sym} style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, padding: "12px 14px" }}>
-                  <div style={{ color: C.dividerStrong, fontSize: 11, marginBottom: 4 }}>{d.label}</div>
+                  <div style={{ color: C.textDim, fontSize: 11, marginBottom: 4 }}>{d.label}</div>
                   <div style={{ color: C.textBright, fontWeight: 700, fontSize: 16 }}>
                     {sym === "^TNX" ? `${d.price.toFixed(2)}%` : sym === "FED_RATE" ? `${d.price.toFixed(2)}%` : `$${d.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
                   </div>
@@ -300,7 +300,7 @@ export default function Markets() {
                       {d._stale ? (
                         <span style={{ color: C.warning }}>⚠ stale data</span>
                       ) : (
-                        <span style={{ color: C.divider }}>as of {d.as_of}</span>
+                        <span style={{ color: C.textDim }}>as of {d.as_of}</span>
                       )}
                     </div>
                   )}
@@ -324,7 +324,7 @@ export default function Markets() {
       {/* ── Technical Signals ───────────────────────────────── */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <h2 style={{ color: C.textSoft, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>
-          Market Signals <span style={{ color: C.dividerStrong, fontWeight: 400 }}>— tracked insider tickers</span>
+          Market Signals <span style={{ color: C.textDim, fontWeight: 400 }}>— tracked insider tickers</span>
         </h2>
         <div style={{ display: "flex", gap: 6 }}>
           {(["ALL", "BULLISH", "NEUTRAL", "BEARISH"] as const).map((f) => {
@@ -348,9 +348,9 @@ export default function Markets() {
       </div>
 
       {loading ? (
-        <div style={{ color: C.dividerStrong, padding: "40px 0", textAlign: "center" }}>Loading signals…</div>
+        <div style={{ color: C.textDim, padding: "40px 0", textAlign: "center" }}>Loading signals…</div>
       ) : filteredSignals.length === 0 ? (
-        <div style={{ color: C.dividerStrong, padding: "40px 0", textAlign: "center" }}>
+        <div style={{ color: C.textDim, padding: "40px 0", textAlign: "center" }}>
           No {sigFilter !== "ALL" ? sigFilter.toLowerCase() : ""} signals — sync trades first to track tickers
         </div>
       ) : (

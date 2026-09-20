@@ -7,11 +7,11 @@ import type { TrackRecord as TR } from "../types/api";
 
 const WINDOWS = ["30", "60", "90"] as const;
 
-function pct(v: number | null | undefined, sign = true): string {
+export function pct(v: number | null | undefined, sign = true): string {
   if (v == null) return "—";
   return `${sign && v > 0 ? "+" : ""}${v.toFixed(1)}%`;
 }
-function tone(v: number | null | undefined, invert = false): string {
+export function tone(v: number | null | undefined, invert = false): string {
   if (v == null) return C.textMuted;
   const good = invert ? v < 0 : v > 0;
   const bad = invert ? v > 0 : v < 0;
@@ -19,7 +19,7 @@ function tone(v: number | null | undefined, invert = false): string {
 }
 
 /** The three window cards. For sells, a negative return is the good call. */
-function WindowCards({ windows, invert = false }: { windows: TR["windows"]; invert?: boolean }) {
+export function WindowCards({ windows, invert = false }: { windows: TR["windows"]; invert?: boolean }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: "0.75rem", marginBottom: "1rem" }}>
       {WINDOWS.map((w) => {

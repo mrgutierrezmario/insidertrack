@@ -17,6 +17,7 @@ const News        = lazy(() => import("./pages/News"));
 const Earnings    = lazy(() => import("./pages/Earnings"));
 const Politicians = lazy(() => import("./pages/Politicians"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
+const ModelDesk = lazy(() => import("./pages/ModelDesk"));
 const Politician  = lazy(() => import("./pages/Politician"));
 const Ticker      = lazy(() => import("./pages/Ticker"));
 const Simulator   = lazy(() => import("./pages/Simulator"));
@@ -59,6 +60,7 @@ const NAV_GROUPS: ReadonlyArray<NavGroup> = [
   { label: "Signals", items: [
     { to: "/signals",   label: "Signal Scores", hint: "Composite score, 0–100, per ticker" },
     { to: "/outcomes",  label: "Outcomes", hint: "How past signals played out" },
+    { to: "/ai-desk", label: "AI Desk", hint: "The AI's daily calls, scored" },
     { to: "/simulator", label: "Simulator", hint: "Hypothetical returns vs. SPY" },
   ]},
   { label: "Markets", items: [
@@ -231,6 +233,7 @@ export default function App() {
           <Route path="/signals" element={<Signals />} />
           <Route path="/politicians" element={<Politicians />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/ai-desk" element={<ModelDesk />} />
           <Route path="/fed" element={<Fed />} />
           <Route path="/activity" element={<Activity />} />
           <Route path="/politician/:id" element={<Politician />} />

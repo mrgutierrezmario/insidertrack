@@ -14,7 +14,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from config import settings
 from database import init_db
-from routers import access, ai, alerts, analysis, app_settings, config, earnings, fed, filings, insiders, market, news, outcomes, politicians, search, signals, simulator, trades, watchlist, whales
+from routers import access, ai, alerts, analysis, app_settings, config, earnings, fed, filings, insiders, market, model_desk, news, outcomes, politicians, search, signals, simulator, trades, watchlist, whales
 from services.scheduler import start_scheduler, stop_scheduler
 
 # ── Logging setup ─────────────────────────────────────────────────────────────
@@ -192,6 +192,7 @@ app.include_router(market.router)
 app.include_router(signals.router)
 app.include_router(outcomes.router)
 app.include_router(alerts.router)
+app.include_router(model_desk.router)
 app.include_router(ai.router)
 app.include_router(insiders.router)
 app.include_router(watchlist.router)

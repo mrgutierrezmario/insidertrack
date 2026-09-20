@@ -8,7 +8,7 @@ Rate-limit: SEC asks for ≤10 req/sec, User-Agent required.
 import logging
 import re
 import time
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Optional
 import xml.etree.ElementTree as ET
 
@@ -134,15 +134,18 @@ def _fetch_submissions(cik_padded: str) -> Optional[dict]:
         return None
 
 
-def _latest_13f(submissions: dict) -> Optional[tuple[str, str, str]]:
+def _latest_13f(submissions: dict) -> Optional[tuple[str, str, str, str]]:
     """
-    Returns (acc_no_dashes, period_date_str, cik_raw) for the most recent 13F-HR.
-    cik_raw is the unpadded CIK used in archives URLs.
+    Returns (acc_no_dashes, period_date_str, cik_raw, filed_str) for the most
+    recent 13F-HR. `period` is the quarter end the holdings describe; `filed`
+    is when the public could first see them (up to 45 days later) — the date
+    a track record has to start from. cik_raw is the unpadded CIK.
     """
     recent = submissions.get("filings", {}).get("recent", {})
     forms = recent.get("form", [])
     accessions = recent.get("accessionNumber", [])
     periods = recent.get("reportDate", [])
+    filed = recent.get("filingDate", [])
     cik_raw = str(submissions.get("cik", ""))
 
     for i, form in enumerate(forms):
@@ -151,7 +154,7 @@ def _latest_13f(submissions: dict) -> Optional[tuple[str, str, str]]:
         acc = accessions[i] if i < len(accessions) else ""
         period = periods[i] if i < len(periods) else ""
         if acc:
-            return acc.replace("-", ""), period, cik_raw
+            return acc.replace("-", ""), period, cik_raw, (filed[i] if i < len(filed) else "")
     return None
 
 
@@ -407,7 +410,7 @@ def sync_whale_positions(db: Session) -> dict:
             logger.info(f"No 13F filing found for {holder.name}")
             continue
 
-        acc_no_dashes, period_str, cik_raw = filing
+        acc_no_dashes, period_str, cik_raw, filed_str = filing
         quarter = _quarter(period_str)
         if not quarter:
             logger.warning(f"Cannot parse period '{period_str}' for {holder.name}")
@@ -442,6 +445,10 @@ def sync_whale_positions(db: Session) -> dict:
             filing_date = datetime.strptime(period_str[:10], "%Y-%m-%d").date()
         except Exception:
             filing_date = date.today()
+        try:
+            filed_on = datetime.strptime(filed_str[:10], "%Y-%m-%d").date()
+        except Exception:
+            filed_on = filing_date + timedelta(days=45)   # the legal deadline, when the date is unknown
 
         count = 0
         unmapped = 0
@@ -462,6 +469,7 @@ def sync_whale_positions(db: Session) -> dict:
                 shares=h["shares"],
                 value_usd=h["value_usd"],
                 filing_date=filing_date,
+                filed_on=filed_on,
                 quarter=quarter,
                 change_type=ct,
             ))

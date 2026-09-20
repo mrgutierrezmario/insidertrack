@@ -67,8 +67,9 @@ class TestFilingSelection:
             "form": ["8-K", "13F-HR/A", "13F-HR"],
             "accessionNumber": ["0001-24-1", "0001-24-2", "0001-24-3"],
             "reportDate": ["", "2026-06-30", "2026-03-31"],
+            "filingDate": ["2026-08-01", "2026-08-14", "2026-05-15"],
         }}}
-        assert ef._latest_13f(subs) == ("0001242", "2026-06-30", "1067983")
+        assert ef._latest_13f(subs) == ("0001242", "2026-06-30", "1067983", "2026-08-14")
 
     def test_latest_13f_none(self):
         assert ef._latest_13f({"filings": {"recent": {"form": ["8-K"]}}}) is None

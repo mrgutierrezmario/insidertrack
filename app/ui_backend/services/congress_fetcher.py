@@ -291,6 +291,18 @@ def _refresh_trade(t: Trade, tx: dict, disclosure_date: Optional[date], raw: dic
     t.raw_data = json.dumps(raw)
 
 
+def _find_paper_amended_row(db: Session, politician_id: int, ticker: str, trade_date: date, filing_id: str) -> Optional[Trade]:
+    """The earlier row a paper amendment corrects: same member, ticker and
+    trade date, from a different filing."""
+    return (
+        db.query(Trade)
+        .filter(Trade.politician_id == politician_id, Trade.ticker == ticker, Trade.trade_date == trade_date,
+                Trade.filing_id != filing_id)
+        .order_by(Trade.id)
+        .first()
+    )
+
+
 def _drop_stale_filing_rows(db: Session, filing_id: str, keep_ids: set[int]) -> int:
     """Re-parse mode: rows from this filing that the current parser no longer
     produces (e.g. a now-rejected implausible date) are removed."""
@@ -507,8 +519,10 @@ def _fetch_ptr_list(client: httpx.Client, start_date: date, end_date: Optional[d
                 "uuid": (m or paper).group(1),
                 "paper": m is None,
                 "filed": (row[4] or "").strip() if len(row) > 4 else "",
-                # Amended reports carry "(Amendment N)" in the link title.
+                # Amended reports carry "(Amendment N)" in the link title;
+                # the "for MM/DD/YYYY" there is the report being amended.
                 "amended": "mendment" in link_html,
+                "for_date": _parse_senate_report_date(link_html),
             })
         total = body.get("recordsTotal", 0)
         offset += page_size
@@ -610,7 +624,7 @@ def supersede_senate_report(db: Session, politician_id: int, original_filed: dat
     number of rows removed."""
     q = db.query(Trade).filter(
         Trade.politician_id == politician_id,
-        Trade.source == "senate",
+        Trade.source.in_(("senate", "senate-paper")),
         Trade.filing_id != amendment_id,
         ((Trade.amends.is_(None)) & (Trade.disclosure_date == original_filed))
         | (Trade.amends == original_filed),
@@ -633,22 +647,25 @@ def _senate_report_superseded(db: Session, politician_id: int, filed: date) -> b
 
 def sync_senate_trades(db: Session, start_date: Optional[date] = None,
                        end_date: Optional[date] = None, progress=None,
-                       reparse: bool = False) -> int:
+                       reparse: bool = False, only: Optional[set[str]] = None) -> int:
     """Import Senate PTRs filed in [start_date, end_date]. Defaults to the
     rolling EFD_LOOKBACK_DAYS window; the backfill passes explicit bounds.
     `progress(done, total)` is called per filing when given. With `reparse`,
     already-processed filings are fetched again and their rows refreshed in
     place (new columns, better parsing) instead of being skipped."""
     start_date = start_date or date.today() - timedelta(days=EFD_LOOKBACK_DAYS)
+    if only:
+        reparse = True      # a targeted re-read refreshes those filings in place
     logger.info(f"Fetching Senate trades from EFD ({start_date} → {end_date or 'now'}{', re-parse' if reparse else ''})...")
 
     client = _efd_client()
     seen = set() if reparse else _load_processed(db, "senate")
     try:
         reports = _fetch_ptr_list(client, start_date, end_date)
-        new_reports = [r for r in reports if r["uuid"] not in seen]
-        # Paper filings: only within the per-run budget, never in a re-parse.
-        paper_budget = paper_ptr.PAPER_MAX_PER_RUN if (paper_ptr_enabled() and not reparse) else 0
+        new_reports = [r for r in reports if r["uuid"] not in seen and (only is None or r["uuid"] in only)]
+        # Paper filings: only within the per-run budget, never in a bulk
+        # re-parse (each one is a vision-model call); a targeted re-read may.
+        paper_budget = paper_ptr.PAPER_MAX_PER_RUN if (paper_ptr_enabled() and (not reparse or only)) else 0
         kept_reports = []
         for r in new_reports:
             if r.get("paper"):
@@ -676,7 +693,7 @@ def sync_senate_trades(db: Session, start_date: Optional[date] = None,
                         if reading is None:
                             continue  # provider down / no JSON — not marked processed, retried next sync
                         txns, pstats = paper_ptr.rows_from_reading(reading, _house_ticker_lookup(), _is_known_ticker)
-                        report_for = filed
+                        report_for = rpt.get("for_date") or filed
                         logger.info(f"Senate paper PTR {rpt['uuid']} ({name}): {pstats} via {reading.get('_model')}")
                         time.sleep(paper_ptr.PACE_SECONDS)
                     else:
@@ -694,9 +711,9 @@ def sync_senate_trades(db: Session, start_date: Optional[date] = None,
                 # disclosure date; the amendment's own date lives in raw_data.
                 amends = None
                 disclosure_date = filed
-                # (A paper amendment can't name what it amends — the model
-                # only sees a ticked box — so it is stored as a normal filing.)
-                if rpt.get("amended") and report_for and not is_paper:
+                # Paper or electronic: the index title names the report an
+                # amendment replaces, so both supersede the same way.
+                if rpt.get("amended") and report_for and (not is_paper or report_for != filed):
                     amends = report_for
                     disclosure_date = report_for
                     supersede_senate_report(db, politician.id, report_for, rpt["uuid"])
@@ -852,7 +869,7 @@ def _parse_house_ptr(pdf_bytes: bytes) -> list[dict]:
 
 def sync_house_trades(db: Session, start_date: Optional[date] = None,
                       end_date: Optional[date] = None, progress=None,
-                      reparse: bool = False) -> int:
+                      reparse: bool = False, only: Optional[set[str]] = None) -> int:
     """Pull House PTRs filed in [start_date, end_date] from the Clerk's office
     and parse their PDFs. Defaults to the rolling HOUSE_LOOKBACK_DAYS window;
     the backfill passes explicit bounds.
@@ -866,6 +883,8 @@ def sync_house_trades(db: Session, start_date: Optional[date] = None,
     """
     cutoff = start_date or date.today() - timedelta(days=HOUSE_LOOKBACK_DAYS)
     until = end_date or date.today()
+    if only:
+        reparse = True      # a targeted re-read refreshes those filings in place
     logger.info(f"Fetching House trades from Clerk disclosures ({cutoff} → {until}{', re-parse' if reparse else ''})...")
     years = list(range(cutoff.year, until.year + 1))
 
@@ -896,14 +915,14 @@ def sync_house_trades(db: Session, start_date: Optional[date] = None,
                 # else a scanned paper form.
                 if row.get("FilingType") != "P":
                     continue
-                if doc_id in seen:
+                if doc_id in seen or (only is not None and doc_id not in only):
                     continue
                 filed = _parse_date(row.get("FilingDate"))
                 if filed and (filed < cutoff or filed > until):
                     continue
                 if not doc_id.startswith("2"):
-                    if paper_budget <= 0 or reparse:
-                        continue        # paper: only within budget, never in re-parse
+                    if paper_budget <= 0 or (reparse and not only):
+                        continue        # paper: only within budget, never in a bulk re-parse
                     paper_budget -= 1
                 todo.append((row, doc_id))
 
@@ -964,6 +983,14 @@ def sync_house_trades(db: Session, start_date: Optional[date] = None,
                             Trade.politician_id == politician.id, Trade.house_tx_id == tx["tx_id"]).first()
                     if existing is None:
                         existing = _find_trade(db, politician.id, tx["ticker"], trade_date, tx["type"], tx["amount"])
+                    if existing is None and is_paper and tx.get("amended"):
+                        # A paper amendment has no transaction ids: the same
+                        # ticker on the same day from an earlier filing is the
+                        # row it corrects (amount or type); a changed date is
+                        # beyond what the form lets us tie together.
+                        existing = _find_paper_amended_row(db, politician.id, tx["ticker"], trade_date, doc_id)
+                        if existing is not None:
+                            tx = {**tx, "status": "amended"}
                     if existing:
                         if tx.get("status") == "amended" and existing.filing_id != doc_id:
                             original_filed = existing.disclosure_date
@@ -1215,6 +1242,32 @@ def get_last_sync(db: Session) -> Optional[dict]:
         return json.loads(row.value)
     except ValueError:
         return None
+
+
+def reread_filing(db: Session, trade: Trade) -> dict:
+    """Admin: fetch one filing again and refresh its rows in place (for a
+    paper filing this is a fresh vision-model reading). Rows the new reading
+    no longer supports are dropped; ones it adds appear. Returns the row
+    count now on that filing."""
+    if not trade.filing_id:
+        raise ValueError("This row has no filing id to re-read")
+    filing_id = trade.filing_id      # the row itself may not survive the re-read
+    raw = {}
+    try:
+        raw = json.loads(trade.raw_data) if trade.raw_data else {}
+    except ValueError:
+        pass
+    src = trade.source or ""
+    if src.startswith("house"):
+        filed = _parse_date(raw.get("filing_date")) or trade.disclosure_date
+        sync_house_trades(db, filed, filed, only={filing_id})
+    elif src.startswith("senate"):
+        filed = _parse_date(raw.get("amendment_filed")) or trade.disclosure_date
+        sync_senate_trades(db, filed - timedelta(days=1), filed + timedelta(days=1), only={filing_id})
+    else:
+        raise ValueError(f"Cannot re-read a '{src}' row")
+    rows = db.query(Trade).filter(Trade.filing_id == filing_id).count()
+    return {"filing_id": filing_id, "rows": rows}
 
 
 def sync_all(db: Session) -> dict:

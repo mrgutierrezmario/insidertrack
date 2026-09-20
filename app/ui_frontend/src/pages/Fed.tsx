@@ -89,7 +89,7 @@ function OfficialCard({ official, isSelected, onClick }: { official: Official; i
       </div>
       <div style={{ color: C.textMuted, fontSize: 12, marginTop: 4, lineHeight: 1.4 }}>{official.title}</div>
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, alignItems: "center" }}>
-        <span style={{ color: C.divider, fontSize: 11 }}>
+        <span style={{ color: C.textDim, fontSize: 11 }}>
           {official.role === "board" ? `Expires ${official.term_expires}` : official.district + " District"}
         </span>
         <span style={{ color: official.trade_count > 0 ? C.textSoft : C.divider, fontSize: 11, fontWeight: 600 }}>
@@ -108,7 +108,7 @@ function TradeRow({ trade }: { trade: FedTrade }) {
       <td style={{ padding: "9px 12px" }}>
         <div style={{ fontSize: 12, color: C.textSoft, lineHeight: 1.3 }}>
           <div style={{ color: C.textBright, fontWeight: 600 }}>{trade.official_name}</div>
-          <div style={{ color: C.dividerStrong, fontSize: 11 }}>{trade.official_title}</div>
+          <div style={{ color: C.textDim, fontSize: 11 }}>{trade.official_title}</div>
         </div>
       </td>
       <td style={{ padding: "9px 12px" }}>
@@ -116,7 +116,7 @@ function TradeRow({ trade }: { trade: FedTrade }) {
           <Link to={`/ticker/${trade.ticker}`} style={{ color: C.accent, fontWeight: 700, textDecoration: "none", fontSize: 13 }}>{trade.ticker}</Link>
           <WatchlistButton ticker={trade.ticker} />
         </div>
-        {trade.asset_name && <div style={{ color: C.dividerStrong, fontSize: 11, marginTop: 2 }}>{trade.asset_name}</div>}
+        {trade.asset_name && <div style={{ color: C.textDim, fontSize: 11, marginTop: 2 }}>{trade.asset_name}</div>}
       </td>
       <td style={{ padding: "9px 12px" }}>
         <span style={{
@@ -129,7 +129,7 @@ function TradeRow({ trade }: { trade: FedTrade }) {
         </span>
       </td>
       <td style={{ padding: "9px 12px", color: C.textSoft, fontSize: 12 }}>{trade.amount_range || "—"}</td>
-      <td style={{ padding: "9px 12px", color: C.dividerStrong, fontSize: 11 }}>
+      <td style={{ padding: "9px 12px", color: C.textDim, fontSize: 11 }}>
         {trade.disclosure_date || "—"}
       </td>
       <td style={{ padding: "9px 12px" }}>
@@ -137,7 +137,7 @@ function TradeRow({ trade }: { trade: FedTrade }) {
           <a href={safeHref(trade.source_url)} target="_blank" rel="noopener noreferrer"
             style={{ color: C.accent, fontSize: 11, textDecoration: "none" }}>OGE ↗</a>
         ) : (
-          <span style={{ color: C.divider, fontSize: 11 }}>—</span>
+          <span style={{ color: C.textDim, fontSize: 11 }}>—</span>
         )}
       </td>
     </tr>
@@ -206,7 +206,7 @@ export default function Fed() {
       <div className="page-head">
         <div>
           <h1>Federal Reserve Officials</h1>
-          <p style={{ color: C.dividerStrong, margin: 0, fontSize: 13 }}>
+          <p style={{ color: C.textDim, margin: 0, fontSize: 13 }}>
             Who sets rates — the FOMC roster, with links to each official's annual disclosure.
           </p>
         </div>
@@ -351,7 +351,7 @@ export default function Fed() {
               {[...Array(4)].map((_, i) => <SkeletonCard key={i} lines={2} height={52} />)}
             </div>
           ) : trades.length === 0 ? (
-            <div style={{ color: C.dividerStrong, textAlign: "center", padding: "60px 24px", background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 12 }}>
+            <div style={{ color: C.textDim, textAlign: "center", padding: "60px 24px", background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 12 }}>
               <div style={{ fontSize: 32, marginBottom: 12 }}>📋</div>
               <div style={{ fontSize: 15, fontWeight: 600, color: C.textMuted, marginBottom: 8 }}>No individual-stock transactions on record</div>
               <div style={{ fontSize: 13, color: C.textMuted, maxWidth: 360, margin: "0 auto", lineHeight: 1.6 }}>
@@ -365,7 +365,7 @@ export default function Fed() {
                 <thead>
                   <tr style={{ borderBottom: "1px solid var(--c-surfaceAlt)" }}>
                     {["Trade Date", "Official", "Ticker", "Type", "Amount", "Disclosed", "Source"].map((h) => (
-                      <th key={h} style={{ padding: "10px 12px", color: C.dividerStrong, fontWeight: 600, fontSize: 11, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
+                      <th key={h} style={{ padding: "10px 12px", color: C.textDim, fontWeight: 600, fontSize: 11, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -376,9 +376,9 @@ export default function Fed() {
             </div>
           )}
 
-          <div style={{ marginTop: 12, color: C.divider, fontSize: 11, lineHeight: 1.6 }}>
+          <div style={{ marginTop: 12, color: C.textDim, fontSize: 11, lineHeight: 1.6 }}>
             Roster maintained by hand · Board of Governors file annual Form 278 with the{" "}
-            <a href="https://www.oge.gov/web/oge.nsf/Public%20Financial%20Disclosure" target="_blank" rel="noopener noreferrer" style={{ color: C.dividerStrong }}>Office of Government Ethics ↗</a>{" "}
+            <a href="https://www.oge.gov/web/oge.nsf/Public%20Financial%20Disclosure" target="_blank" rel="noopener noreferrer" style={{ color: C.textDim }}>Office of Government Ethics ↗</a>{" "}
             · Reserve-bank presidents publish theirs on their bank's site
           </div>
         </div>

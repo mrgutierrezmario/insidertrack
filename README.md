@@ -17,9 +17,13 @@ own machine from free public data sources; cloud AI providers are optional.
 
 **By M.G. Network and Technology Solutions.**
 
-![The Dashboard in dark mode: this week's disclosures, the top signal, the latest bullish/bearish read and alerts fired, then the latest analysis as ticker chips](design/screenshots/dashboard-dark.png)
+**Live site: [mgnts-stock-tracker.tail3659a6.ts.net](https://mgnts-stock-tracker.tail3659a6.ts.net)** — no
+account needed; it runs on a Mac mini at home, so if it is ever down, it is
+being worked on.
 
-<p align="center"><em>The Dashboard: what changed this week, the top signal, the latest read. Dark mode; light mode below.</em></p>
+![The Dashboard in dark mode: this week's disclosures, the top signal, the latest bullish/bearish read and alerts fired; the latest analysis as ticker chips beside a watchlist with prices, 7-day change and each ticker's score; then top signals and latest disclosures](design/screenshots/dashboard-dark.png)
+
+<p align="center"><em>The Dashboard: what changed this week, the top signal, the latest read, and your watchlist — every saved ticker with price, 7-day change and score, scrolling inside its card. Dark mode; light mode below.</em></p>
 
 | | |
 |---|---|
@@ -29,6 +33,7 @@ own machine from free public data sources; cloud AI providers are optional.
 | Score | 0–100 per ticker: smart money + Congress (dollar-weighted, scaled by each member's track record) + corporate insiders + momentum − staleness |
 | Track record | Every member's stock buys — and sales — measured at 30/60/90 days vs SPY; win rate, average excess, and the weight it earns them in the score. A **Leaderboard** ranks members by how often their buys beat the market |
 | Outcomes | Daily snapshots of every score, filled at 30/60/90 days, so the hit-rate of each label is a number rather than a claim |
+| AI Desk | Each morning the site's AI model reads the day's disclosures and makes 3–5 directional calls — which are then scored at 30/60/90 days against SPY exactly like the members' trades. A scorecard, not a forecast |
 | Also | Alerts (rules + digest email), investment simulator vs SPY, watchlist and email reports, earnings calendar, AI research notes per ticker (site key or bring your own) |
 | Runs as | A Docker Compose stack (Postgres, app, Tailscale sidecar) with a fixed public HTTPS URL via Tailscale Funnel — free, no domain needed |
 | Docs in the app | `/guide` (how to read every page and the score) and `/privacy` (exactly what the site stores about a visitor), linked from Settings and the phone menu |
@@ -176,8 +181,9 @@ Optional keys unlock additional features. Set them in the Admin panel (no restar
 
 | Key | Feature | Where to get it |
 |---|---|---|
-| `ALPHA_VANTAGE_KEY` | Minute-by-minute intraday charts; news with sentiment labels (without it the News page shows Google News headlines) | alphavantage.co — free tier: 25 req/day |
-| `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` / `OPENAI_API_KEY` | AI bull/bear research notes on ticker pages. `AI_PROVIDER` picks the writer (claude / gemini / openai); other configured providers are fallbacks. Visitors can also bring their own key in Settings | console.anthropic.com / aistudio.google.com / platform.openai.com — cached 6h per ticker |
+| `ALPHA_VANTAGE_KEY` | Minute-by-minute intraday charts; news with sentiment labels (without it the News page shows Google News headlines with a keyword-based label) | alphavantage.co — free tier: 25 req/day |
+| `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` / `OPENAI_API_KEY` | AI bull/bear research notes on ticker pages. `AI_PROVIDER` picks the writer (ollama / claude / gemini / openai); other configured providers are fallbacks. Visitors can also bring their own key in Settings | console.anthropic.com / aistudio.google.com / platform.openai.com — cached 6h per ticker |
+| `OLLAMA_BASE_URL` (+ `OLLAMA_MODEL`) | A local model server — free, unlimited, no key. `AI_BATCH_PROVIDER` (default `ollama`) picks who writes the daily Model Desk brief, so the cloud keys are spent only on visitor-facing notes and on reading scanned filings (which need a vision model: a cloud provider, or `OLLAMA_VISION_MODEL=llava`). Admin → AI shows calls and tokens per job and provider | [ollama.com](https://ollama.com) — native on the same Mac it is `http://host.docker.internal:11434` |
 | `MAIL_USERNAME` + `MAIL_PASSWORD` | Email reports, alert notifications, data-source notices | Gmail address + App Password (myaccount.google.com/apppasswords) |
 | `MAIL_ADMIN_TO` | Where operational notices go (a scraper failing or gone quiet). Defaults to the sender | — |
 
@@ -193,7 +199,7 @@ Keys set via the Admin UI are stored in the database and take effect immediately
 | House Clerk — Periodic Transaction Report PDFs (disclosures-clerk.house.gov) | Daily, rolling 90-day window | Up to 45 days (STOCK Act deadline) |
 | Senate EFD — electronic PTRs (efdsearch.senate.gov) | Daily, rolling 90-day window | Up to 45 days (STOCK Act deadline) |
 
-Only electronically-filed reports are parsed (scanned paper filings have no text layer). Amendments are reconciled in both chambers: a Senate amendment is a full re-filing and replaces the report it names; a House amendment re-files individual transactions under their 10-digit transaction ID and replaces those rows in place. Only the corrected version is ever shown (tagged AMENDED). Each row records the owner (member / spouse / dependent child / joint), the asset kind (stock / option / other), the disclosed dollar bracket, and a **direction** — the trade's bet on the ticker. Options follow their contract (long call / short put = bullish); an option whose filing doesn't say call or put, and bonds, are neutral and don't count toward the signal. Party and state come from the `unitedstates/congress-legislators` roster.
+Electronically-filed reports are parsed from their text layer; scanned paper filings (about one House filing in eight, a few Senate ones) are read by the configured vision model, up to `PAPER_MAX_PER_RUN` per sync, and tagged PAPER · AI-READ with the model's confidence. Amendments are reconciled in both chambers: a Senate amendment is a full re-filing and replaces the report it names (the EFD index title carries that date, so paper amendments reconcile too); a House amendment re-files individual transactions under their 10-digit transaction ID and replaces those rows in place — a paper House amendment has no IDs, so it replaces the earlier row for the same ticker and trade date. Only the corrected version is ever shown (tagged AMENDED). Admins can **re-read** a paper filing (a fresh model reading that refreshes every row from it) or remove a misread row. Each row records the owner (member / spouse / dependent child / joint), the asset kind (stock / option / other), the disclosed dollar bracket, and a **direction** — the trade's bet on the ticker. Options follow their contract (long call / short put = bullish); an option whose filing doesn't say call or put, and bonds, are neutral and don't count toward the signal. Party and state come from the `unitedstates/congress-legislators` roster.
 
 ### Corporate Insiders (Form 4)
 | Source | Update frequency | Lag |
@@ -209,6 +215,8 @@ The market-wide feed powers the **Cluster buys** table on the Insiders page — 
 | SEC EDGAR | Quarterly | 45–60 days after quarter end |
 
 Pre-loaded filers (21): Berkshire, Soros, Renaissance, Bridgewater, Pershing Square, Scion, ARK, Tiger Global, Duquesne, Appaloosa, Baupost, Third Point, Elliott, Coatue, Lone Pine, Viking, Greenlight, Trian, Starboard, Altimeter, Icahn. Discretionary managers only — quant/multi-strat shops hold thousands of hedged positions that say nothing about conviction. Add more in Admin → Filings institutions.
+
+Each fund gets a **track record** like the members': new and increased positions (and trims/exits, inverted) measured 30/60/90 days after the 13F's real filing date against SPY, refreshed after the weekly sync; the Whales page ranks funds by their 90-day beat-SPY rate.
 
 ### Federal Reserve Officials
 Roster only (seeded at startup, refreshable from the page). Board members have been barred from holding individual stocks since 2022, and OGE publishes disclosures as PDFs with no API, so the Fed page shows who is on the Board with an empty (compliant) trade list.
@@ -260,6 +268,7 @@ All times Eastern. Jobs run automatically when the backend is running.
 | 7:30 AM | Fill 30/60/90-day outcomes for old snapshots |
 | 8:00 AM | Sync congressional trades + morning analysis + email report |
 | 8:15 AM | Evaluate alert rules |
+| 8:30 AM | AI Desk: score due calls, then write today's brief and calls (one AI call) |
 | 9:00 AM | Data-source health check → admin email if anything is stale/failing |
 | 12:00 PM | Midday analysis + email report |
 | 12:15 PM | Evaluate alert rules |
@@ -350,7 +359,7 @@ insidertrack/
         │   ├── Activity.jsx      ← Unified timeline (Congress + insiders + Fed)
         │   ├── Politicians.jsx   ← Manage tracked politicians
         │   ├── Politician.jsx    ← Per-politician trade history
-        │   ├── Whales.jsx        ← 13F whale holdings feed
+        │   ├── Whales.tsx        ← 13F whale holdings feed + fund track records
         │   ├── Whale.jsx         ← Per-whale position detail
         │   ├── Insiders.jsx      ← Form 4 corporate insider transactions
         │   ├── Fed.jsx           ← Fed official disclosures
@@ -387,6 +396,16 @@ insidertrack/
 ```
 
 ---
+
+## MCP server
+
+An AI assistant (Claude Desktop, claude.ai, Claude Code) can ask the site
+questions through [insidertrack-mcp](https://github.com/mrgutierrezmario/insidertrack-mcp):
+who in Congress bought what, cluster buys, a ticker's score and reasons,
+members' track records, whether the labels actually went up. It runs as one
+more container in this stack (`mcp` in `deploy/compose.yml`), reads the
+public API only, and answers at `/mcp` behind a bearer token
+(`MCP_TOKENS` in `deploy/.env`). See `deploy/OPERATIONS.md`.
 
 ## Security
 

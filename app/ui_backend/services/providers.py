@@ -1,13 +1,17 @@
 """Text generation behind one call, with the provider chosen in Settings.
 
-Same shape as lecture-note-app's ``providers.py``, minus Ollama: ``generate_text``
-serves the research notes; ``ai_provider`` picks Claude (default), Gemini or
-OpenAI, and a failure (bad key, quota, outage) falls through to whichever other
-providers have a key saved. Keys live in the ``app_settings`` table and are
-applied to the live ``settings`` object by ``routers/app_settings.py``.
+Same shape as lecture-note-app's ``providers.py``: ``generate_text`` serves the
+research notes, the Model Desk brief and the paper-filing reader; ``ai_provider``
+picks Ollama (local, free), Claude (default), Gemini or OpenAI, and a failure
+(bad key, quota, outage) falls through to whichever other providers are
+configured. Scheduled jobs can prefer a different provider (``ai_batch_provider``)
+so the free local model does the bulk work and the cloud keys are spent only
+where they matter. Keys live in the ``app_settings`` table and are applied to
+the live ``settings`` object by ``routers/app_settings.py``.
 
-Claude goes through the official SDK; Gemini and OpenAI are plain HTTP via
-httpx, so there are no extra SDKs to carry.
+Claude goes through the official SDK; Ollama, Gemini and OpenAI are plain HTTP
+via httpx, so there are no extra SDKs to carry. Every call is counted per job
+and provider (``usage_snapshot``) so the Admin panel can show where the tokens go.
 """
 
 import logging
@@ -21,12 +25,13 @@ from config import settings
 
 logger = logging.getLogger(__name__)
 
-PROVIDERS = ("claude", "gemini", "openai")
+PROVIDERS = ("ollama", "claude", "gemini", "openai")
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 GEMINI_MODELS_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 OPENAI_URL = "https://api.openai.com/v1/chat/completions"
 
-LABELS = {"claude": "Claude", "gemini": "Gemini", "openai": "OpenAI"}
+LABELS = {"ollama": "Ollama (local)", "claude": "Claude", "gemini": "Gemini", "openai": "OpenAI"}
+JOBS = ("notes", "desk", "vision", "test")
 
 
 class ProviderError(Exception):
@@ -56,6 +61,8 @@ class Generation:
     provider: str  # e.g. "claude/claude-opus-5"
     fallback: str | None = None
     fallback_reason: str | None = None
+    input_tokens: int = 0    # as reported by the provider; 0 when unknown
+    output_tokens: int = 0
 
 
 def describe_failure(exc: Exception | None) -> str:
@@ -80,8 +87,10 @@ def describe_failure(exc: Exception | None) -> str:
 
 
 def key_for(provider: str) -> str:
-    """The saved API key for a provider (empty string if none)."""
+    """The saved API key for a provider (empty string if none). Ollama has no
+    key; its server URL plays the same role so the cascade code stays uniform."""
     return {
+        "ollama": (settings.ollama_base_url or "").rstrip("/"),
         "claude": settings.anthropic_api_key or "",
         "gemini": settings.gemini_api_key or "",
         "openai": settings.openai_api_key or "",
@@ -90,6 +99,7 @@ def key_for(provider: str) -> str:
 
 def model_for(provider: str) -> str:
     return {
+        "ollama": settings.ollama_model,
         "claude": settings.claude_model,
         "gemini": settings.gemini_model,
         "openai": settings.openai_model,
@@ -117,12 +127,94 @@ def active_provider() -> str | None:
     return None
 
 
+def batch_provider() -> str | None:
+    """The provider scheduled text jobs prefer, if it is configured."""
+    chosen = settings.ai_batch_provider
+    return chosen if chosen in PROVIDERS and configured(chosen) else None
+
+
+# ── Usage accounting ──────────────────────────────────────────────────────────
+# Per (job, provider) counters since the process started, plus today's slice,
+# so the Admin panel can show which job is spending the tokens.
+
+_usage: dict[str, dict[str, dict[str, int]]] = {}
+_usage_day = {"day": ""}
+
+
+def _record_usage(job: str, provider: str, gen: Generation | None, failed: bool, ms: int) -> None:
+    today = time.strftime("%Y-%m-%d", time.gmtime())
+    if _usage_day["day"] != today:
+        _usage_day["day"] = today
+        for by_provider in _usage.values():
+            for row in by_provider.values():
+                row["calls_today"] = row["failures_today"] = 0
+                row["input_tokens_today"] = row["output_tokens_today"] = 0
+    row = _usage.setdefault(job, {}).setdefault(provider, {
+        "calls": 0, "failures": 0, "input_tokens": 0, "output_tokens": 0, "ms": 0,
+        "calls_today": 0, "failures_today": 0, "input_tokens_today": 0, "output_tokens_today": 0,
+    })
+    row["calls"] += 1
+    row["calls_today"] += 1
+    row["ms"] += ms
+    if failed:
+        row["failures"] += 1
+        row["failures_today"] += 1
+    elif gen is not None:
+        row["input_tokens"] += gen.input_tokens
+        row["output_tokens"] += gen.output_tokens
+        row["input_tokens_today"] += gen.input_tokens
+        row["output_tokens_today"] += gen.output_tokens
+    logger.info(
+        "ai_usage job=%s provider=%s ok=%s in=%d out=%d ms=%d",
+        job, provider, not failed, gen.input_tokens if gen else 0, gen.output_tokens if gen else 0, ms,
+    )
+
+
+def usage_snapshot() -> dict:
+    """Counters for the Admin panel: ``{job: {provider: {...}}}`` plus the day."""
+    return {"day": _usage_day["day"], "jobs": {j: dict(p) for j, p in _usage.items()}}
+
+
 # ── Implementations ───────────────────────────────────────────────────────────
 
 
 def _b64(data: bytes) -> str:
     import base64
     return base64.b64encode(data).decode("ascii")
+
+
+def _ollama(prompt: str, max_tokens: int, timeout: float, key: str, model: str,
+            images: list[bytes] | None = None) -> Generation:
+    """Ollama's native API (``/api/generate``). ``key`` is the server URL.
+    Images go to the vision model only when one is configured."""
+    if images:
+        model = settings.ollama_vision_model
+        if not model:
+            raise ProviderError("Ollama has no vision model configured")
+    body: dict = {
+        "model": model,
+        "prompt": prompt,
+        "stream": False,
+        "options": {"temperature": 0.1, "num_predict": max_tokens},
+    }
+    if images:
+        body["images"] = [_b64(im) for im in images]
+    try:
+        with httpx.Client(timeout=timeout) as client:
+            r = client.post(f"{key}/api/generate", json=body)
+    except httpx.HTTPError as exc:
+        raise ProviderError(f"Ollama unreachable at {key}: {type(exc).__name__}") from exc
+    if r.status_code != 200:
+        raise ProviderError(f"Ollama error {r.status_code}: {r.text[:300]}")
+    data = r.json()
+    text = (data.get("response") or "").strip()
+    if not text:
+        raise ProviderError("Ollama returned no text")
+    return Generation(
+        text, f"ollama/{model}",
+        input_tokens=int(data.get("prompt_eval_count") or 0),
+        output_tokens=int(data.get("eval_count") or 0),
+    )
 
 
 def _claude(prompt: str, max_tokens: int, timeout: float, key: str, model: str,
@@ -146,7 +238,12 @@ def _claude(prompt: str, max_tokens: int, timeout: float, key: str, model: str,
     text = "".join(getattr(b, "text", "") for b in response.content).strip()
     if not text:
         raise ProviderError("Claude returned no text")
-    return Generation(text, f"claude/{model}")
+    usage = getattr(response, "usage", None)
+    return Generation(
+        text, f"claude/{model}",
+        input_tokens=int(getattr(usage, "input_tokens", 0) or 0),
+        output_tokens=int(getattr(usage, "output_tokens", 0) or 0),
+    )
 
 
 # Newer Gemini Flash models "think" before answering and bill it against
@@ -199,7 +296,13 @@ def _gemini(prompt: str, max_tokens: int, timeout: float, key: str, model: str,
             if r.status_code != 200:
                 raise ProviderError(f"Gemini error {r.status_code}: {r.text[:300]}")
             _gemini_thinking_cfg[model] = cfg
-            return Generation(_gemini_text(r.json()), f"gemini/{model}")
+            data = r.json()
+            meta = data.get("usageMetadata") or {}
+            return Generation(
+                _gemini_text(data), f"gemini/{model}",
+                input_tokens=int(meta.get("promptTokenCount") or 0),
+                output_tokens=int(meta.get("candidatesTokenCount") or 0),
+            )
     raise ProviderError(
         f"Gemini error {last.status_code if last else '?'}: {last.text[:300] if last else 'no response'}"
     )
@@ -224,16 +327,22 @@ def _openai(prompt: str, max_tokens: int, timeout: float, key: str, model: str,
         )
     if r.status_code != 200:
         raise ProviderError(f"OpenAI error {r.status_code}: {r.text[:300]}")
+    data = r.json()
     try:
-        text = r.json()["choices"][0]["message"]["content"].strip()
+        text = data["choices"][0]["message"]["content"].strip()
     except (KeyError, IndexError, TypeError):
         raise ProviderError("OpenAI returned no text")
     if not text:
         raise ProviderError("OpenAI returned no text")
-    return Generation(text, f"openai/{model}")
+    usage = data.get("usage") or {}
+    return Generation(
+        text, f"openai/{model}",
+        input_tokens=int(usage.get("prompt_tokens") or 0),
+        output_tokens=int(usage.get("completion_tokens") or 0),
+    )
 
 
-_IMPL = {"claude": _claude, "gemini": _gemini, "openai": _openai}
+_IMPL = {"ollama": _ollama, "claude": _claude, "gemini": _gemini, "openai": _openai}
 
 
 def _run(provider: str, prompt: str, max_tokens: int, timeout: float, cred: Credential | None = None,
@@ -250,33 +359,61 @@ def _run(provider: str, prompt: str, max_tokens: int, timeout: float, cred: Cred
     return _IMPL[provider](prompt, max_tokens, timeout, key, model, images=images)
 
 
-def _cascade(primary: str) -> list[str]:
-    """The chosen provider first, then every other provider with a key saved."""
-    return [primary] + [p for p in PROVIDERS if p != primary and configured(p)]
+def _cascade(primary: str, *, prefer: str | None = None, images: bool = False) -> list[str]:
+    """``prefer`` (if configured) first, then the chosen provider, then every
+    other configured provider. Ollama is skipped for image requests unless a
+    vision model is set — it would only fail and delay the real answer."""
+    order = ([prefer] if prefer and configured(prefer) else []) + [primary]
+    order += [p for p in PROVIDERS if configured(p)]
+    seen: list[str] = []
+    for p in order:
+        if p in seen:
+            continue
+        if p == "ollama" and images and not settings.ollama_vision_model:
+            continue
+        seen.append(p)
+    return seen
+
+
+def _timed(job: str, provider: str, fn, *args, **kwargs) -> Generation:
+    """Run one provider call and record it under ``job``."""
+    started = time.monotonic()
+    try:
+        gen = fn(*args, **kwargs)
+    except Exception:
+        _record_usage(job, provider, None, True, int((time.monotonic() - started) * 1000))
+        raise
+    _record_usage(job, provider, gen, False, int((time.monotonic() - started) * 1000))
+    return gen
 
 
 def generate_text(
     prompt: str, *, max_tokens: int = 800, timeout: float = 60.0, cred: Credential | None = None,
-    images: list[bytes] | None = None,
+    images: list[bytes] | None = None, job: str = "notes", prefer: str | None = None,
 ) -> Generation:
     """Generate with the configured provider, falling through to the other
-    configured providers on failure. With ``cred`` (a visitor's own key) only
-    that provider is used — we never spend the site's keys on a request that
-    brought its own, and never mix the two. Raises ProviderError when nothing
-    is configured or everything failed."""
+    configured providers on failure. ``prefer`` puts one provider ahead of the
+    chosen one (scheduled jobs pass ``batch_provider()`` so the free local model
+    does the bulk work). With ``cred`` (a visitor's own key) only that provider
+    is used — we never spend the site's keys on a request that brought its
+    own, and never mix the two. ``job`` labels the call in the usage counters.
+    Raises ProviderError when nothing is configured or everything failed."""
     if cred is not None:
         if cred.provider not in PROVIDERS:
             raise ProviderError("Unknown provider")
-        return _run(cred.provider, prompt, max_tokens, timeout, cred, images=images)
+        return _timed(job, f"visitor:{cred.provider}", _run, cred.provider, prompt, max_tokens, timeout, cred, images=images)
     primary = active_provider()
     if primary is None:
         raise ProviderError("No AI provider configured")
     first_error: Exception | None = None
-    for candidate in _cascade(primary):
+    order = _cascade(primary, prefer=prefer, images=bool(images))
+    if not order:
+        raise ProviderError("No provider can handle this request (images need a cloud key or an Ollama vision model)")
+    for candidate in order:
         try:
-            result = _run(candidate, prompt, max_tokens, timeout, images=images)
-            if candidate != primary:
-                result.fallback = primary
+            result = _timed(job, candidate, _run, candidate, prompt, max_tokens, timeout, images=images)
+            if candidate != order[0]:
+                result.fallback = order[0]
                 result.fallback_reason = describe_failure(first_error)
             return result
         except Exception as e:  # noqa: BLE001 — try the next provider
@@ -290,9 +427,9 @@ def test_provider(provider: str, cred: Credential | None = None) -> tuple[bool, 
     if provider not in PROVIDERS:
         return False, "Unknown provider"
     if cred is None and not configured(provider):
-        return False, "No API key saved"
+        return False, "No server URL saved" if provider == "ollama" else "No API key saved"
     try:
-        g = _run(provider, "Reply with the single word OK.", 16, 30.0, cred)
+        g = _timed("test", provider, _run, provider, "Reply with the single word OK.", 16, 60.0, cred)
         return True, f"Connected ({g.provider})"
     except Exception as e:  # noqa: BLE001 — reported to the UI
         return False, f"{type(e).__name__}: {str(e)[:200]}"
@@ -375,8 +512,26 @@ def list_openai_models(key: str | None = None) -> list[dict]:
     return [{"id": x["id"], "label": x["label"]} for x in rows]
 
 
+def list_ollama_models(url: str | None = None) -> list[dict]:
+    """Models already pulled on the Ollama server (``/api/tags``)."""
+    url = (url or key_for("ollama")).rstrip("/")
+    if not url:
+        raise ProviderError("No Ollama server URL saved")
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            r = client.get(f"{url}/api/tags")
+    except httpx.HTTPError as exc:
+        raise ProviderError(f"Ollama unreachable at {url}: {type(exc).__name__}") from exc
+    if r.status_code != 200:
+        raise ProviderError(f"Ollama error {r.status_code}: {r.text[:200]}")
+    names = sorted(m.get("name", "") for m in r.json().get("models", []) if m.get("name"))
+    return [{"id": n, "label": n} for n in names]
+
+
 def list_models(provider: str, key: str | None = None) -> list[dict]:
     """Live model list for a provider (site key by default, or a visitor's)."""
+    if provider == "ollama":
+        return list_ollama_models(key)
     if provider == "claude":
         return list_claude_models(key)
     if provider == "gemini":
