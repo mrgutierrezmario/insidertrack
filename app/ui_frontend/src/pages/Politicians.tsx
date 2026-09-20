@@ -141,7 +141,7 @@ export default function Politicians() {
           />
           {isAdmin && <button
             onClick={() => { setShowAdd((v) => !v); setError(""); }}
-            style={{ background: showAdd ? C.surfaceAlt : C.accentSolid, color: "#fff", border: "none", padding: "0.5rem 1.25rem", borderRadius: 6, cursor: "pointer" }}
+            style={{ background: showAdd ? C.surfaceAlt : C.accentSolid, color: showAdd ? C.textDim : "#fff", border: "none", padding: "0.5rem 1.25rem", borderRadius: 6, cursor: "pointer" }}
           >
             {showAdd ? "Cancel" : "+ Add Person"}
           </button>}

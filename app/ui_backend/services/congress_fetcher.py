@@ -49,6 +49,10 @@ _USER_AGENT = "InsiderTrack/1.0 (congressional disclosure sync; contact via app 
 # Electronic PTRs live at /search/view/ptr/<uuid>/ and have a parseable table.
 # Paper (scanned) filings live at /search/view/paper/... and have no structured data.
 _PTR_LINK_RE = re.compile(r"/search/view/ptr/([0-9a-f-]+)/", re.I)
+# Paper (scanned) filings live at /search/view/paper/<uuid>/ — a page of GIF
+# images, read by the vision model (services.paper_ptr).
+_PAPER_LINK_RE = re.compile(r"/search/view/paper/([0-9a-f-]+)/", re.I)
+_PAPER_IMG_RE = re.compile(r'<img[^>]+src="(https://efd-media-public\.senate\.gov/[^"]+)"', re.I)
 
 # ── House Clerk ───────────────────────────────────────────────────────────────
 HOUSE_BASE = "https://disclosures-clerk.house.gov"
@@ -119,11 +123,37 @@ def get_sync_state() -> dict:
 LEGISLATORS_URL = "https://unitedstates.github.io/congress-legislators/legislators-current.csv"
 _PARTY_ABBR = {"Democrat": "D", "Republican": "R", "Independent": "I"}
 _legislators: dict[str, tuple[str, str]] = {}   # "first last" → (party, state)
+_roster: dict[str, dict] = {}                    # name key → {full_name, bioguide, party, state}
 _legislators_loaded_on: Optional[date] = None
 
 
-_HONORIFICS = ("hon", "mr", "mrs", "ms", "dr", "rep", "sen")
+_HONORIFICS = ("hon", "honorable", "mr", "mrs", "ms", "dr", "rep", "sen", "senator", "representative")
 _SUFFIXES = ("jr", "sr", "ii", "iii", "iv", "v")
+
+
+def _name_key(name: str) -> str:
+    """One key for every spelling of a person: lowercase, honorifics and
+    generational suffixes dropped, one-letter initials skipped, then the
+    first remaining token + the last. 'C. Scott Franklin', 'Scott Mr
+    Franklin' and 'Scott Scott Franklin' all become 'scott franklin'."""
+    toks = [t for t in re.sub(r"[^a-z ]", " ", (name or "").lower()).split()
+            if t not in _HONORIFICS and t not in _SUFFIXES and len(t) > 1]
+    if not toks:
+        return ""
+    return f"{toks[0]} {toks[-1]}" if len(toks) > 1 else toks[0]
+
+
+def clean_display_name(name: str) -> str:
+    """'Marjorie Taylor Mrs Greene' → 'Marjorie Taylor Greene'; a doubled
+    token from a mangled index row ('Scott Scott Franklin') collapses."""
+    out: list[str] = []
+    for t in (name or "").split():
+        if re.sub(r"[^a-z]", "", t.lower()) in _HONORIFICS:
+            continue
+        if out and out[-1].lower() == t.lower():
+            continue
+        out.append(t)
+    return " ".join(out).strip()
 
 
 def _norm_name(first: str, last: str) -> str:
@@ -142,7 +172,7 @@ def _norm_name(first: str, last: str) -> str:
 
 
 def _load_legislators() -> dict[str, tuple[str, str]]:
-    global _legislators, _legislators_loaded_on
+    global _legislators, _legislators_loaded_on, _roster
     if _legislators and _legislators_loaded_on == date.today():
         return _legislators
     try:
@@ -150,14 +180,25 @@ def _load_legislators() -> dict[str, tuple[str, str]]:
                          headers={"User-Agent": _USER_AGENT})
         resp.raise_for_status()
         directory: dict[str, tuple[str, str]] = {}
+        roster: dict[str, dict] = {}
         for row in csv.DictReader(io.StringIO(resp.text)):
             party = _PARTY_ABBR.get((row.get("party") or "").strip(), "")
             state = (row.get("state") or "").strip()
             key = _norm_name(row.get("first_name", ""), row.get("last_name", ""))
             if key.strip():
                 directory[key] = (party, state)
+            first, nick, last = row.get("first_name", ""), row.get("nickname", ""), row.get("last_name", "")
+            entry = {"full_name": f"{first} {last}".strip(), "bioguide": (row.get("bioguide_id") or "").strip(),
+                     "party": party, "state": state}
+            # Every spelling the filings might use: first/last, nickname/last,
+            # and the same via _name_key (which also skips initials).
+            for k in {_norm_name(first, last), _norm_name(nick, last) if nick else "",
+                      _name_key(f"{first} {last}"), _name_key(f"{nick} {last}") if nick else ""}:
+                if k:
+                    roster[k] = entry
         if directory:
             _legislators = directory
+            _roster = roster
             _legislators_loaded_on = date.today()
             logger.info(f"Loaded {len(directory)} legislators for party/state enrichment")
     except Exception as exc:
@@ -170,13 +211,40 @@ def _enrich(first: str, last: str) -> tuple[str, str]:
     return _load_legislators().get(_norm_name(first, last), ("", ""))
 
 
+def resolve_identity(name: str) -> tuple[str, str, str, str, str]:
+    """(display_name, name_key, bioguide, party, state) for a filed name —
+    from the roster when it knows the person, else a cleaned spelling."""
+    _load_legislators()
+    key = _name_key(name)
+    hit = _roster.get(key)
+    if hit:
+        return hit["full_name"], _name_key(hit["full_name"]) or key, hit["bioguide"], hit["party"], hit["state"]
+    return clean_display_name(name), key, "", "", ""
+
+
 def _get_or_create_politician(db: Session, name: str, chamber: str, party: str = "", state: str = "") -> Politician:
-    politician = db.query(Politician).filter(Politician.name == name).first()
+    """Find the member behind a filed name whatever its spelling: by bioguide
+    id when the roster knows them, else by name key, else by exact name."""
+    display, key, bioguide, r_party, r_state = resolve_identity(name)
+    party, state = party or r_party, state or r_state
+    politician = None
+    if bioguide:
+        politician = db.query(Politician).filter(Politician.bioguide_id == bioguide).first()
+    if politician is None and key:
+        politician = db.query(Politician).filter(Politician.chamber == chamber, Politician.name_key == key).first()
+    if politician is None:
+        politician = db.query(Politician).filter(Politician.name.in_([name, display])).first()
     if not politician:
-        politician = Politician(name=name, chamber=chamber, party=party, state=state, is_tracked=True)
+        politician = Politician(name=display, chamber=chamber, party=party, state=state, is_tracked=True,
+                                bioguide_id=bioguide or None, name_key=key or None)
         db.add(politician)
         db.flush()
         return politician
+    # Fill identity columns on rows created before they existed.
+    if bioguide and not politician.bioguide_id:
+        politician.bioguide_id = bioguide
+    if key and not politician.name_key:
+        politician.name_key = key
     # Backfill party/state for rows created before enrichment existed.
     if party and not (politician.party or "").strip():
         politician.party = party
@@ -221,6 +289,18 @@ def _refresh_trade(t: Trade, tx: dict, disclosure_date: Optional[date], raw: dic
     t.amends = amends
     t.house_tx_id = tx.get("tx_id") or t.house_tx_id
     t.raw_data = json.dumps(raw)
+
+
+def _find_paper_amended_row(db: Session, politician_id: int, ticker: str, trade_date: date, filing_id: str) -> Optional[Trade]:
+    """The earlier row a paper amendment corrects: same member, ticker and
+    trade date, from a different filing."""
+    return (
+        db.query(Trade)
+        .filter(Trade.politician_id == politician_id, Trade.ticker == ticker, Trade.trade_date == trade_date,
+                Trade.filing_id != filing_id)
+        .order_by(Trade.id)
+        .first()
+    )
 
 
 def _drop_stale_filing_rows(db: Session, filing_id: str, keep_ids: set[int]) -> int:
@@ -272,6 +352,59 @@ def _new_trade(politician_id: int, tx: dict, tx_type: str, trade_date: date,
         house_tx_id=tx.get("tx_id"),
         raw_data=json.dumps(raw),
     )
+
+
+def merge_duplicate_politicians(db: Session) -> dict:
+    """Fold records that are the same person under different spellings into
+    one: the record with the most trades survives, takes the roster's name
+    (or the cleanest spelling), and the others' trades and outcome rows are
+    re-pointed to it. Runs after every congressional sync — cheap, and the
+    Clerk's index keeps inventing new spellings."""
+    from models.signal_outcome import SignalOutcome
+    from sqlalchemy import func
+    _load_legislators()
+    members = db.query(Politician).all()
+    counts = dict(db.query(Trade.politician_id, func.count(Trade.id)).group_by(Trade.politician_id).all())
+    groups: dict[tuple, list] = {}
+    for p in members:
+        display, key, bioguide, party, state = resolve_identity(p.name)
+        if not p.name_key:
+            p.name_key = key or None
+        if bioguide and not p.bioguide_id:
+            p.bioguide_id = bioguide
+        ident = ("b", bioguide) if bioguide else ("k", p.chamber, key)
+        groups.setdefault(ident, []).append(p)
+    merged = 0
+    for ident, ps in groups.items():
+        if len(ps) < 2:
+            p = ps[0]
+            display = resolve_identity(p.name)[0]
+            if display and p.name != display and not db.query(Politician.id).filter(Politician.name == display, Politician.id != p.id).first():
+                p.name = display
+            continue
+        ps.sort(key=lambda p: -(counts.get(p.id, 0)))
+        keep, rest = ps[0], ps[1:]
+        display = resolve_identity(keep.name)[0]
+        if not ident[0] == "b":
+            # Not in the roster: of all the spellings, the shortest cleaned one
+            # is the least likely to carry index junk.
+            display = min((clean_display_name(p.name) for p in ps), key=lambda n: (len(n.split()), len(n)))
+        for p in rest:
+            db.query(Trade).filter(Trade.politician_id == p.id).update({"politician_id": keep.id}, synchronize_session=False)
+            db.query(SignalOutcome).filter(SignalOutcome.politician_id == p.id).update(
+                {"politician_id": keep.id, "politician_name": display}, synchronize_session=False)
+            keep.party = keep.party or p.party
+            keep.state = keep.state or p.state
+            keep.description = keep.description or p.description
+            keep.why_tracked = keep.why_tracked or p.why_tracked
+            db.delete(p)
+            merged += 1
+            logger.info(f"Merged politician {p.id} '{p.name}' into {keep.id} '{keep.name}'")
+        db.flush()
+        if display and keep.name != display:
+            keep.name = display
+    db.commit()
+    return {"merged": merged}
 
 
 # ── Processed-filing bookkeeping (skip re-downloads) ──────────────────────────
@@ -377,15 +510,19 @@ def _fetch_ptr_list(client: httpx.Client, start_date: date, end_date: Optional[d
             # row = [first, last, "Last, First (Senator)", "<a href=...>Report...</a>", "MM/DD/YYYY"]
             link_html = row[3] if len(row) > 3 else ""
             m = _PTR_LINK_RE.search(link_html)
-            if not m:
-                continue  # paper/scanned filing — no structured transactions
+            paper = None if m else _PAPER_LINK_RE.search(link_html)
+            if not m and not paper:
+                continue
             reports.append({
                 "first": (row[0] or "").strip(),
                 "last": (row[1] or "").strip(),
-                "uuid": m.group(1),
+                "uuid": (m or paper).group(1),
+                "paper": m is None,
                 "filed": (row[4] or "").strip() if len(row) > 4 else "",
-                # Amended reports carry "(Amendment N)" in the link title.
+                # Amended reports carry "(Amendment N)" in the link title;
+                # the "for MM/DD/YYYY" there is the report being amended.
                 "amended": "mendment" in link_html,
+                "for_date": _parse_senate_report_date(link_html),
             })
         total = body.get("recordsTotal", 0)
         offset += page_size
@@ -429,7 +566,11 @@ def _parse_senate_rows(html: str) -> list[dict]:
         if not cells or i_ticker is None:
             continue
         ticker = (cells[i_ticker] if i_ticker < len(cells) else "").strip()
-        if not ticker or ticker in ("--", "N/A", "—"):
+        # An exchange row lists both sides ("BERY -- AMCR", or "-- AMCR" when
+        # the old side has no symbol): the position now held is the last one.
+        parts = [t for t in re.split(r"\s+", ticker) if t not in ("--", "—", "N/A")]
+        ticker = parts[-1].strip() if parts else ""
+        if not ticker:
             continue
         def cell(i: Optional[int]) -> str:
             return cells[i] if i is not None and i < len(cells) else ""
@@ -455,6 +596,19 @@ def _parse_senate_report_date(html: str) -> Optional[date]:
     return _parse_date(m.group(1)) if m else None
 
 
+def _fetch_paper_images(client: httpx.Client, uuid: str) -> list[bytes]:
+    """The GIF page scans of a paper Senate PTR."""
+    resp = _request_with_retry(lambda: client.get(f"{EFD_BASE}/search/view/paper/{uuid}/"), label=f"EFD paper {uuid}")
+    urls = _PAPER_IMG_RE.findall(resp.text)
+    pages = []
+    for url in urls[: paper_ptr.MAX_PAGES]:
+        r = client.get(url, timeout=60)
+        if r.status_code == 200 and r.content:
+            pages.append(r.content)
+        time.sleep(0.3)
+    return pages
+
+
 def _fetch_ptr_transactions(client: httpx.Client, uuid: str) -> tuple[Optional[date], list[dict]]:
     """Fetch one electronic Senate PTR detail page → (report "for" date, transactions)."""
     resp = _request_with_retry(
@@ -470,7 +624,7 @@ def supersede_senate_report(db: Session, politician_id: int, original_filed: dat
     number of rows removed."""
     q = db.query(Trade).filter(
         Trade.politician_id == politician_id,
-        Trade.source == "senate",
+        Trade.source.in_(("senate", "senate-paper")),
         Trade.filing_id != amendment_id,
         ((Trade.amends.is_(None)) & (Trade.disclosure_date == original_filed))
         | (Trade.amends == original_filed),
@@ -493,21 +647,35 @@ def _senate_report_superseded(db: Session, politician_id: int, filed: date) -> b
 
 def sync_senate_trades(db: Session, start_date: Optional[date] = None,
                        end_date: Optional[date] = None, progress=None,
-                       reparse: bool = False) -> int:
+                       reparse: bool = False, only: Optional[set[str]] = None) -> int:
     """Import Senate PTRs filed in [start_date, end_date]. Defaults to the
     rolling EFD_LOOKBACK_DAYS window; the backfill passes explicit bounds.
     `progress(done, total)` is called per filing when given. With `reparse`,
     already-processed filings are fetched again and their rows refreshed in
     place (new columns, better parsing) instead of being skipped."""
     start_date = start_date or date.today() - timedelta(days=EFD_LOOKBACK_DAYS)
+    if only:
+        reparse = True      # a targeted re-read refreshes those filings in place
     logger.info(f"Fetching Senate trades from EFD ({start_date} → {end_date or 'now'}{', re-parse' if reparse else ''})...")
 
     client = _efd_client()
     seen = set() if reparse else _load_processed(db, "senate")
     try:
         reports = _fetch_ptr_list(client, start_date, end_date)
-        new_reports = [r for r in reports if r["uuid"] not in seen]
-        logger.info(f"EFD: {len(reports)} PTRs since {start_date}, {len(new_reports)} new")
+        new_reports = [r for r in reports if r["uuid"] not in seen and (only is None or r["uuid"] in only)]
+        # Paper filings: only within the per-run budget, never in a bulk
+        # re-parse (each one is a vision-model call); a targeted re-read may.
+        paper_budget = paper_ptr.PAPER_MAX_PER_RUN if (paper_ptr_enabled() and (not reparse or only)) else 0
+        kept_reports = []
+        for r in new_reports:
+            if r.get("paper"):
+                if paper_budget <= 0:
+                    continue
+                paper_budget -= 1
+            kept_reports.append(r)
+        new_reports = kept_reports
+        logger.info(f"EFD: {len(reports)} PTRs since {start_date}, {len(new_reports)} new"
+                    f" ({sum(1 for r in new_reports if r.get('paper'))} paper)")
 
         count = 0
         for i, rpt in enumerate(new_reports):
@@ -517,8 +685,19 @@ def sync_senate_trades(db: Session, start_date: Optional[date] = None,
                 if not name:
                     continue
                 filed = _parse_date(rpt["filed"])
+                is_paper = bool(rpt.get("paper"))
+                reading = None
                 try:
-                    report_for, txns = _fetch_ptr_transactions(client, rpt["uuid"])
+                    if is_paper:
+                        reading = paper_ptr.read_senate_paper(_fetch_paper_images(client, rpt["uuid"]))
+                        if reading is None:
+                            continue  # provider down / no JSON — not marked processed, retried next sync
+                        txns, pstats = paper_ptr.rows_from_reading(reading, _house_ticker_lookup(), _is_known_ticker)
+                        report_for = rpt.get("for_date") or filed
+                        logger.info(f"Senate paper PTR {rpt['uuid']} ({name}): {pstats} via {reading.get('_model')}")
+                        time.sleep(paper_ptr.PACE_SECONDS)
+                    else:
+                        report_for, txns = _fetch_ptr_transactions(client, rpt["uuid"])
                 except Exception as exc:  # one bad filing shouldn't abort the sync
                     logger.warning(f"EFD PTR {rpt['uuid']} failed: {exc}")
                     report_for, txns = None, []
@@ -532,7 +711,9 @@ def sync_senate_trades(db: Session, start_date: Optional[date] = None,
                 # disclosure date; the amendment's own date lives in raw_data.
                 amends = None
                 disclosure_date = filed
-                if rpt.get("amended") and report_for:
+                # Paper or electronic: the index title names the report an
+                # amendment replaces, so both supersede the same way.
+                if rpt.get("amended") and report_for and (not is_paper or report_for != filed):
                     amends = report_for
                     disclosure_date = report_for
                     supersede_senate_report(db, politician.id, report_for, rpt["uuid"])
@@ -552,14 +733,16 @@ def sync_senate_trades(db: Session, start_date: Optional[date] = None,
                         continue
                     tx_type = tx["type"].lower()
                     raw = {**tx, "ptr_uuid": rpt["uuid"], "amended": rpt.get("amended", False),
-                           "amendment_filed": rpt["filed"] if amends else None}
+                           "amendment_filed": rpt["filed"] if amends else None,
+                           **({"paper": True, "model": reading.get("_model")} if is_paper else {})}
                     existing = _find_trade(db, politician.id, tx["ticker"], trade_date, tx_type, tx["amount"])
                     if existing:
                         if reparse:
                             _refresh_trade(existing, tx, disclosure_date, raw, rpt["uuid"], amends)
                             kept.add(existing.id)
                         continue
-                    t = _new_trade(politician.id, tx, tx_type, trade_date, disclosure_date, "senate", raw,
+                    t = _new_trade(politician.id, tx, tx_type, trade_date, disclosure_date,
+                                   "senate-paper" if is_paper else "senate", raw,
                                    filing_id=rpt["uuid"], amends=amends)
                     db.add(t)
                     db.flush()  # autoflush is off — make this row visible to the next exists-check
@@ -686,7 +869,7 @@ def _parse_house_ptr(pdf_bytes: bytes) -> list[dict]:
 
 def sync_house_trades(db: Session, start_date: Optional[date] = None,
                       end_date: Optional[date] = None, progress=None,
-                      reparse: bool = False) -> int:
+                      reparse: bool = False, only: Optional[set[str]] = None) -> int:
     """Pull House PTRs filed in [start_date, end_date] from the Clerk's office
     and parse their PDFs. Defaults to the rolling HOUSE_LOOKBACK_DAYS window;
     the backfill passes explicit bounds.
@@ -700,6 +883,8 @@ def sync_house_trades(db: Session, start_date: Optional[date] = None,
     """
     cutoff = start_date or date.today() - timedelta(days=HOUSE_LOOKBACK_DAYS)
     until = end_date or date.today()
+    if only:
+        reparse = True      # a targeted re-read refreshes those filings in place
     logger.info(f"Fetching House trades from Clerk disclosures ({cutoff} → {until}{', re-parse' if reparse else ''})...")
     years = list(range(cutoff.year, until.year + 1))
 
@@ -730,14 +915,14 @@ def sync_house_trades(db: Session, start_date: Optional[date] = None,
                 # else a scanned paper form.
                 if row.get("FilingType") != "P":
                     continue
-                if doc_id in seen:
+                if doc_id in seen or (only is not None and doc_id not in only):
                     continue
                 filed = _parse_date(row.get("FilingDate"))
                 if filed and (filed < cutoff or filed > until):
                     continue
                 if not doc_id.startswith("2"):
-                    if paper_budget <= 0 or reparse:
-                        continue        # paper: only within budget, never in re-parse
+                    if paper_budget <= 0 or (reparse and not only):
+                        continue        # paper: only within budget, never in a bulk re-parse
                     paper_budget -= 1
                 todo.append((row, doc_id))
 
@@ -798,6 +983,14 @@ def sync_house_trades(db: Session, start_date: Optional[date] = None,
                             Trade.politician_id == politician.id, Trade.house_tx_id == tx["tx_id"]).first()
                     if existing is None:
                         existing = _find_trade(db, politician.id, tx["ticker"], trade_date, tx["type"], tx["amount"])
+                    if existing is None and is_paper and tx.get("amended"):
+                        # A paper amendment has no transaction ids: the same
+                        # ticker on the same day from an earlier filing is the
+                        # row it corrects (amount or type); a changed date is
+                        # beyond what the form lets us tie together.
+                        existing = _find_paper_amended_row(db, politician.id, tx["ticker"], trade_date, doc_id)
+                        if existing is not None:
+                            tx = {**tx, "status": "amended"}
                     if existing:
                         if tx.get("status") == "amended" and existing.filing_id != doc_id:
                             original_filed = existing.disclosure_date
@@ -992,6 +1185,11 @@ def backfill(db: Session, since: date, until: Optional[date] = None, reparse: bo
             repair_senate_amendments(db)
         except Exception as exc:
             logger.warning(f"Senate amendment repair after backfill failed: {exc}")
+        try:
+            merge_duplicate_politicians(db)
+        except Exception as exc:
+            logger.warning(f"duplicate-member merge after backfill failed: {exc}")
+            db.rollback()
         # New rows need a staleness bucket; the daily job would get there
         # eventually but the feed filters on it immediately.
         try:
@@ -1046,6 +1244,32 @@ def get_last_sync(db: Session) -> Optional[dict]:
         return None
 
 
+def reread_filing(db: Session, trade: Trade) -> dict:
+    """Admin: fetch one filing again and refresh its rows in place (for a
+    paper filing this is a fresh vision-model reading). Rows the new reading
+    no longer supports are dropped; ones it adds appear. Returns the row
+    count now on that filing."""
+    if not trade.filing_id:
+        raise ValueError("This row has no filing id to re-read")
+    filing_id = trade.filing_id      # the row itself may not survive the re-read
+    raw = {}
+    try:
+        raw = json.loads(trade.raw_data) if trade.raw_data else {}
+    except ValueError:
+        pass
+    src = trade.source or ""
+    if src.startswith("house"):
+        filed = _parse_date(raw.get("filing_date")) or trade.disclosure_date
+        sync_house_trades(db, filed, filed, only={filing_id})
+    elif src.startswith("senate"):
+        filed = _parse_date(raw.get("amendment_filed")) or trade.disclosure_date
+        sync_senate_trades(db, filed - timedelta(days=1), filed + timedelta(days=1), only={filing_id})
+    else:
+        raise ValueError(f"Cannot re-read a '{src}' row")
+    rows = db.query(Trade).filter(Trade.filing_id == filing_id).count()
+    return {"filing_id": filing_id, "rows": rows}
+
+
 def sync_all(db: Session) -> dict:
     _sync_state.update(running=True, started_at=datetime.now().isoformat(),
                        finished_at=None, result=None, error=None)
@@ -1065,6 +1289,11 @@ def sync_all(db: Session) -> dict:
             result["errors"] = errors
             error = "; ".join(f"{k}: {v}" for k, v in errors.items())
             _sync_state.update(error=error)
+        try:
+            result["merged_members"] = merge_duplicate_politicians(db)["merged"]
+        except Exception as exc:
+            logger.warning(f"duplicate-member merge failed: {exc}")
+            db.rollback()
         _sync_state.update(result=result)
         if len(errors) == 2:
             raise RuntimeError(error)

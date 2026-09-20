@@ -72,6 +72,15 @@ def _apply_migrations():
         "ALTER TABLE trades ADD COLUMN IF NOT EXISTS direction VARCHAR(4)",
         "CREATE INDEX IF NOT EXISTS ix_trades_asset_type ON trades (asset_type)",
         "CREATE INDEX IF NOT EXISTS ix_trades_direction ON trades (direction)",
+        # 13F: when the filing became public (backfilled as quarter end + 45 days)
+        "ALTER TABLE whale_positions ADD COLUMN IF NOT EXISTS filed_on DATE",
+        "CREATE INDEX IF NOT EXISTS ix_whale_positions_filed_on ON whale_positions (filed_on)",
+        "UPDATE whale_positions SET filed_on = filing_date + 45 WHERE filed_on IS NULL",
+        # Member identity across name spellings (congress_fetcher._name_key)
+        "ALTER TABLE politicians ADD COLUMN IF NOT EXISTS bioguide_id VARCHAR(12)",
+        "ALTER TABLE politicians ADD COLUMN IF NOT EXISTS name_key VARCHAR(80)",
+        "CREATE INDEX IF NOT EXISTS ix_politicians_bioguide_id ON politicians (bioguide_id)",
+        "CREATE INDEX IF NOT EXISTS ix_politicians_name_key ON politicians (name_key)",
         # Member track-record weight (services.track_record.refresh_skill)
         "ALTER TABLE politicians ADD COLUMN IF NOT EXISTS skill_factor DOUBLE PRECISION NOT NULL DEFAULT 1.0",
         "ALTER TABLE politicians ADD COLUMN IF NOT EXISTS skill_n INTEGER",
@@ -218,6 +227,17 @@ def _apply_migrations():
            AND NOT EXISTS (SELECT 1 FROM trades t WHERE t.politician_id = p.id)
            AND EXISTS (SELECT 1 FROM politicians r WHERE r.name = 'Thomas H Tuberville')
          """),
+        # 2026-09: a holder's first loaded quarter has nothing to compare
+        # against, so its positions read "new" — relabel them "initial".
+        ("migration:whale_initial_quarter",
+         """
+         UPDATE whale_positions p SET change_type = 'initial'
+         FROM (SELECT holder_id, min(quarter) AS q0 FROM whale_positions GROUP BY holder_id) f
+         WHERE p.holder_id = f.holder_id AND p.quarter = f.q0 AND p.change_type = 'new'
+         """),
+        # 2026-09: Senate exchange rows stored the whole "-- NEW" ticker cell.
+        ("migration:trades_exchange_ticker",
+         "UPDATE trades SET ticker = regexp_replace(ticker, '^.*\\s', '') WHERE ticker ~ '\\s'"),
         ("migration:trades_derived_columns",
          """
          UPDATE trades SET direction =
@@ -250,6 +270,6 @@ def _apply_migrations():
 
 
 def init_db():
-    from models import trade, politician, whale, analysis, subscriber, app_setting, signal_outcome, access, alert, insider, watchlist, fed_official, filing_institution, market_cache, processed_filing  # noqa: F401
+    from models import trade, politician, whale, analysis, subscriber, app_setting, signal_outcome, access, alert, insider, watchlist, fed_official, filing_institution, market_cache, processed_filing, model_call  # noqa: F401
     Base.metadata.create_all(bind=engine)
     _apply_migrations()

@@ -38,6 +38,8 @@ export interface Trade {
   disclosure_date: string | null;  // YYYY-MM-DD
   source: string;
   filing_id: string | null;
+  filing_url: string | null;      // the filing itself (House PDF / Senate EFD view)
+  ai_confidence: number | null;   // paper filings only: the model's confidence in this row
   amends: string | null;   // Senate: filing date of the report this amendment replaced
   risk_level: RiskLevel | null;
   politician: {
@@ -57,6 +59,38 @@ export interface InsiderCluster {
   buys: number;
   dollars: number;
   last_buy: string | null;
+}
+
+// ── AI Desk ────────────────────────────────────────────────────────────────
+export interface ModelCall {
+  id: number;
+  call_date: string;
+  ticker: string;
+  direction: "bullish" | "bearish";
+  horizon_days: 30 | 60 | 90;
+  confidence: number | null;
+  reasoning: string | null;
+  provider: string | null;
+  price_at_call: number | null;
+  price_at_horizon: number | null;
+  return_pct: number | null;
+  spy_return_pct: number | null;
+  excess_pct: number | null;
+  outcome: "hit" | "miss" | null;
+  resolves_on: string;
+}
+export interface ModelDeskStats {
+  resolved: number;
+  pending: number;
+  hit_rate: number | null;
+  avg_excess: number | null;
+  by_horizon: Record<string, { n: number; hit_rate: number; avg_excess: number }>;
+  by_direction: Record<string, { n: number; hit_rate: number }>;
+}
+export interface ModelDeskToday {
+  brief: { date: string; summary: string; provider: string | null } | null;
+  calls: ModelCall[];
+  stats: ModelDeskStats;
 }
 
 // ── Track record ──────────────────────────────────────────────────────────────
@@ -86,6 +120,62 @@ export interface TrackRecord {
   skipped_demo: number;
   windows: Record<"30" | "60" | "90", TrackRecordWindow | undefined>;
   trades: TrackRecordTrade[];
+  // Sells, measured the same way; here a NEGATIVE return is the good call.
+  sells?: { evaluated: number; windows: Record<"30" | "60" | "90", TrackRecordWindow | undefined>; trades: TrackRecordTrade[] };
+}
+
+// ── 13F holder record ─────────────────────────────────────────────────────────
+export interface HolderRecordTrade {
+  position_id: number;
+  ticker: string;
+  company: string | null;
+  change: "new" | "increased" | "decreased" | "closed";
+  quarter: string | null;
+  value_usd: number | null;
+  public_on: string;
+  entry_date: string;
+  entry_price: number;
+  r30: number | null; r60: number | null; r90: number | null;
+  x30: number | null; x60: number | null; x90: number | null;
+}
+export interface HolderRecordSide {
+  evaluated: number;
+  windows: Record<"30" | "60" | "90", TrackRecordWindow | undefined>;
+  trades: HolderRecordTrade[];
+}
+export interface HolderRecord {
+  holder_id: number;
+  buys: HolderRecordSide;
+  sells: HolderRecordSide;
+  skipped_demo: number;
+}
+export interface HolderLeaderboardRow {
+  id: number;
+  name: string;
+  computed: boolean;
+  window: 30 | 60 | 90 | null;
+  n: number | null;
+  beat_spy_rate: number | null;
+  avg_excess: number | null;
+}
+
+export interface LeaderboardRow {
+  rank: number | null;
+  id: number;
+  name: string;
+  party: string | null;
+  chamber: string | null;
+  state: string | null;
+  buys_measured: number | null;
+  beat_spy_rate: number | null;
+  skill_factor: number | null;
+  as_of: string | null;
+}
+export interface Leaderboard {
+  min_trades: number;
+  as_of: string | null;
+  ranked: LeaderboardRow[];
+  unranked: LeaderboardRow[];
 }
 
 // ── Health (data sources) ─────────────────────────────────────────────────────

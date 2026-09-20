@@ -2,7 +2,8 @@
 Technical + composite signal scores per ticker.
 
 Composite score (0-100), SCORE_VERSION 2:
-  Smart Money  (0-20): whale 13F position changes
+  Smart Money  (0-20): whale 13F position changes, weighted by how big the
+                       position is in the holder's book
   Congress     (0-30): congressional buy/sell conviction, dollar-weighted and
                        scaled by each member's track record (0.5–1.5×)
   Corporate    (0-25): Form 4 open-market buys vs sells by company insiders
@@ -54,7 +55,9 @@ _SIGNALS_TTL = 300  # 5 minutes
 #     momentum 25 / sentiment 10 / fundamentals stub 10.
 # 2 = Form 4 added, dollar-weighted Congress, sentiment and stub removed.
 # 3 = Congress dollars weighted by each member's track record (skill_factor).
-SCORE_VERSION = 3
+# 4 = Smart money weighted by position conviction (share of the holder's
+#     book); a holder's first loaded quarter is neutral instead of "new".
+SCORE_VERSION = 4
 
 
 # ── Indicator math ─────────────────────────────────────────────────────────────
@@ -214,18 +217,41 @@ def _corporate_score(txns: list) -> tuple[int, list[str]]:
     return score, reasons
 
 
-def _smart_money_from_positions(positions: list) -> tuple[int, list[str]]:
-    """Score from a pre-fetched list of WhalePosition objects for one ticker."""
+def _smart_money_from_positions(positions: list, holder_totals: dict | None = None) -> tuple[int, list[str]]:
+    """Score from a pre-fetched list of WhalePosition objects for one ticker.
+
+    Each position's change (new / increased / stable / decreased / closed)
+    is weighted by *conviction* — its share of that holder's portfolio in
+    that quarter (`holder_totals[(holder_id, quarter)]`). A 5% position at
+    Berkshire says more than a 0.1% one at a 200-name fund. "initial" (the
+    holder's first loaded quarter) is neutral: nothing to compare against."""
     if not positions:
         return 10, ["No institutional 13F data for this ticker"]
 
-    change_scores = {"new": 20, "increased": 15, "stable": 10, "decreased": 5, "closed": 0}
-    scores = [change_scores.get(p.change_type or "stable", 10) for p in positions]
-    avg = round(sum(scores) / len(scores))
+    change_scores = {"new": 20, "increased": 15, "stable": 10, "initial": 10, "decreased": 5, "closed": 0}
+    weighted = 0.0
+    weight_sum = 0.0
+    top_conviction = (0.0, None)
+    for p in positions:
+        total = (holder_totals or {}).get((p.holder_id, p.quarter)) or 0
+        share = (p.value_usd or 0) / total if total else 0.0
+        w = 1.0 + min(share / 0.02, 4.0)          # 2% of the book = 2×, 8%+ = 5×
+        weighted += change_scores.get(p.change_type or "stable", 10) * w
+        weight_sum += w
+        if share > top_conviction[0]:
+            top_conviction = (share, p)
+    avg = round(weighted / weight_sum) if weight_sum else 10
 
     latest = positions[0]
-    holder_names = list({p.holder.name.split(" (")[0] for p in positions if p.holder})
-    reasons = [f"{', '.join(holder_names[:3])} hold this position"]
+    holder_names = sorted({p.holder.name.split(" (")[0] for p in positions if p.holder})
+    shown = holder_names[:3]
+    more = len(holder_names) - len(shown)
+    who = ", ".join(shown) + (f" and {more} more" if more > 0 else "")
+    reasons = [f"{who} {'holds' if len(holder_names) == 1 else 'hold'} this position"]
+    share, conv = top_conviction
+    if conv is not None and share >= 0.05 and conv.holder:
+        avg = min(20, avg + 3)
+        reasons.append(f"High conviction: {share * 100:.0f}% of {conv.holder.name.split(' (')[0]}'s book")
     if latest.change_type == "new":
         reasons.append("New position opened by institutional holder")
     elif latest.change_type == "increased":
@@ -247,7 +273,17 @@ def _smart_money_score(ticker: str, db: Session) -> tuple[int, list[str]]:
         .limit(10)
         .all()
     )
-    return _smart_money_from_positions(positions)
+    return _smart_money_from_positions(positions, _holder_totals(db))
+
+
+def _holder_totals(db: Session) -> dict:
+    """{(holder_id, quarter): total value_usd} — the denominator for conviction."""
+    rows = (
+        db.query(WhalePosition.holder_id, WhalePosition.quarter, func.sum(WhalePosition.value_usd))
+        .group_by(WhalePosition.holder_id, WhalePosition.quarter)
+        .all()
+    )
+    return {(h, q): int(v or 0) for h, q, v in rows}
 
 
 def _risk_penalty_from_trades(recent_trades: list) -> tuple[int, list[str]]:
@@ -390,6 +426,7 @@ def _compute_technical_signals(db: Session, target_date: date | None = None) -> 
         bucket = positions_by_ticker.get(p.ticker)
         if bucket is not None and len(bucket) < 10:
             bucket.append(p)
+    holder_totals = _holder_totals(db)
 
     # 2. Recent trades for risk penalty (bounded to target_date for backfill)
     all_risk_trades = (
@@ -470,7 +507,7 @@ def _compute_technical_signals(db: Session, target_date: date | None = None) -> 
         insider_pts, insider_reasons = _insider_score(
             activity["buys"], activity["sells"], activity["buy_dollars"], activity["sell_dollars"])
         corporate_pts, corporate_reasons = _corporate_score(f4_by_ticker.get(ticker, []))
-        smart_pts, smart_reasons = _smart_money_from_positions(positions_by_ticker.get(ticker, []))
+        smart_pts, smart_reasons = _smart_money_from_positions(positions_by_ticker.get(ticker, []), holder_totals)
         risk_penalty_pts, risk_reasons = _risk_penalty_from_trades(risk_trades_by_ticker.get(ticker, []))
 
         composite = max(0, min(100,

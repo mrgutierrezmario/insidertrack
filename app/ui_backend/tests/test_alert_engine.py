@@ -124,3 +124,51 @@ class TestPerRuleCap:
         # second run: the 3 are deduped, the next 3 come through, one new summary is NOT re-added today
         out2 = ae.evaluate_alerts(clean)
         assert out2["new_events"] == 3
+
+
+class TestNewAlertTypes:
+    def test_cluster_buy(self, clean):
+        from models.insider import Form4Transaction as F4
+        d = date.today() - timedelta(days=3)
+        clean.add_all([
+            F4(ticker="GME", insider_name="A", transaction_type="buy", transaction_code="P", shares=100, price=20, value=2000, transaction_date=d, filing_date=d, accession="x1"),
+            F4(ticker="GME", insider_name="B", transaction_type="buy", transaction_code="P", shares=100, price=20, value=2000, transaction_date=d, filing_date=d, accession="x2"),
+            F4(ticker="LONE", insider_name="C", transaction_type="buy", transaction_code="P", shares=100, price=20, value=2000, transaction_date=d, filing_date=d, accession="x3"),
+        ])
+        clean.flush()
+        _rule(clean, "cluster_buy", threshold=2)
+        out = ae.evaluate_alerts(clean)
+        assert [e["ticker"] for e in out["events"]] == ["GME"]
+        assert "2 insiders bought GME" in out["events"][0]["message"]
+
+    def test_skilled_buy_respects_threshold(self, clean):
+        from models.politician import Politician
+        from models.trade import Trade
+        good = Politician(name="Rep Sharp", chamber="house", is_tracked=True, skill_n=20, skill_beat_spy=72.0, skill_factor=1.22)
+        meh = Politician(name="Rep Meh", chamber="house", is_tracked=True, skill_n=20, skill_beat_spy=40.0, skill_factor=0.9)
+        clean.add_all([good, meh]); clean.flush()
+        d = date.today() - timedelta(days=1)
+        for p, tk in ((good, "SHRP"), (meh, "MEHH")):
+            clean.add(Trade(politician_id=p.id, ticker=tk, transaction_type="purchase", direction="buy", asset_type="stock",
+                            amount_range="$1,001 - $15,000", trade_date=d, source="house", raw_data="{}"))
+        clean.flush()
+        _rule(clean, "skilled_buy", threshold=60)
+        out = ae.evaluate_alerts(clean)
+        assert [e["ticker"] for e in out["events"]] == ["SHRP"]
+        assert "beat SPY 72%" in out["events"][0]["message"]
+
+
+class TestAiCallAlert:
+    def test_fires_for_recent_calls_above_confidence(self, clean):
+        from models.model_call import ModelCall
+        d = date.today() - timedelta(days=1)
+        clean.add_all([
+            ModelCall(call_date=d, ticker="KMX", direction="bullish", horizon_days=60, confidence=0.82, reasoning="Insiders buying."),
+            ModelCall(call_date=d, ticker="GME", direction="bullish", horizon_days=30, confidence=0.4, reasoning="Cluster."),
+            ModelCall(call_date=d - timedelta(days=10), ticker="OLD", direction="bearish", horizon_days=30, confidence=0.9),
+        ])
+        clean.flush()
+        _rule(clean, "ai_call", threshold=70)
+        out = ae.evaluate_alerts(clean)
+        assert [e["ticker"] for e in out["events"]] == ["KMX"]
+        assert "BULLISH on KMX over 60 days" in out["events"][0]["message"]

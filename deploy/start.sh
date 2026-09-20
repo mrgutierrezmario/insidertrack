@@ -65,6 +65,20 @@ else
   log "Database already has $tables tables — leaving it alone."
 fi
 
+# ── Don't restart the app under a running job ─────────────────────────────────
+# A backfill, re-parse, congressional sync or skill refresh dies with the
+# container. They're idempotent, but losing an hour of work by accident is
+# silly. `deploy/start.sh --force` overrides.
+if [ "${1:-}" != "--force" ] && $DC ps --status running --services 2>/dev/null | grep -qx app; then
+  jobs=$($DC exec -T app curl -s --max-time 5 http://localhost:8003/jobs/running 2>/dev/null || true)
+  if printf '%s' "$jobs" | grep -q '"any": *true'; then
+    echo "A long job is running in the app; a restart would kill it:" >&2
+    printf '%s\n' "$jobs" | sed 's/^/  /' >&2
+    echo "Wait for it (Admin → Data sources shows progress), or run: deploy/start.sh --force" >&2
+    exit 1
+  fi
+fi
+
 # ── Build and start the rest ──────────────────────────────────────────────────
 log "Building and starting containers (first build takes a few minutes)..."
 $DC up -d --build --remove-orphans

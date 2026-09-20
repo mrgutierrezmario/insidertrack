@@ -58,12 +58,12 @@ export default function Earnings() {
   const recent = data?.recent || [];
 
   return (
-    <div style={{ maxWidth: 800, margin: "0 auto" }}>
+    <div style={{ maxWidth: 1000, margin: "0 auto" }}>
       <div className="page-head">
         <div>
           <h1>Earnings Calendar</h1>
-          <p style={{ color: C.dividerStrong, margin: 0, fontSize: 13 }}>
-            Upcoming earnings for tracked tickers · Alpha Vantage · cached 24 hrs
+          <p style={{ color: C.textDim, margin: 0, fontSize: 13 }}>
+            Upcoming earnings for tracked tickers · Nasdaq calendar · cached 24 hrs
           </p>
         </div>
         {data && !data.has_key && (
@@ -77,15 +77,9 @@ export default function Earnings() {
         <p style={{ color: C.textMuted, textAlign: "center", paddingTop: 40 }}>Loading earnings…</p>
       )}
 
-      {!loading && upcoming.length === 0 && !data?.has_key && (
-        <div style={{ textAlign: "center", color: C.textDim, paddingTop: 60 }}>
-          <p>Configure Alpha Vantage key in Config to enable the earnings calendar.</p>
-        </div>
-      )}
-
-      {!loading && upcoming.length === 0 && data?.has_key && (
-        <div style={{ textAlign: "center", color: C.textDim, paddingTop: 60 }}>
-          <p>No upcoming earnings found for tracked tickers in the next 3 months.</p>
+      {!loading && upcoming.length === 0 && (
+        <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 10, padding: "1.25rem", color: C.textMuted, fontSize: "0.9rem" }}>
+          No upcoming earnings found for tracked tickers in the next 3 months. The calendar comes from Nasdaq and refreshes daily; if this persists, the Markets card in Admin → Data sources will say why.
         </div>
       )}
 
@@ -106,7 +100,7 @@ export default function Earnings() {
                   </Link>
                   <div>
                     <div style={{ color: C.text, fontSize: 13 }}>{e.company}</div>
-                    <div style={{ color: C.dividerStrong, fontSize: 12 }}>
+                    <div style={{ color: C.textDim, fontSize: 12 }}>
                       Reports: {fmtDate(e.report_date)}
                       {e.fiscal_date_ending && ` · FY ending ${e.fiscal_date_ending}`}
                     </div>
@@ -128,7 +122,7 @@ export default function Earnings() {
 
       {recent.length > 0 && (
         <>
-          <h2 style={{ color: C.dividerStrong, fontSize: "0.9rem", fontWeight: 600, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          <h2 style={{ color: C.textDim, fontSize: "0.9rem", fontWeight: 600, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.05em" }}>
             Recent
           </h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -141,7 +135,7 @@ export default function Earnings() {
                   <Link to={`/ticker/${e.ticker}`} style={{ color: C.accent, fontWeight: 700, fontSize: "1rem", textDecoration: "none", minWidth: 56 }}>
                     {e.ticker}
                   </Link>
-                  <div style={{ color: C.dividerStrong, fontSize: 13 }}>Reported {fmtDate(e.report_date)}</div>
+                  <div style={{ color: C.textDim, fontSize: 13 }}>Reported {fmtDate(e.report_date)}</div>
                 </div>
                 <div style={{ color: C.textDim, fontSize: 12 }}>{daysLabel(e.days_until)}</div>
               </div>
@@ -150,8 +144,8 @@ export default function Earnings() {
         </>
       )}
 
-      <div style={{ marginTop: 24, padding: "12px 14px", background: C.bg, borderRadius: 8, border: "1px solid var(--c-surfaceAlt)", fontSize: 12, color: C.dividerStrong }}>
-        Earnings dates are estimates from Alpha Vantage. Confirm on company IR sites before trading.
+      <div style={{ marginTop: 24, padding: "12px 14px", background: C.bg, borderRadius: 8, border: "1px solid var(--c-surfaceAlt)", fontSize: 12, color: C.textDim }}>
+        Earnings dates are Nasdaq's calendar estimates and can move. Confirm on company IR sites before trading.
       </div>
     </div>
   );

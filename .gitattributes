@@ -1,3 +1,4 @@
 # Keep GitHub's language statistics focused on the application code.
 *.md                   linguist-documentation
 deploy/state/**        linguist-generated
+design/**              linguist-documentation
