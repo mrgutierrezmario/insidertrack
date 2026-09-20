@@ -21,6 +21,7 @@
 
 ## Next session — check first
 - **Folder renamed** `stock-tracker` → `insidertrack` (2026-09-20) to match the repo. Compose project name is pinned (`name: stock-tracker` in `deploy/compose.yml`), so containers/volumes are unchanged. **The nightly backup launchd job still points at the old path** — on the Mac, from the new folder, re-run `deploy/backup-setup.sh` (it rewrites the plist), then check `deploy/state/backups/backup.log` the morning after.
+- **"Did the MCP disturb the app?" — first observed day.** `/health` → `errors_24h.count` should be 0 and Admin → Data sources all OK with this morning's timestamps. A failing/stale source is most likely a government site changing, not the MCP; if it coincides with MCP calls in `docker compose logs mcp`, investigate timing. Two clean checks = record "MCP confirmed harmless" here. (MCP is at v0.2.0: 11 tools incl. fund leaderboard/track record.)
 - `/ai-desk` after 08:30 ET → brief provider should read `ollama/llama3`; Admin → AI usage table shows the `desk` row under ollama with 0 failures. Read the brief once for quality.
 - `docker compose -f deploy/compose.yml exec tailscale tailscale funnel status` → both `/` and `/mcp` listed; `curl https://<host>/mcp/health` → ok.
 - `deploy/state/backups/backup.log` after 03:00 → should end "Off-site copy up to date" (first proof of the Drive sync).
