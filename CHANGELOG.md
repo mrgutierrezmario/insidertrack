@@ -5,6 +5,12 @@ All notable changes to InsiderTrack. The format follows
 [Semantic Versioning](https://semver.org/). The current version lives in the
 `VERSION` file and is shown in Settings and at `/health`.
 
+## [Unreleased]
+
+### Added
+- **Model desk**: each morning (8:30 ET) the site's AI model reads the day's disclosures and makes 3–5 directional calls with a horizon and reasoning; every call is stored unedited and scored at its horizon against SPY, with a running hit-rate. Dashboard card + `/model-desk` page under Signals; admin can generate/regenerate. One provider call a day.
+- Readable secondary text: every text token clears WCAG AA in both themes; the Dashboard watchlist card fills its column and scrolls.
+
 ## [1.1.0] — 2026-09-19
 
 ### Added

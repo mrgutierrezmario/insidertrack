@@ -1,4 +1,5 @@
 import { C, LABEL_COLORS } from "../lib/theme";
+import ModelDeskCard from "../components/ModelDeskCard";
 import useDocumentTitle from "../hooks/useDocumentTitle";
 import useAdmin from "../hooks/useAdmin";
 import { useEffect, useMemo, useState } from "react";
@@ -314,6 +315,8 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+
+          <ModelDeskCard />
 
           {/* ── Top signals + latest disclosures ──────────────────────── */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1.25rem", marginBottom: "1.75rem" }}>

@@ -61,6 +61,38 @@ export interface InsiderCluster {
   last_buy: string | null;
 }
 
+// ── Model desk ────────────────────────────────────────────────────────────────
+export interface ModelCall {
+  id: number;
+  call_date: string;
+  ticker: string;
+  direction: "bullish" | "bearish";
+  horizon_days: 30 | 60 | 90;
+  confidence: number | null;
+  reasoning: string | null;
+  provider: string | null;
+  price_at_call: number | null;
+  price_at_horizon: number | null;
+  return_pct: number | null;
+  spy_return_pct: number | null;
+  excess_pct: number | null;
+  outcome: "hit" | "miss" | null;
+  resolves_on: string;
+}
+export interface ModelDeskStats {
+  resolved: number;
+  pending: number;
+  hit_rate: number | null;
+  avg_excess: number | null;
+  by_horizon: Record<string, { n: number; hit_rate: number; avg_excess: number }>;
+  by_direction: Record<string, { n: number; hit_rate: number }>;
+}
+export interface ModelDeskToday {
+  brief: { date: string; summary: string; provider: string | null } | null;
+  calls: ModelCall[];
+  stats: ModelDeskStats;
+}
+
 // ── Track record ──────────────────────────────────────────────────────────────
 export interface TrackRecordWindow {
   n: number;

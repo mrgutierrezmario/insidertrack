@@ -266,6 +266,6 @@ def _apply_migrations():
 
 
 def init_db():
-    from models import trade, politician, whale, analysis, subscriber, app_setting, signal_outcome, access, alert, insider, watchlist, fed_official, filing_institution, market_cache, processed_filing  # noqa: F401
+    from models import trade, politician, whale, analysis, subscriber, app_setting, signal_outcome, access, alert, insider, watchlist, fed_official, filing_institution, market_cache, processed_filing, model_call  # noqa: F401
     Base.metadata.create_all(bind=engine)
     _apply_migrations()
