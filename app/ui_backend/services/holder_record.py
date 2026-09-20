@@ -81,7 +81,7 @@ def _summarise(rows: list[dict], good_when_negative: bool = False) -> dict:
 
 
 def compute_holder_record(db: Session, holder_id: int, force: bool = False) -> dict:
-    key = f"holder_record:{holder_id}:v1"
+    key = f"holder_record:{holder_id}:v2"
     if not force:
         hit = cache_get(key)
         if hit:
@@ -101,8 +101,16 @@ def compute_holder_record(db: Session, holder_id: int, force: bool = False) -> d
     if not positions:
         cache_set(key, result, CACHE_TTL)
         return result
-    entries = [{"position_id": p.id, "ticker": p.ticker, "company": p.company_name, "change": p.change_type,
-                "quarter": p.quarter, "value_usd": p.value_usd, "public_on": p.filed_on} for p in positions]
+    # A 13F can list one ticker on several rows (share classes, sub-accounts);
+    # the record is per ticker per filing, so keep the largest row only.
+    seen: set = set()
+    entries = []
+    for p in positions:
+        if (p.ticker, p.quarter) in seen:
+            continue
+        seen.add((p.ticker, p.quarter))
+        entries.append({"position_id": p.id, "ticker": p.ticker, "company": p.company_name, "change": p.change_type,
+                        "quarter": p.quarter, "value_usd": p.value_usd, "public_on": p.filed_on})
     oldest = min(e["public_on"] for e in entries)
     span = _bucket((today - oldest).days + 10)
     tickers = sorted({e["ticker"] for e in entries})
@@ -134,7 +142,7 @@ def holder_leaderboard(db: Session) -> list[dict]:
     cache; holders never computed show as pending rather than blocking."""
     out = []
     for h in db.query(WhaleHolder).filter(WhaleHolder.is_tracked == True).all():  # noqa: E712
-        hit = cache_get(f"holder_record:{h.id}:v1")
+        hit = cache_get(f"holder_record:{h.id}:v2")
         rec = hit[0] if hit else None
         windows = (rec or {}).get("buys", {}).get("windows", {})
         window, w = None, None
