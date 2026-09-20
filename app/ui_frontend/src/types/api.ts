@@ -61,7 +61,7 @@ export interface InsiderCluster {
   last_buy: string | null;
 }
 
-// ── Model desk ────────────────────────────────────────────────────────────────
+// ── AI Desk ────────────────────────────────────────────────────────────────
 export interface ModelCall {
   id: number;
   call_date: string;

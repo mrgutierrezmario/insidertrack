@@ -97,11 +97,11 @@ export const getPoliticians = (params: Record<string, unknown> = {}): Resp<Polit
   api.get("/politicians/", { params });
 export const getPolitician = (id: number): Resp<Politician> => api.get(`/politicians/${id}`);
 export const getTrackRecord = (id: number): Resp<TrackRecord> => api.get(`/politicians/${id}/track-record`);
-export const getModelDeskToday = (): Resp<ModelDeskToday> => api.get("/model-desk/today");
+export const getModelDeskToday = (): Resp<ModelDeskToday> => api.get("/ai-desk/today");
 export const getModelDeskCalls = (limit = 300): Resp<{ items: ModelCall[]; stats: ModelDeskStats }> =>
-  api.get("/model-desk/calls", { params: { limit } });
+  api.get("/ai-desk/calls", { params: { limit } });
 export const generateModelDesk = (force = false): Resp<{ status: string }> =>
-  api.post("/model-desk/generate", null, { params: { force } });
+  api.post("/ai-desk/generate", null, { params: { force } });
 export const getLeaderboard = (minTrades = 10): Resp<Leaderboard> => api.get("/politicians/leaderboard", { params: { min_trades: minTrades } });
 export const createPolitician = (body: Partial<Politician>): Resp<Politician> =>
   api.post("/politicians/", body);

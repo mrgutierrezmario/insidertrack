@@ -170,7 +170,7 @@ def _skill_refresh_job():
 
 
 def _model_desk_job():
-    """Daily 08:30 ET, after the sync and the alert run: score any calls whose
+    """AI Desk, daily 08:30 ET, after the sync and the alert run: score any calls whose
     horizon has passed, then have the model read today's data and make its
     calls. One provider call a day on the site's keys."""
     from services.model_desk import generate_brief, resolve_calls

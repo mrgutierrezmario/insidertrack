@@ -29,7 +29,7 @@ own machine from free public data sources; cloud AI providers are optional.
 | Score | 0–100 per ticker: smart money + Congress (dollar-weighted, scaled by each member's track record) + corporate insiders + momentum − staleness |
 | Track record | Every member's stock buys — and sales — measured at 30/60/90 days vs SPY; win rate, average excess, and the weight it earns them in the score. A **Leaderboard** ranks members by how often their buys beat the market |
 | Outcomes | Daily snapshots of every score, filled at 30/60/90 days, so the hit-rate of each label is a number rather than a claim |
-| Model desk | Each morning the site's AI model reads the day's disclosures and makes 3–5 directional calls — which are then scored at 30/60/90 days against SPY exactly like the members' trades. A scorecard, not a forecast |
+| AI Desk | Each morning the site's AI model reads the day's disclosures and makes 3–5 directional calls — which are then scored at 30/60/90 days against SPY exactly like the members' trades. A scorecard, not a forecast |
 | Also | Alerts (rules + digest email), investment simulator vs SPY, watchlist and email reports, earnings calendar, AI research notes per ticker (site key or bring your own) |
 | Runs as | A Docker Compose stack (Postgres, app, Tailscale sidecar) with a fixed public HTTPS URL via Tailscale Funnel — free, no domain needed |
 | Docs in the app | `/guide` (how to read every page and the score) and `/privacy` (exactly what the site stores about a visitor), linked from Settings and the phone menu |
@@ -261,7 +261,7 @@ All times Eastern. Jobs run automatically when the backend is running.
 | 7:30 AM | Fill 30/60/90-day outcomes for old snapshots |
 | 8:00 AM | Sync congressional trades + morning analysis + email report |
 | 8:15 AM | Evaluate alert rules |
-| 8:30 AM | Model desk: score due calls, then write today's brief and calls (one AI call) |
+| 8:30 AM | AI Desk: score due calls, then write today's brief and calls (one AI call) |
 | 9:00 AM | Data-source health check → admin email if anything is stale/failing |
 | 12:00 PM | Midday analysis + email report |
 | 12:15 PM | Evaluate alert rules |

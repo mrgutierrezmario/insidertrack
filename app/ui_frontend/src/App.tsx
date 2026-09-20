@@ -60,7 +60,7 @@ const NAV_GROUPS: ReadonlyArray<NavGroup> = [
   { label: "Signals", items: [
     { to: "/signals",   label: "Signal Scores", hint: "Composite score, 0–100, per ticker" },
     { to: "/outcomes",  label: "Outcomes", hint: "How past signals played out" },
-    { to: "/model-desk", label: "Model Desk", hint: "The AI's daily calls, scored" },
+    { to: "/ai-desk", label: "AI Desk", hint: "The AI's daily calls, scored" },
     { to: "/simulator", label: "Simulator", hint: "Hypothetical returns vs. SPY" },
   ]},
   { label: "Markets", items: [
@@ -233,7 +233,7 @@ export default function App() {
           <Route path="/signals" element={<Signals />} />
           <Route path="/politicians" element={<Politicians />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
-          <Route path="/model-desk" element={<ModelDesk />} />
+          <Route path="/ai-desk" element={<ModelDesk />} />
           <Route path="/fed" element={<Fed />} />
           <Route path="/activity" element={<Activity />} />
           <Route path="/politician/:id" element={<Politician />} />

@@ -1,4 +1,4 @@
-"""The model desk: today's brief and calls, the running scorecard, history."""
+"""The AI Desk: today's brief and calls, the running scorecard, history."""
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from sqlalchemy.orm import Session
@@ -7,7 +7,7 @@ from database import get_db
 from routers.access import require_admin
 from services import model_desk
 
-router = APIRouter(prefix="/model-desk", tags=["model-desk"])
+router = APIRouter(prefix="/ai-desk", tags=["ai-desk"])
 
 
 @router.get("/today")

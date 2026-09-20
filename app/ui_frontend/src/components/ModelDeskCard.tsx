@@ -15,9 +15,9 @@ export function CallRow({ c, compact = false }: { c: ModelCall; compact?: boolea
         <span style={{ color, fontWeight: 700, fontSize: "0.78rem", letterSpacing: "0.04em" }}>{up ? "▲ BULLISH" : "▼ BEARISH"}</span>
         <span style={{ color: C.textMuted, fontSize: "0.78rem" }}>{c.horizon_days}d</span>
         {c.confidence != null && <span style={{ color: C.textDim, fontSize: "0.75rem" }}>conf {Math.round(c.confidence * 100)}%</span>}
-        <span style={{ marginLeft: "auto", fontSize: "0.78rem", fontWeight: 700, color: c.outcome === "hit" ? C.success : c.outcome === "miss" ? C.danger : C.textDim }}
+        <span style={{ marginLeft: "auto", fontSize: "0.78rem", fontWeight: 700, whiteSpace: "nowrap", color: c.outcome === "hit" ? C.success : c.outcome === "miss" ? C.danger : C.textDim }}
           data-tip={c.outcome ? `Return ${c.return_pct}% vs SPY ${c.spy_return_pct}% → ${c.excess_pct! > 0 ? "+" : ""}${c.excess_pct}%` : `Scored on ${fmtDate(c.resolves_on)}`}>
-          {c.outcome ? `${c.outcome.toUpperCase()} · ${c.excess_pct! > 0 ? "+" : ""}${c.excess_pct}% vs SPY` : `scores ${fmtDate(c.resolves_on)}`}
+          {c.outcome ? `${c.outcome.toUpperCase()} · ${c.excess_pct! > 0 ? "+" : ""}${c.excess_pct}% vs SPY` : `Scored on\u00a0${fmtDate(c.resolves_on)}`}
         </span>
       </div>
       {!compact && c.reasoning && <div style={{ color: C.textMuted, fontSize: "0.8rem", marginTop: 4, lineHeight: 1.5 }}>{c.reasoning}</div>}
@@ -37,8 +37,8 @@ export default function ModelDeskCard() {
   return (
     <div style={{ marginBottom: "1.75rem" }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-        <h2 style={{ fontSize: "1rem", fontWeight: 600, margin: 0 }}>Model desk — {fmtDate(data.brief.date)}</h2>
-        <Link to="/model-desk" style={{ color: C.textMuted, fontSize: "0.8rem", textDecoration: "none" }}>
+        <h2 style={{ fontSize: "1rem", fontWeight: 600, margin: 0 }}>AI Desk — {fmtDate(data.brief.date)}</h2>
+        <Link to="/ai-desk" style={{ color: C.textMuted, fontSize: "0.8rem", textDecoration: "none" }}>
           {s.resolved > 0 ? `${s.hit_rate}% right vs SPY over ${s.resolved} scored calls · track record →` : "Track record →"}
         </Link>
       </div>

@@ -21,7 +21,7 @@ function Stat({ label, value, tip }: { label: string; value: string; tip?: strin
  * hit-rate — sitting next to the human leaderboard on purpose.
  */
 export default function ModelDesk() {
-  useDocumentTitle("Model desk");
+  useDocumentTitle("AI Desk");
   const isAdmin = useAdmin();
   const [today, setToday] = useState<ModelDeskToday | null>(null);
   const [calls, setCalls] = useState<ModelCall[]>([]);
@@ -42,7 +42,7 @@ export default function ModelDesk() {
     <div style={{ maxWidth: 1000, margin: "0 auto" }}>
       <div className="page-head">
         <div>
-          <h1>Model desk</h1>
+          <h1>AI Desk</h1>
           <p>Each morning the site's AI model reads the day's disclosures and makes 3–5 directional calls. They're measured at their horizon against the S&amp;P 500, exactly like members' trades — so this page is a scorecard, not a forecast.</p>
         </div>
         {isAdmin && (
