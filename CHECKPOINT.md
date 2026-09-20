@@ -9,6 +9,9 @@
 - **Mail works** from `mgnts.donotreply@gmail.com` (App Password shared with lecture-note-app, in `deploy/.env` only). Root cause of the earlier failure: a stale Admin-panel `mail_username` override paired with the .env password for another account; also fixed the bug where clearing an override blanked the value instead of restoring .env. `MAIL_ADMIN_TO` is unset → operational notices go to the sender's inbox.
 - **UI**: contrast pass (all text tokens ≥ 4.5:1 in both themes; 110 divider-as-text usages fixed), consistency pass (dates, chamber labels, casing), Markets section repaired (movers 40 s → 0.4 s; earnings from Nasdaq's keyless calendar, pre-warmed daily; news picks the most-traded tickers), Dashboard watchlist card fills its column and scrolls, `/guide` and `/privacy` pages.
 - **Data**: 19,984 congressional trades (2021 → now), duplicate member records merged (identity by bioguide id / name key, self-healing after every sync), skill weights computed for all 160 members with buys.
+- **AI Desk** (2026-09-20): each morning 08:30 ET the site's model reads the day's disclosures and makes 3–5 directional calls, scored at their horizon against SPY. Dashboard card, `/ai-desk` under Signals, a "calls on your tickers" section on the Watchlist page, and an `ai_call` alert type (verified firing on the live site). First brief 2026-09-20 (CPAY bearish 90d, KMX bullish 60d, BSX bullish 60d, GME bullish 30d); first scoring 2026-10-20.
+- **Fund track records** (2026-09-20): 13F holders measured like members — new/increased (and trims/exits, inverted) from the real filing date to 30/60/90 d vs SPY; `whale_positions.filed_on`; weekly refresh after the 13F sync; `/whales/leaderboard` ranks at the longest window with data (only 30 d until mid-November — the Q2 filings landed 2026-08-14). Only Berkshire, Soros, Bridgewater and Renaissance have two quarters loaded, so only they are ranked; the rest join after the Q3 sync (Nov 2026).
+- **Gemini free tier is the bottleneck**: one key, ~20–25 requests/day, shared by paper readings (25/run), AI Desk (1/day), research notes. Senate paper verification blocked on it; options presented to the user (pay-as-you-go Gemini, or a Claude key as fallback) — no decision yet.
 - Decision: **no user accounts** for now (see Decisions below).
 
 ## Next session — check first
@@ -44,7 +47,7 @@ the dev container — see memory note). Branch `main` is pushed; CI runs on push
 | Health | `services/source_health.py`: per-source ok/stale/failing in `/health` ("data"), Admin → Data sources panel with **Run now** per source, daily 09:00 ET email to `MAIL_ADMIN_TO` when something's wrong. Senate/House syncs isolated from each other; manual Form 4 / 13F syncs now background. |
 | Ops | GitHub Actions CI (backend w/ Postgres, frontend, image build, nightly). Migration failures logged instead of swallowed. `AI_DAILY_CAP` (150/day) on site-key AI notes. README rewritten to match. |
 | Data cleanup | 6 seed trades with no filing removed; duplicate "Tommy Tuberville" merged into "Thomas H Tuberville". All 9,0xx trades now carry a `filing_id`. |
-| Tests | 248 backend (was 149) + 70 frontend. New: trade_semantics, source_health, form4/edgar parsers, outcome_tracker, alert_engine, backfill/amendment/re-parse helpers. |
+| Tests | 298 backend (was 149) + 70 frontend. New: trade_semantics, source_health, form4/edgar parsers, outcome_tracker, alert_engine, backfill/amendment/re-parse helpers. |
 
 ## Live data (end of session)
 
@@ -88,10 +91,10 @@ Skill refresh: interrupted by deploys four times today; the final run started
 - **No user accounts** (2026-09-19): the site stays public-read with a single admin password, email-keyed watchlists and an email subscriber list. If this becomes an official product, port lecture-note-app's auth (sign-in, registration + email confirmation, admin approval, reset, roles) and re-key watchlists/alerts/subscriptions to users.
 
 ### Still open after this batch
-- Senate paper readings unverified end-to-end (quota); House paper verified (22 rows, spot-checked).
+- Senate paper readings unverified end-to-end (quota — needs the AI-key decision above); House paper verified (22 rows, spot-checked).
 - Sentiment is headline-only without an AV key; no scoring use either way.
 - Paper filings: a paper *amendment* is stored as a normal filing (the model can't tell what it amends).
-- Track-record weights apply only to Congress; 13F holders have no track record of their own.
+- 13F holder track records exist but do not feed the score (members' do, via `skill_factor`); revisit once funds have 90-day numbers (Nov 2026).
 - No "re-check this paper row" flow beyond delete.
 
 ## Deployment gotchas (from the 2026-09-16 rebuild; still true)
