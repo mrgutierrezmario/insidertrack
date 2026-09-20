@@ -99,8 +99,6 @@ def list_trades(
 
 @router.post("/seed")
 def seed_officials_endpoint(_: None = Depends(require_admin), db: Session = Depends(get_db)):
-    """Immediately seed officials roster (fast — no network calls)."""
-    from services.fed_fetcher import seed_officials, seed_trades
-    officials_added = seed_officials(db)
-    trades_added = seed_trades(db)
-    return {"officials_added": officials_added, "trades_seeded": trades_added}
+    """Re-apply the built-in roster (fast — no network calls)."""
+    from services.fed_fetcher import seed_officials
+    return {"officials_added": seed_officials(db)}

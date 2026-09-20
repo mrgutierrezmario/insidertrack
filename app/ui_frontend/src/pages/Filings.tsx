@@ -1,4 +1,5 @@
 import { safeHref } from "../lib/safeUrl";
+import { fmtDate } from "../lib/format";
 import { C } from "../lib/theme";
 import useDocumentTitle from "../hooks/useDocumentTitle";
 import { useEffect, useState } from "react";
@@ -30,10 +31,6 @@ interface Positions {
   positions?: Position[];
 }
 
-function fmtDate(d: string | null | undefined): string {
-  if (!d) return "—";
-  return new Date(d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
 
 function fmtPeriod(d: string | null | undefined): string {
   if (!d) return "—";
@@ -65,7 +62,7 @@ function FilingRow({ f }: { f: Filing }) {
           <div style={{ color: C.textBright, fontSize: 13 }}>
             Period: <strong>{fmtPeriod(f.period)}</strong>
           </div>
-          <div style={{ color: C.dividerStrong, fontSize: 11 }}>Filed {fmtDate(f.filing_date)}</div>
+          <div style={{ color: C.textDim, fontSize: 11 }}>Filed {fmtDate(f.filing_date)}</div>
         </div>
       </div>
       <a
@@ -103,9 +100,9 @@ function HoldingsPanel({ holderId }: { holderId: number | null }) {
   const items = positions?.positions ?? [];
   return (
     <div style={{ borderTop: "1px solid var(--c-surfaceAlt)", padding: "12px 20px 16px" }}>
-      {loading && <p style={{ color: C.dividerStrong, fontSize: 12 }}>Loading holdings…</p>}
+      {loading && <p style={{ color: C.textDim, fontSize: 12 }}>Loading holdings…</p>}
       {!loading && positions && items.length === 0 && (
-        <p style={{ color: C.dividerStrong, fontSize: 12 }}>No position data yet — click "↻ Sync 13F Holdings" on the Whales page to parse holdings.</p>
+        <p style={{ color: C.textDim, fontSize: 12 }}>No position data yet — click "↻ Sync 13F Holdings" on the Whales page to parse holdings.</p>
       )}
       {!loading && items.length > 0 && (
         <>
@@ -121,7 +118,7 @@ function HoldingsPanel({ holderId }: { holderId: number | null }) {
             ))}
           </div>
           {items.length > 20 && (
-            <p style={{ color: C.divider, fontSize: 11, marginTop: 6 }}>+{items.length - 20} more positions</p>
+            <p style={{ color: C.textDim, fontSize: 11, marginTop: 6 }}>+{items.length - 20} more positions</p>
           )}
         </>
       )}
@@ -155,7 +152,7 @@ function InstitutionCard({ inst, whaleHolder }: { inst: Institution; whaleHolder
         <div>
           <div style={{ color: C.textBright, fontWeight: 600, fontSize: 15 }}>{inst.institution}</div>
           {inst.sic_description && (
-            <div style={{ color: C.dividerStrong, fontSize: 11, marginTop: 2 }}>{inst.sic_description}</div>
+            <div style={{ color: C.textDim, fontSize: 11, marginTop: 2 }}>{inst.sic_description}</div>
           )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -168,7 +165,7 @@ function InstitutionCard({ inst, whaleHolder }: { inst: Institution; whaleHolder
           {hasFilings ? (
             <span style={{ color: C.accent, fontSize: 16 }}>{open ? "▲" : "▼"}</span>
           ) : (
-            <span style={{ color: C.divider, fontSize: 12 }}>No filings found</span>
+            <span style={{ color: C.textDim, fontSize: 12 }}>No filings found</span>
           )}
         </div>
       </button>
@@ -183,7 +180,7 @@ function InstitutionCard({ inst, whaleHolder }: { inst: Institution; whaleHolder
       {open && whaleHolder && <HoldingsPanel holderId={whaleHolder.id} />}
 
       {inst.error && (
-        <div style={{ padding: "0 20px 14px", color: C.dividerStrong, fontSize: 12 }}>
+        <div style={{ padding: "0 20px 14px", color: C.textDim, fontSize: 12 }}>
           ⚠ {inst.error}
         </div>
       )}
@@ -219,7 +216,7 @@ export default function Filings() {
       <div className="page-head">
         <div>
           <h1>SEC Filings</h1>
-          <p style={{ color: C.dividerStrong, margin: 0, fontSize: 13 }}>
+          <p style={{ color: C.textDim, margin: 0, fontSize: 13 }}>
             SEC 13F-HR filings — required quarterly from funds managing &gt;$100M in US equities.
             Data pulled live from{" "}
             <a href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&type=13F-HR" target="_blank" rel="noopener noreferrer" style={{ color: C.accent }}>
@@ -237,7 +234,7 @@ export default function Filings() {
       </div>
 
       {loading && (
-        <div style={{ color: C.dividerStrong, textAlign: "center", padding: "60px 0" }}>
+        <div style={{ color: C.textDim, textAlign: "center", padding: "60px 0" }}>
           Fetching from SEC EDGAR…
         </div>
       )}
@@ -248,7 +245,7 @@ export default function Filings() {
 
       {!loading && !error && (
         <>
-          <div style={{ color: C.dividerStrong, fontSize: 12, marginBottom: 16 }}>
+          <div style={{ color: C.textDim, fontSize: 12, marginBottom: 16 }}>
             Tracking {data.length} major institutions · Click any row to expand recent filings
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -257,7 +254,7 @@ export default function Filings() {
             ))}
           </div>
 
-          <div style={{ marginTop: 24, padding: "14px 16px", background: C.bg, borderRadius: 8, border: "1px solid var(--c-surfaceAlt)", fontSize: 12, color: C.dividerStrong, lineHeight: 1.6 }}>
+          <div style={{ marginTop: 24, padding: "14px 16px", background: C.bg, borderRadius: 8, border: "1px solid var(--c-surfaceAlt)", fontSize: 12, color: C.textDim, lineHeight: 1.6 }}>
             <strong style={{ color: C.textMuted }}>About 13F filings:</strong> The SEC requires institutional investment managers with ≥$100M in US equity assets to file Form 13F within 45 days of each quarter end. Filings disclose long equity positions — they do not include short positions, options strategies, or non-US holdings. Each filing reflects holdings as of the quarter end date, not the current date.
           </div>
         </>

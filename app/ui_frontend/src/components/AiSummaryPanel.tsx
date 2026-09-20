@@ -67,7 +67,7 @@ export default function AiSummaryPanel({ symbol }: { symbol: string }) {
           <div style={{ color: C.textBright, fontWeight: 600, fontSize: 14 }}>
             ✨ AI Research Note
           </div>
-          <div style={{ color: C.dividerStrong, fontSize: 11, marginTop: 2 }}>
+          <div style={{ color: C.textDim, fontSize: 11, marginTop: 2 }}>
             Bull/bear thesis generated from this app's signal, insider, and whale data.
           </div>
         </div>
@@ -103,7 +103,7 @@ export default function AiSummaryPanel({ symbol }: { symbol: string }) {
               <Section label="Bull Case" color={C.success} text={data.bull_case} />
               <Section label="Bear Case" color={C.danger} text={data.bear_case} />
               <Section label="Key Risk" color={C.warning} text={data.risk_note} />
-              <div style={{ color: C.divider, fontSize: 10, marginTop: 8 }}>
+              <div style={{ color: C.textDim, fontSize: 10, marginTop: 8 }}>
                 {providerLabel(data.model)}{data.source === "own" ? " (your key)" : ""} · {data.generated_at} · Not financial advice — informational only.
                 {data.fallback && <> · {PROVIDER_LABEL[data.fallback] ?? data.fallback} was {data.fallback_reason ?? "unavailable"}, so another provider answered.</>}
               </div>

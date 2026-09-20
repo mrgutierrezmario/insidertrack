@@ -86,6 +86,33 @@ def create_politician(body: PoliticianCreate, _: None = Depends(require_admin), 
     return _serialize(p)
 
 
+@router.get("/leaderboard")
+def leaderboard(min_trades: int = Query(default=10, ge=1, le=200), limit: int = Query(default=50, ge=1, le=300),
+                db: Session = Depends(get_db)):
+    """Members ranked by how their disclosed stock buys did against SPY at
+    90 days — the stored weekly skill numbers, so this is instant. Only
+    members with at least `min_trades` measured buys are ranked; the rest
+    are listed unranked."""
+    rows = (
+        db.query(Politician)
+        .filter(Politician.skill_as_of.isnot(None))
+        .all()
+    )
+    ranked = sorted([p for p in rows if (p.skill_n or 0) >= min_trades],
+                    key=lambda p: ((p.skill_beat_spy or 0), (p.skill_n or 0)), reverse=True)
+    unranked = sorted([p for p in rows if 0 < (p.skill_n or 0) < min_trades], key=lambda p: -(p.skill_n or 0))
+    def row(p, rank=None):
+        return {"rank": rank, "id": p.id, "name": p.name, "party": p.party, "chamber": p.chamber, "state": p.state,
+                "buys_measured": p.skill_n, "beat_spy_rate": p.skill_beat_spy, "skill_factor": p.skill_factor,
+                "as_of": p.skill_as_of.isoformat() if p.skill_as_of else None}
+    return {
+        "min_trades": min_trades,
+        "as_of": max((p.skill_as_of for p in rows), default=None).isoformat() if rows else None,
+        "ranked": [row(p, i + 1) for i, p in enumerate(ranked[:limit])],
+        "unranked": [row(p) for p in unranked[:limit]],
+    }
+
+
 @router.get("/{politician_id}")
 def get_politician(politician_id: int, db: Session = Depends(get_db)):
     p = db.query(Politician).filter(Politician.id == politician_id).first()
@@ -147,7 +174,7 @@ def delete_politician(
 
 @router.get("/{politician_id}/trades")
 def get_politician_trades(politician_id: int, limit: int = Query(default=50, ge=1, le=500), db: Session = Depends(get_db)):
-    from routers.trades import _risk_level
+    from routers.trades import _ai_confidence, _filing_url, _risk_level
     trades = (
         db.query(Trade)
         .filter(Trade.politician_id == politician_id)
@@ -171,6 +198,8 @@ def get_politician_trades(politician_id: int, limit: int = Query(default=50, ge=
             "disclosure_date": t.disclosure_date,
             "source": t.source,
             "filing_id": t.filing_id,
+            "filing_url": _filing_url(t),
+            "ai_confidence": _ai_confidence(t),
             "amends": t.amends,
             "risk_level": _risk_level(t),
         }

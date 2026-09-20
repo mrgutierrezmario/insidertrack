@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { getPolitician, getPoliticianTrades, toggleTrack, getTechnicalSignals } from "../lib/api";
 import { LABEL_COLORS , C} from "../lib/theme";
 import useDocumentTitle from "../hooks/useDocumentTitle";
+import { chamberLabel } from "../lib/format";
 import useAdmin from "../hooks/useAdmin";
 import TradeCard from "../components/TradeCard";
 import ActivityChart from "../components/ActivityChart";
@@ -53,13 +54,14 @@ export default function Politician() {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [signals, setSignals] = useState<SignalRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reloadKey, setReloadKey] = useState(0);   // bumped after an admin re-read a filing
 
   useEffect(() => {
     if (!id) return;
     const pid = Number(id);
     Promise.all([
       getPolitician(pid),
-      getPoliticianTrades(pid),
+      getPoliticianTrades(pid, 500),
       getTechnicalSignals().catch(() => ({ data: [] as SignalRow[] })),
     ]).then(([polRes, tradesRes, sigRes]) => {
       setPolitician(polRes.data as PoliticianDetail);
@@ -69,7 +71,7 @@ export default function Politician() {
         Array.isArray(sigData) ? sigData : (sigData?.signals ?? []),
       );
     }).finally(() => setLoading(false));
-  }, [id]);
+  }, [id, reloadKey]);
 
   const handleTrack = async () => {
     if (!politician || !id) return;
@@ -124,7 +126,7 @@ export default function Politician() {
             )}
           </div>
           <p style={{ color: C.textMuted, margin: 0, fontSize: 14 }}>
-            {[politician.chamber, politician.state].filter(Boolean).join(" · ")}
+            {[chamberLabel(politician.chamber), politician.state].filter(Boolean).join(" · ")}
           </p>
         </div>
         {isAdmin ? (
@@ -148,7 +150,7 @@ export default function Politician() {
         <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 10, padding: "14px 18px", marginBottom: "1.5rem" }}>
           <p style={{ color: C.textSoft, fontSize: 13, margin: 0, lineHeight: 1.7 }}>{politician.description}</p>
           {politician.why_tracked && (
-            <p style={{ color: C.dividerStrong, fontSize: 12, margin: "10px 0 0", fontStyle: "italic" }}>
+            <p style={{ color: C.textDim, fontSize: 12, margin: "10px 0 0", fontStyle: "italic" }}>
               Why tracked: {politician.why_tracked}
             </p>
           )}
@@ -168,7 +170,7 @@ export default function Politician() {
           </div>
           <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, padding: "0.75rem 1.25rem" }}>
             <div style={{ color: C.text, fontSize: "1.25rem", fontWeight: 700 }}>{trades.length}</div>
-            <div style={{ color: C.textMuted, fontSize: "0.75rem" }}>Total Trades</div>
+            <div style={{ color: C.textMuted, fontSize: "0.75rem" }}>Total trades</div>
           </div>
           <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, padding: "0.75rem 1.25rem" }}>
             <div style={{ color: C.accent, fontSize: "1.25rem", fontWeight: 700 }}>{tickers.length}</div>
@@ -212,7 +214,7 @@ export default function Politician() {
       </h2>
       <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
         {trades.map((t) => (
-          <TradeCard key={t.id} trade={{ ...t, politician: t.politician } as Trade} />
+          <TradeCard key={t.id} trade={{ ...t, politician: t.politician } as Trade} onRemoved={(id) => setTrades((l) => l.filter((x) => x.id !== id))} onReread={() => setReloadKey((k) => k + 1)} />
         ))}
       </div>
     </div>

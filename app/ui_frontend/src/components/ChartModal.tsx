@@ -40,7 +40,7 @@ export default function ChartModal({ title, onClose, children }: ChartModalProps
       }}>
         <div>
           <span style={{ color: C.textBright, fontWeight: 600, fontSize: 15 }}>{title}</span>
-          <span style={{ color: C.dividerStrong, fontSize: 12, marginLeft: 10 }}>
+          <span style={{ color: C.textDim, fontSize: 12, marginLeft: 10 }}>
             drag to explore · pinch to zoom
           </span>
         </div>

@@ -5,7 +5,7 @@ import App from "./App";
 import "./index.css";
 
 // index.html guarantees #root exists; failing at boot with "container missing"
-// is the right behaviour. Cast keeps `createRoot` happy without a runtime check.
+// is the right behavior. Cast keeps `createRoot` happy without a runtime check.
 const container = document.getElementById("root") as HTMLElement;
 
 ReactDOM.createRoot(container).render(

@@ -337,7 +337,7 @@ function DesktopSearch() {
         {!query && (
           <span style={{
             position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
-            color: C.divider, fontSize: "0.68rem", pointerEvents: "none",
+            color: C.textDim, fontSize: "0.68rem", pointerEvents: "none",
             fontFamily: "monospace",
           }}>⌘K</span>
         )}

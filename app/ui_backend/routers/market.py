@@ -2,7 +2,8 @@ import logging
 import random
 import time as _time
 import urllib.request
-from datetime import date
+from concurrent.futures import ThreadPoolExecutor
+from datetime import date, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -95,20 +96,35 @@ def market_movers(db: Session = Depends(get_db)):
     if cached is not None:
         return cached
 
-    # Build movers from cached price history of tracked tickers (free, no extra API calls)
+    # Movers from the signal universe (tickers traded in the last 45 days —
+    # ~150, not the ~2,000 ever traded) using the same 60-day history the
+    # signal warm-up already cached, fetched in parallel. The old version
+    # walked every ticker ever traded with an uncached 5-day request and
+    # took 40 s+ — and timed out before it could fill the day cache.
+    cutoff = date.today() - timedelta(days=45)
     rows = (
         db.query(Trade.ticker)
         .join(PoliticianModel, Trade.politician_id == PoliticianModel.id)
-        .filter(PoliticianModel.is_tracked == True)  # noqa: E712
+        .filter(PoliticianModel.is_tracked == True, Trade.trade_date >= cutoff)  # noqa: E712
         .distinct()
         .all()
     )
     tickers = sorted({r[0] for r in rows if r[0]})
 
+    def fetch(tk):
+        try:
+            return tk, get_price_history(tk, days=60)
+        except Exception:
+            return tk, []
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        histories = dict(pool.map(fetch, tickers))
+
     movers = []
     for ticker in tickers:
         try:
-            hist = get_price_history(ticker, days=5)
+            hist = histories.get(ticker) or []
+            if hist and hist[-1].get("_demo"):
+                continue
             if len(hist) >= 2:
                 prev = hist[-2]["close"]
                 curr = hist[-1]["close"]
