@@ -1,6 +1,24 @@
-# Checkpoint — 2026-09-19 (data model + coverage pass)
+# Checkpoint — 2026-09-20 (v1.1.0 released, repo public)
 
 > Earlier checkpoints (2026-05-18, 2026-09-16) are in git history; CHANGELOG.md has the summary.
+
+## State right now
+
+- **Released v1.1.0** (2026-09-19); live site reports it at `/health`. Repo is **public** as `github.com/mrgutierrezmario/insidertrack` (renamed from `stock-tracker`; old URL redirects). Website, topics, Dependabot alerts + security updates, secret scanning + push protection, and branch protection on `main` (CI checks required; admin may push) are set. Social preview: upload `design/social-preview.png` in repo settings if not done.
+- **Dependencies**: all 84 Dependabot alerts fixed (Pillow 12.3, pypdf 6.16, lxml 6.1, dotenv 1.2; axios 1.20, React Router 7, Vite 6, Vitest 5). `npm audit` clean.
+- **Mail works** from `mgnts.donotreply@gmail.com` (App Password shared with lecture-note-app, in `deploy/.env` only). Root cause of the earlier failure: a stale Admin-panel `mail_username` override paired with the .env password for another account; also fixed the bug where clearing an override blanked the value instead of restoring .env. `MAIL_ADMIN_TO` is unset → operational notices go to the sender's inbox.
+- **UI**: contrast pass (all text tokens ≥ 4.5:1 in both themes; 110 divider-as-text usages fixed), consistency pass (dates, chamber labels, casing), Markets section repaired (movers 40 s → 0.4 s; earnings from Nasdaq's keyless calendar, pre-warmed daily; news picks the most-traded tickers), Dashboard watchlist card fills its column and scrolls, `/guide` and `/privacy` pages.
+- **Data**: 19,984 congressional trades (2021 → now), duplicate member records merged (identity by bioguide id / name key, self-healing after every sync), skill weights computed for all 160 members with buys.
+- Decision: **no user accounts** for now (see Decisions below).
+
+## Next session — check first
+- `deploy/state/backups/backup.log` after 03:00 → should end "Off-site copy up to date" (first proof of the Drive sync).
+- Admin → Data sources after 09:00 ET → all OK; first market-wide Form 4 rows and first Senate paper readings should be in; the 9 AM health email should not have arrived.
+- Open the morning email report once — sized for 15 members originally, now 160+.
+- If the social preview on GitHub still shows the old card, re-upload `design/social-preview.png`.
+
+---
+
 
 Live at **https://mgnts-stock-tracker.tail3659a6.ts.net**, deployed via
 `deploy/start.sh` (needs `DOCKER_CONFIG` pointing at an empty `{}` config from
