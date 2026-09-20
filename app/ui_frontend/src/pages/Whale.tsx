@@ -4,6 +4,7 @@ import { useParams, Link } from "react-router-dom";
 import { getWhaleDetail } from "../lib/api";
 import { card , C} from "../lib/theme";
 import useDocumentTitle from "../hooks/useDocumentTitle";
+import HolderRecord from "../components/HolderRecord";
 
 type ChangeType = "new" | "increased" | "decreased" | "closed" | "stable";
 
@@ -123,6 +124,8 @@ export default function Whale() {
           </div>
         </div>
       )}
+
+      <HolderRecord holderId={Number(id)} />
 
       {/* Holdings header + filters */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "0 0 10px", flexWrap: "wrap", gap: 8 }}>

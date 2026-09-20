@@ -23,6 +23,7 @@ const TYPE_META: Record<string, TypeMeta> = {
   earnings_soon: { label: "Earnings soon",      thresholdLabel: "Within N days",        thresholdDefault: 7,  color: C.warning },
   cluster_buy:   { label: "Insider cluster buy", thresholdLabel: "Min insiders buying",  thresholdDefault: 2,  color: C.success },
   skilled_buy:   { label: "Skilled member buy",  thresholdLabel: "Min beat-SPY %",       thresholdDefault: 60, color: C.info },
+  ai_call:       { label: "AI Desk call",         thresholdLabel: "Min confidence %",     thresholdDefault: 0,  color: C.accent },
 };
 
 const EMPTY_META: TypeMeta = { label: "", thresholdLabel: null, thresholdDefault: null, color: C.textDim };

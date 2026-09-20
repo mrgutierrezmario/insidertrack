@@ -129,6 +129,23 @@ def sync_whales(background_tasks: BackgroundTasks, _: None = Depends(require_adm
     return {"status": "started"}
 
 
+@router.get("/leaderboard")
+def whales_leaderboard(db: Session = Depends(get_db)):
+    """Tracked holders ranked by how their new/increased positions did vs SPY
+    at 90 days after the filing became public (from the weekly cache)."""
+    from services.holder_record import holder_leaderboard
+    return {"items": holder_leaderboard(db)}
+
+
+@router.get("/{holder_id}/track-record")
+def whale_track_record(holder_id: int, db: Session = Depends(get_db)):
+    from fastapi import HTTPException
+    from services.holder_record import compute_holder_record
+    if not db.query(WhaleHolder.id).filter(WhaleHolder.id == holder_id).first():
+        raise HTTPException(404, detail="Whale holder not found")
+    return compute_holder_record(db, holder_id)
+
+
 @router.get("/{holder_id}/detail")
 def whale_detail(holder_id: int, db: Session = Depends(get_db)):
     """Holder profile: summary stats, change breakdown, and top holdings."""

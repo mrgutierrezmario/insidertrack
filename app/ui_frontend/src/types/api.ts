@@ -124,6 +124,40 @@ export interface TrackRecord {
   sells?: { evaluated: number; windows: Record<"30" | "60" | "90", TrackRecordWindow | undefined>; trades: TrackRecordTrade[] };
 }
 
+// ── 13F holder record ─────────────────────────────────────────────────────────
+export interface HolderRecordTrade {
+  position_id: number;
+  ticker: string;
+  company: string | null;
+  change: "new" | "increased" | "decreased" | "closed";
+  quarter: string | null;
+  value_usd: number | null;
+  public_on: string;
+  entry_date: string;
+  entry_price: number;
+  r30: number | null; r60: number | null; r90: number | null;
+  x30: number | null; x60: number | null; x90: number | null;
+}
+export interface HolderRecordSide {
+  evaluated: number;
+  windows: Record<"30" | "60" | "90", TrackRecordWindow | undefined>;
+  trades: HolderRecordTrade[];
+}
+export interface HolderRecord {
+  holder_id: number;
+  buys: HolderRecordSide;
+  sells: HolderRecordSide;
+  skipped_demo: number;
+}
+export interface HolderLeaderboardRow {
+  id: number;
+  name: string;
+  computed: boolean;
+  n: number | null;
+  beat_spy_rate: number | null;
+  avg_excess: number | null;
+}
+
 export interface LeaderboardRow {
   rank: number | null;
   id: number;

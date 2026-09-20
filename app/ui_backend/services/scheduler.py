@@ -159,6 +159,11 @@ def _whale_sync_job():
             source_health.record(db, "whale", ok=False, error=str(exc))
             raise
         logger.info(f"Whale 13F sync: {result}")
+        try:
+            from services.holder_record import refresh_all
+            logger.info(f"Holder records refreshed: {refresh_all(db)}")
+        except Exception as exc:
+            logger.warning(f"holder record refresh failed: {exc}")
 
 
 def _skill_refresh_job():

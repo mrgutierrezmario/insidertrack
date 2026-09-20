@@ -3,6 +3,8 @@ import type { AxiosResponse } from "axios";
 
 import type {
   Health,
+  HolderLeaderboardRow,
+  HolderRecord,
   InsiderCluster,
   Leaderboard,
   ModelCall,
@@ -166,6 +168,8 @@ export const getWhaleFeed = (params: Record<string, unknown> = {}): Resp<WhalePo
   api.get("/whales/feed", { params });
 export const getWhalePositions = (id: number): Resp<unknown> => api.get(`/whales/${id}/positions`);
 export const getWhaleDetail = (id: number): Resp<unknown> => api.get(`/whales/${id}/detail`);
+export const getWhaleLeaderboard = (): Resp<HolderLeaderboardRow[]> => api.get("/whales/leaderboard");
+export const getWhaleTrackRecord = (id: number): Resp<HolderRecord> => api.get(`/whales/${id}/track-record`);
 export const syncWhales = (): Resp<{ status: string }> =>
   api.post("/whales/sync");
 

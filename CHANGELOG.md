@@ -9,6 +9,8 @@ All notable changes to InsiderTrack. The format follows
 
 ### Added
 - **AI Desk**: each morning (8:30 ET) the site's AI model reads the day's disclosures and makes 3–5 directional calls with a horizon and reasoning; every call is stored unedited and scored at its horizon against SPY, with a running hit-rate. Dashboard card + `/ai-desk` page under Signals; admin can generate/regenerate. One provider call a day.
+- **Fund track records**: each 13F holder's new/increased positions (and trims/exits, inverted) measured 30/60/90 days after the filing date against SPY; a "Fund track records" ranking on the Whales page and a section on every fund's page. `GET /whales/leaderboard`, `GET /whales/{id}/track-record`; `whale_positions.filed_on` now holds the real SEC filing date.
+- Watchlist page shows the AI Desk calls on your own tickers; new alert type **AI Desk call** (threshold = minimum confidence %).
 - Readable secondary text: every text token clears WCAG AA in both themes; the Dashboard watchlist card fills its column and scrolls.
 
 ## [1.1.0] — 2026-09-19

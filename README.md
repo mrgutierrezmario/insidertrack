@@ -211,6 +211,8 @@ The market-wide feed powers the **Cluster buys** table on the Insiders page — 
 
 Pre-loaded filers (21): Berkshire, Soros, Renaissance, Bridgewater, Pershing Square, Scion, ARK, Tiger Global, Duquesne, Appaloosa, Baupost, Third Point, Elliott, Coatue, Lone Pine, Viking, Greenlight, Trian, Starboard, Altimeter, Icahn. Discretionary managers only — quant/multi-strat shops hold thousands of hedged positions that say nothing about conviction. Add more in Admin → Filings institutions.
 
+Each fund gets a **track record** like the members': new and increased positions (and trims/exits, inverted) measured 30/60/90 days after the 13F's real filing date against SPY, refreshed after the weekly sync; the Whales page ranks funds by their 90-day beat-SPY rate.
+
 ### Federal Reserve Officials
 Roster only (seeded at startup, refreshable from the page). Board members have been barred from holding individual stocks since 2022, and OGE publishes disclosures as PDFs with no API, so the Fed page shows who is on the Board with an empty (compliant) trade list.
 
@@ -352,7 +354,7 @@ insidertrack/
         │   ├── Activity.jsx      ← Unified timeline (Congress + insiders + Fed)
         │   ├── Politicians.jsx   ← Manage tracked politicians
         │   ├── Politician.jsx    ← Per-politician trade history
-        │   ├── Whales.jsx        ← 13F whale holdings feed
+        │   ├── Whales.tsx        ← 13F whale holdings feed + fund track records
         │   ├── Whale.jsx         ← Per-whale position detail
         │   ├── Insiders.jsx      ← Form 4 corporate insider transactions
         │   ├── Fed.jsx           ← Fed official disclosures

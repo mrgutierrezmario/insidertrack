@@ -18,6 +18,7 @@ ALERT_TYPES = {
     "earnings_soon": "A tracked ticker has earnings within N days",
     "cluster_buy":   "Two or more corporate insiders bought the same stock on the open market (last 30 days; threshold = min insiders)",
     "skilled_buy":   "A member whose buys beat SPY at least N% of the time disclosed a purchase (threshold = min beat-SPY %)",
+    "ai_call":       "The AI Desk made a call on a ticker (threshold = min confidence %, e.g. 70)",
 }
 
 

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { isAxiosError } from "axios";
 import {
   getWatchlistSignals,
+  getModelDeskCalls,
   addToWatchlist,
   removeFromWatchlist,
   recoverWatchlistToken,
@@ -10,8 +11,9 @@ import {
 import { EMAIL_KEY, WATCHLIST_TOKEN_KEY } from "../lib/storage";
 import { card, LABEL_COLORS , C} from "../lib/theme";
 import useDocumentTitle from "../hooks/useDocumentTitle";
-import type { SignalLabel } from "../types/api";
+import type { ModelCall, SignalLabel } from "../types/api";
 import SkeletonCard from "../components/SkeletonCard";
+import { CallRow } from "../components/ModelDeskCard";
 
 // The /watchlist/signals endpoint enriches each row with current signal
 // state — backend shape lives in `routers/watchlist.py:watchlist_with_signals`.
@@ -55,6 +57,8 @@ export default function Watchlist() {
   const [state, setState] = useState<LoadState>("idle");
   const [newTicker, setNewTicker] = useState("");
   const [err, setErr] = useState("");
+  const [calls, setCalls] = useState<ModelCall[]>([]);
+  useEffect(() => { getModelDeskCalls().then((r) => setCalls(r.data.items)).catch(() => setCalls([])); }, []);
 
   // Recovery UI state
   const [pasteToken, setPasteToken] = useState("");
@@ -296,6 +300,31 @@ export default function Watchlist() {
           ))}
         </div>
       )}
+
+      {items.length > 0 && (() => {
+        const mine = new Set(items.map((it) => it.ticker));
+        const hits = calls.filter((c) => mine.has(c.ticker));
+        return (
+          <div style={{ ...card, padding: "14px 16px", marginTop: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+              <div style={{ color: C.textSoft, fontSize: 12, fontWeight: 600 }}>AI Desk calls on your tickers</div>
+              <Link to="/ai-desk" style={{ color: C.accent, fontSize: 12, textDecoration: "none" }}>All calls →</Link>
+            </div>
+            {hits.length === 0 ? (
+              <p style={{ color: C.textDim, fontSize: 12, margin: "4px 0 0" }}>
+                The AI Desk hasn't made a call on any of your tickers yet. It picks a handful each morning from the day's filings; add an alert of type "AI Desk call" to be told when one lands.
+              </p>
+            ) : (
+              <>
+                <p style={{ color: C.textDim, fontSize: 12, margin: "0 0 8px" }}>
+                  {hits.length} call{hits.length === 1 ? "" : "s"} · the AI's own research view, scored against SPY once the horizon passes.
+                </p>
+                {hits.map((c) => <CallRow key={c.id} c={c} />)}
+              </>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
