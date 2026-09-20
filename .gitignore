@@ -1,4 +1,6 @@
 .env
+.env.*
+!.env.example
 __pycache__/
 *.pyc
 .venv/
@@ -11,6 +13,8 @@ logs/
 
 # production stack (deploy/)
 deploy/.env
+deploy/.env.*
+!deploy/.env.example
 deploy/state/
 backups/
 
