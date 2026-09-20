@@ -39,7 +39,7 @@ services:
       - -c
       - |
         cat > /config/serve.json <<'EOF'
-        {"TCP":{"443":{"HTTPS":true}},"Web":{"$${TS_CERT_DOMAIN}:443":{"Handlers":{"/":{"Proxy":"http://127.0.0.1:8003"}}}},"AllowFunnel":{"$${TS_CERT_DOMAIN}:443":true}}
+        {"TCP":{"443":{"HTTPS":true}},"Web":{"$${TS_CERT_DOMAIN}:443":{"Handlers":{"/":{"Proxy":"http://127.0.0.1:8003"},"/mcp":{"Proxy":"http://mcp:8100"}}}},"AllowFunnel":{"$${TS_CERT_DOMAIN}:443":true}}
         EOF
 
   tailscale:
@@ -105,6 +105,28 @@ services:
       BACKUP_DIR: /backups
     volumes:
       - backups:/backups
+
+  # InsiderTrack MCP (github.com/mrgutierrezmario/insidertrack-mcp): lets an AI
+  # assistant ask the site questions. Reaches the app on this network, holds no
+  # database credentials and no volumes; the Funnel forwards /mcp to it.
+  mcp:
+    image: insidertrack-mcp:latest
+    build:
+      context: ../../insidertrack-mcp
+      dockerfile: deploy/Dockerfile
+    restart: *restart
+    environment:
+      INSIDERTRACK_URL: http://tailscale:8003
+      MCP_TOKENS: ${MCP_TOKENS:-}
+      MCP_ALLOW_WRITES: ${MCP_ALLOW_WRITES:-0}
+      INSIDERTRACK_WATCHLIST_EMAIL: ${INSIDERTRACK_WATCHLIST_EMAIL:-}
+      INSIDERTRACK_WATCHLIST_TOKEN: ${INSIDERTRACK_WATCHLIST_TOKEN:-}
+    depends_on:
+      app:
+        condition: service_started
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
 
 volumes:
   postgres-data:

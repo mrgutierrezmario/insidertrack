@@ -393,6 +393,16 @@ insidertrack/
 
 ---
 
+## MCP server
+
+An AI assistant (Claude Desktop, claude.ai, Claude Code) can ask the site
+questions through [insidertrack-mcp](https://github.com/mrgutierrezmario/insidertrack-mcp):
+who in Congress bought what, cluster buys, a ticker's score and reasons,
+members' track records, whether the labels actually went up. It runs as one
+more container in this stack (`mcp` in `deploy/compose.yml`), reads the
+public API only, and answers at `/mcp` behind a bearer token
+(`MCP_TOKENS` in `deploy/.env`). See `deploy/OPERATIONS.md`.
+
 ## Security
 
 - Admin password is validated server-side — never sent to the browser in plain text
