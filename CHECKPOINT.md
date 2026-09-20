@@ -47,12 +47,12 @@ the dev container — see memory note). Branch `main` is pushed; CI runs on push
 | Health | `services/source_health.py`: per-source ok/stale/failing in `/health` ("data"), Admin → Data sources panel with **Run now** per source, daily 09:00 ET email to `MAIL_ADMIN_TO` when something's wrong. Senate/House syncs isolated from each other; manual Form 4 / 13F syncs now background. |
 | Ops | GitHub Actions CI (backend w/ Postgres, frontend, image build, nightly). Migration failures logged instead of swallowed. `AI_DAILY_CAP` (150/day) on site-key AI notes. README rewritten to match. |
 | Data cleanup | 6 seed trades with no filing removed; duplicate "Tommy Tuberville" merged into "Thomas H Tuberville". All 9,0xx trades now carry a `filing_id`. |
-| Tests | 298 backend (was 149) + 70 frontend. New: trade_semantics, source_health, form4/edgar parsers, outcome_tracker, alert_engine, backfill/amendment/re-parse helpers. |
+| Tests | 302 backend (was 149) + 70 frontend. New: trade_semantics, source_health, form4/edgar parsers, outcome_tracker, alert_engine, backfill/amendment/re-parse helpers. |
 
 ## Live data (end of session)
 
 - 14,437 congressional trades, 2,038 tickers, 169 members with trades (234 member records), Jan 2023 → now; 18,459 Form 4 rows / 678 tickers; 842 13F positions (Q2-2026).
-- Re-parse of 2026-05 → now done (317 pre-May rows still have unknown owner — a re-parse of 2025-01 → 2025-04 would clear them). Backfill 2023–2024 done (1,193 Senate + 4,322 House).
+- Re-parse of 2025-01 → now done (2026-09-20); every trade since 2025-01-01 has an owner. Backfill 2023–2024 done (1,193 Senate + 4,322 House).
 - First `skill_refresh` was run manually on 2026-09-19 evening; the weekly job takes over Sunday.
 
 ## Running backend tests from the dev container
@@ -92,10 +92,10 @@ Skill refresh: interrupted by deploys four times today; the final run started
 
 ### Still open after this batch
 - Senate paper readings unverified end-to-end (quota — needs the AI-key decision above); House paper verified (22 rows, spot-checked).
-- Sentiment is headline-only without an AV key; no scoring use either way.
-- Paper filings: a paper *amendment* is stored as a normal filing (the model can't tell what it amends).
+- Keyless news carries a keyword-based label (Somewhat-Bullish/-Bearish/Neutral) since 2026-09-20; never used in the score.
+- Paper amendments reconcile since 2026-09-20 (Senate: index title; House: same ticker + trade date). A House paper amendment that corrects the *date* still leaves the old row — nothing to match on.
 - 13F holder track records exist but do not feed the score (members' do, via `skill_factor`); revisit once funds have 90-day numbers (Nov 2026).
-- No "re-check this paper row" flow beyond delete.
+- Admin "Re-read filing" on paper rows (`POST /trades/{id}/reread`, one AI call) since 2026-09-20.
 
 ## Deployment gotchas (from the 2026-09-16 rebuild; still true)
 
