@@ -8,6 +8,7 @@ import { ADMIN_TOKEN_KEY } from "../lib/storage";
 vi.mock("../lib/api", () => ({
   getWhales:      vi.fn(),
   getWhaleFeed:   vi.fn(),
+  getWhaleLeaderboard: vi.fn().mockResolvedValue({ data: { items: [] } }),
   syncWhales:     vi.fn(),
   addToWatchlist: vi.fn(),  // WatchlistButton import
   // Re-export so `import { ADMIN_TOKEN_KEY }` from "../lib/api" still resolves

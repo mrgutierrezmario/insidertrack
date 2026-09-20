@@ -540,3 +540,228 @@ class TestHouseAmendedRowReplaces:
         assert r.amount_range == "$250,001 - $500,000" and r.amount_high == 500000
         assert r.filing_id == "20035444" and r.amends == date(2025, 6, 4)
         assert r.disclosure_date == date(2025, 6, 4)     # public since the original filing
+
+
+class TestSenatePaperListing:
+    def test_paper_rows_are_listed_and_flagged(self, monkeypatch):
+        from datetime import date
+        from services import congress_fetcher as cf
+        rows = [
+            ["Jane", "Doe", "Doe, Jane (Senator)", '<a href="/search/view/ptr/aaaa-1111/">Periodic Transaction Report for 05/01/2026</a>', "05/01/2026"],
+            ["Rick", "Roe", "Roe, Rick (Senator)", '<a href="/search/view/paper/bbbb-2222/">Periodic Transaction Report</a>', "05/02/2026"],
+            ["Ann", "Poe", "Poe, Ann (Senator)", '<a href="/search/view/annual/cccc-3333/">Annual Report</a>', "05/03/2026"],
+        ]
+        class _R:
+            def json(self): return {"data": rows, "recordsTotal": 3}
+        class _C:
+            cookies = {"csrftoken": "t"}
+            def post(self, *a, **k): return _R()
+        monkeypatch.setattr(cf, "_request_with_retry", lambda fn, **k: fn())
+        out = cf._fetch_ptr_list(_C(), date(2026, 4, 1))
+        assert [(r["uuid"], r["paper"]) for r in out] == [("aaaa-1111", False), ("bbbb-2222", True)]
+
+    def test_paper_images_are_collected(self, monkeypatch):
+        from services import congress_fetcher as cf
+        html = ('<img src="/static/images/logo.svg"><img src="https://efd-media-public.senate.gov/media/2026/2/000/000/000000521.gif">'
+                '<img src="https://efd-media-public.senate.gov/media/2026/2/000/000/000000522.gif">')
+        class _R:
+            def __init__(self, status, content=b"", text=""): self.status_code, self.content, self.text = status, content, text
+        class _C:
+            def get(self, url, **k):
+                return _R(200, text=html) if "/search/view/paper/" in url else _R(200, content=b"GIF89a" + url[-7:].encode())
+        monkeypatch.setattr(cf, "_request_with_retry", lambda fn, **k: fn())
+        monkeypatch.setattr(cf.time, "sleep", lambda s: None)
+        pages = cf._fetch_paper_images(_C(), "bbbb-2222")
+        assert len(pages) == 2 and all(p.startswith(b"GIF89a") for p in pages)
+
+
+# ── member identity across spellings ──────────────────────────────────────────
+
+class TestNameKey:
+    def test_spellings_collide(self):
+        from services.congress_fetcher import _name_key, clean_display_name
+        for n in ("C. Scott Franklin", "Scott Mr Franklin", "Scott Scott Franklin", "Scott Franklin", "Hon. Scott Franklin Jr."):
+            assert _name_key(n) == "scott franklin", n
+        assert _name_key("Marjorie Taylor Mrs Greene") == "marjorie greene"
+        assert _name_key("Donald Sternoff Honorable Beyer") == "donald beyer"
+        assert clean_display_name("Marjorie Taylor Mrs Greene") == "Marjorie Taylor Greene"
+        assert clean_display_name("Donald Sternoff Honorable Beyer") == "Donald Sternoff Beyer"
+
+
+class TestMergeDuplicates:
+    def test_merges_spellings_and_repoints_trades(self, db, monkeypatch):
+        from datetime import date
+        from models.politician import Politician
+        from models.signal_outcome import SignalOutcome
+        from models.trade import Trade
+        from services import congress_fetcher as cf
+        # roster knows "Daniel Crenshaw" (nickname Dan) → both spellings map to one bioguide
+        monkeypatch.setattr(cf, "_load_legislators", lambda: None)
+        monkeypatch.setattr(cf, "_roster", {
+            "daniel crenshaw": {"full_name": "Daniel Crenshaw", "bioguide": "C001120", "party": "R", "state": "TX"},
+            "dan crenshaw": {"full_name": "Daniel Crenshaw", "bioguide": "C001120", "party": "R", "state": "TX"},
+        })
+        a = Politician(name="Dan Crenshaw", chamber="house"); b = Politician(name="Daniel Crenshaw", chamber="house", party="R")
+        c1 = Politician(name="Scott Mr Franklin", chamber="house"); c2 = Politician(name="Scott Scott Franklin", chamber="house")
+        db.add_all([a, b, c1, c2]); db.flush()
+        for p, n in ((a, 1), (b, 3), (c1, 1), (c2, 2)):
+            for i in range(n):
+                db.add(Trade(politician_id=p.id, ticker=f"T{i}", transaction_type="purchase", amount_range="$1,001 - $15,000",
+                             trade_date=date(2026, 1, 1 + i), source="house", raw_data="{}"))
+        db.add(SignalOutcome(ticker="T0", signal_date=date(2026, 2, 1), composite_score=50, price_at_signal=1.0, politician_id=a.id, politician_name="Dan Crenshaw"))
+        db.flush()
+        out = cf.merge_duplicate_politicians(db)
+        assert out["merged"] == 2
+        survivors = {p.name: p for p in db.query(Politician).filter(Politician.name_key.in_(["daniel crenshaw", "scott franklin"])).all()}
+        assert set(survivors) == {"Daniel Crenshaw", "Scott Franklin"}
+        dc = survivors["Daniel Crenshaw"]
+        assert dc.bioguide_id == "C001120" and dc.party == "R"
+        assert db.query(Trade).filter(Trade.politician_id == dc.id).count() == 4
+        assert db.query(SignalOutcome).filter(SignalOutcome.politician_id == dc.id).count() == 1
+        assert db.query(Trade).filter(Trade.politician_id == survivors["Scott Franklin"].id).count() == 3
+
+    def test_get_or_create_finds_by_key(self, db, monkeypatch):
+        from models.politician import Politician
+        from services import congress_fetcher as cf
+        monkeypatch.setattr(cf, "_load_legislators", lambda: None)
+        monkeypatch.setattr(cf, "_roster", {})
+        p = cf._get_or_create_politician(db, "Laurel Lee", "house")
+        q = cf._get_or_create_politician(db, "Laurel Mrs Lee", "house")
+        assert p.id == q.id and p.name == "Laurel Lee"
+
+
+class TestRosterLoad:
+    def test_roster_is_populated_from_csv(self, monkeypatch):
+        from services import congress_fetcher as cf
+        csv_text = ("last_name,first_name,middle_name,suffix,nickname,full_name,birthday,gender,type,state,district,senate_class,party,bioguide_id\n"
+                    "Crenshaw,Daniel,,,Dan,Daniel Crenshaw,1984-03-14,M,rep,TX,2,,Republican,C001120\n")
+        class _R:
+            text = csv_text
+            def raise_for_status(self): pass
+        monkeypatch.setattr(cf.httpx, "get", lambda *a, **k: _R())
+        cf._legislators, cf._roster, cf._legislators_loaded_on = {}, {}, None
+        cf._load_legislators()
+        assert cf._roster["dan crenshaw"]["bioguide"] == "C001120"
+        assert cf.resolve_identity("Dan Crenshaw") == ("Daniel Crenshaw", "daniel crenshaw", "C001120", "R", "TX")
+        cf._legislators, cf._roster, cf._legislators_loaded_on = {}, {}, None
+
+
+class TestSenateExchangeTicker:
+    def test_exchange_row_keeps_received_symbol(self):
+        html = _senate_table(
+            "<tr><td>1</td><td>05/27/2026</td><td>Joint</td><td>BERY -- AMCR</td><td>Berry (Exchanged) Amcor (Received)</td>"
+            "<td>Stock</td><td>Exchange</td><td>$1,001 - $15,000</td><td>--</td></tr>"
+            "<tr><td>2</td><td>05/27/2026</td><td>Joint</td><td>-- HR</td><td>x</td><td>Stock</td><td>Exchange</td><td>$1,001 - $15,000</td><td>--</td></tr>"
+            "<tr><td>3</td><td>05/27/2026</td><td>Joint</td><td>--</td><td>y</td><td>Stock</td><td>Sale</td><td>$1,001 - $15,000</td><td>--</td></tr>"
+        )
+        assert [t["ticker"] for t in _parse_senate_rows(html)] == ["AMCR", "HR"]
+
+
+# ── paper amendments and per-filing re-read ───────────────────────────────────
+
+class TestPaperAmendments:
+    def _house_env(self, db, monkeypatch, p, index_row, reading):
+        from services import congress_fetcher as cf
+        monkeypatch.setattr(cf, "_fetch_house_index", lambda client, year: [index_row])
+        monkeypatch.setattr(cf, "paper_ptr_enabled", lambda: True)
+        monkeypatch.setattr(cf.paper_ptr, "read_paper_ptr", lambda pdf: reading)
+        monkeypatch.setattr(cf, "_is_known_ticker", lambda s: True)
+        monkeypatch.setattr(cf, "_house_ticker_lookup", lambda: {})
+        monkeypatch.setattr(cf, "_enrich", lambda first, last: ("R", "TN"))
+        monkeypatch.setattr(cf, "_get_or_create_politician", lambda db_, name, chamber, party="", state="": p)
+        class _Resp: status_code = 200; content = b"%PDF"
+        class _Client:
+            def __init__(self, *a, **k): pass
+            def get(self, url): return _Resp()
+            def close(self): pass
+        monkeypatch.setattr(cf.httpx, "Client", _Client)
+        monkeypatch.setattr(cf.time, "sleep", lambda s: None)
+
+    def test_house_paper_amendment_replaces_same_day_row(self, db, monkeypatch):
+        from datetime import date
+        from models.politician import Politician
+        from models.trade import Trade
+        from services import congress_fetcher as cf
+        p = Politician(name="Rep Paper", chamber="house"); db.add(p); db.flush()
+        orig = Trade(politician_id=p.id, ticker="NVDA", transaction_type="purchase", amount_range="$1,001 - $15,000",
+                     trade_date=date(2026, 8, 3), disclosure_date=date(2026, 8, 20), source="house-paper",
+                     filing_id="8221000", raw_data="{}")
+        db.add(orig); db.flush(); oid = orig.id
+        reading = {"filer": "Rep Paper", "amendment": True, "transactions": [
+            {"asset": "NVIDIA Corp", "ticker": "NVDA", "type": "P", "transaction_date": "08/03/2026",
+             "amount": "$15,001 - $50,000", "owner": "SP", "confidence": 0.9}]}
+        index_row = {"DocID": "8221999", "FilingDate": "9/10/2026", "First": "Rep", "Last": "Paper", "FilingType": "P", "StateDst": "TN06"}
+        self._house_env(db, monkeypatch, p, index_row, reading)
+        n = cf.sync_house_trades(db, start_date=date(2026, 9, 1), end_date=date(2026, 9, 19))
+        assert n == 0
+        rows = db.query(Trade).filter(Trade.politician_id == p.id).all()
+        assert len(rows) == 1 and rows[0].id == oid
+        assert rows[0].amount_range == "$15,001 - $50,000" and rows[0].filing_id == "8221999"
+        assert rows[0].amends == date(2026, 8, 20) and rows[0].disclosure_date == date(2026, 8, 20)
+
+    def test_senate_index_carries_for_date_and_paper_amendment_supersedes(self, db, monkeypatch):
+        from datetime import date
+        from models.politician import Politician
+        from models.trade import Trade
+        from services import congress_fetcher as cf
+        p = Politician(name="Sen Paper", chamber="senate"); db.add(p); db.flush()
+        orig = Trade(politician_id=p.id, ticker="AAPL", transaction_type="purchase", amount_range="$1,001 - $15,000",
+                     trade_date=date(2026, 7, 1), disclosure_date=date(2026, 7, 20), source="senate-paper",
+                     filing_id="orig-uuid", raw_data="{}")
+        db.add(orig); db.flush()
+        rows = [["Sen", "Paper", "Paper, Sen (Senator)",
+                 '<a href="/search/view/paper/abcd-0002/">Periodic Transaction Report for 07/20/2026 (Amendment 1)</a>', "09/10/2026"]]
+        class _R:
+            def json(self): return {"data": rows, "recordsTotal": 1}
+        class _C:
+            cookies = {"csrftoken": "t"}
+            def post(self, *a, **k): return _R()
+            def get(self, *a, **k): return _R()
+            def close(self): pass
+        monkeypatch.setattr(cf, "_request_with_retry", lambda fn, **k: fn())
+        listed = cf._fetch_ptr_list(_C(), date(2026, 9, 1))
+        assert listed[0]["for_date"] == date(2026, 7, 20) and listed[0]["amended"] and listed[0]["paper"]
+
+        reading = {"filer": "Sen Paper", "amendment": True, "transactions": [
+            {"asset": "Apple Inc", "ticker": "AAPL", "type": "Purchase", "transaction_date": "07/01/2026",
+             "amount": "$15,001 - $50,000", "owner": "Self", "confidence": 0.9}]}
+        monkeypatch.setattr(cf, "_efd_client", lambda: _C())
+        monkeypatch.setattr(cf, "_fetch_ptr_list", lambda client, s, e=None: listed)
+        monkeypatch.setattr(cf, "_fetch_paper_images", lambda client, uuid: [b"GIF89a"])
+        monkeypatch.setattr(cf, "paper_ptr_enabled", lambda: True)
+        monkeypatch.setattr(cf.paper_ptr, "read_senate_paper", lambda pages: reading)
+        monkeypatch.setattr(cf, "_is_known_ticker", lambda s: True)
+        monkeypatch.setattr(cf, "_house_ticker_lookup", lambda: {})
+        monkeypatch.setattr(cf, "_enrich", lambda first, last: ("D", "CA"))
+        monkeypatch.setattr(cf, "_get_or_create_politician", lambda db_, name, chamber, party="", state="": p)
+        monkeypatch.setattr(cf.time, "sleep", lambda s: None)
+        cf.sync_senate_trades(db, start_date=date(2026, 9, 1), end_date=date(2026, 9, 19))
+        got = db.query(Trade).filter(Trade.politician_id == p.id).all()
+        assert len(got) == 1                                    # the original report's rows are gone
+        assert got[0].filing_id == "abcd-0002" and got[0].amount_range == "$15,001 - $50,000"
+        assert got[0].amends == date(2026, 7, 20) and got[0].disclosure_date == date(2026, 7, 20)
+
+    def test_reread_filing_targets_one_house_filing(self, db, monkeypatch):
+        from datetime import date
+        from models.politician import Politician
+        from models.trade import Trade
+        from services import congress_fetcher as cf
+        p = Politician(name="Rep Reread", chamber="house"); db.add(p); db.flush()
+        old = Trade(politician_id=p.id, ticker="MSFT", transaction_type="purchase", amount_range="$1,001 - $15,000",
+                    trade_date=date(2026, 8, 3), disclosure_date=date(2026, 8, 20), source="house-paper",
+                    filing_id="8221000", raw_data='{"filing_date": "8/20/2026", "paper": true}')
+        db.add(old); db.flush()
+        # A second reading of the same filing: MSFT was really AAPL. Another paper filing in the index must be untouched.
+        reading = {"filer": "Rep Reread", "amendment": False, "transactions": [
+            {"asset": "Apple Inc", "ticker": "AAPL", "type": "P", "transaction_date": "08/03/2026",
+             "amount": "$1,001 - $15,000", "owner": "Self", "confidence": 0.8}]}
+        index_rows = [{"DocID": "8221000", "FilingDate": "8/20/2026", "First": "Rep", "Last": "Reread", "FilingType": "P", "StateDst": "TN06"},
+                      {"DocID": "8221001", "FilingDate": "8/20/2026", "First": "Rep", "Last": "Reread", "FilingType": "P", "StateDst": "TN06"}]
+        calls = []
+        self._house_env(db, monkeypatch, p, index_rows[0], reading)
+        monkeypatch.setattr(cf, "_fetch_house_index", lambda client, year: index_rows)
+        monkeypatch.setattr(cf.paper_ptr, "read_paper_ptr", lambda pdf: (calls.append(1), reading)[1])
+        out = cf.reread_filing(db, old)
+        assert out == {"filing_id": "8221000", "rows": 1} and len(calls) == 1   # only the targeted filing was read
+        rows = db.query(Trade).filter(Trade.filing_id == "8221000").all()
+        assert [r.ticker for r in rows] == ["AAPL"]

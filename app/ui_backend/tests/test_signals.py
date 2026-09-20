@@ -218,14 +218,30 @@ class TestBullishLabel:
 # ── _smart_money_from_positions ───────────────────────────────────────────────
 
 class TestSmartMoneyFromPositions:
-    def _make_pos(self, change_type, holder_name="BlackRock"):
+    def _make_pos(self, change_type, holder_name="BlackRock", value=1_000_000, holder_id=1, quarter="2026-Q2"):
         class FakeHolder:
             name = holder_name
         class FakePos:
             def __init__(self):
                 self.change_type = change_type
                 self.holder = FakeHolder()
+                self.holder_id = holder_id
+                self.quarter = quarter
+                self.value_usd = value
         return FakePos()
+
+    def test_initial_quarter_is_neutral(self):
+        score, _ = _smart_money_from_positions([self._make_pos("initial")])
+        assert score == 10
+
+    def test_conviction_weights_and_bonus(self):
+        # 10% of a $100M book that was increased → weighted up + high-conviction bonus (capped 20)
+        totals = {(1, "2026-Q2"): 100_000_000}
+        score, reasons = _smart_money_from_positions([self._make_pos("increased", value=10_000_000)], totals)
+        assert score == 18 and any("High conviction: 10%" in r for r in reasons)
+        # the same change at 0.1% of the book is just the plain change score
+        score2, _ = _smart_money_from_positions([self._make_pos("increased", value=100_000)], totals)
+        assert score2 == 15
 
     def test_empty_returns_neutral(self):
         score, reasons = _smart_money_from_positions([])

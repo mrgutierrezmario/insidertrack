@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>User Guide — InsiderTrack</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/pages.css">
+</head>
+<body>
+<main>
+  <div class="card">
+    <div class="brand">
+      <img src="/logo-mark.svg" alt="">
+      <div><strong>InsiderTrack</strong><span>M.G. Network and Technology Solutions</span></div>
+    </div>
+    <h1>User guide</h1>
+    <p class="sub">What the site shows, where the numbers come from, and how to read them.</p>
+
+    <ol class="toc">
+      <li><a href="#what">What this is</a></li>
+      <li><a href="#sources">Where the data comes from</a></li>
+      <li><a href="#trades">Reading a trade</a></li>
+      <li><a href="#score">The score</a></li>
+      <li><a href="#members">Members, track records, leaderboard</a></li>
+      <li><a href="#insiders">Corporate insiders and whales</a></li>
+      <li><a href="#outcomes">Outcomes and the simulator</a></li>
+      <li><a href="#watch">Watchlist, alerts and email</a></li>
+      <li><a href="#ai">AI research notes</a></li>
+      <li><a href="#limits">What it can't tell you</a></li>
+    </ol>
+
+    <h2 id="what">1. What this is</h2>
+    <p>Members of Congress, company executives and large investment funds all have to disclose
+    their stock trades. InsiderTrack collects those disclosures from the official sources, puts
+    them in one place, and scores each stock on who has been buying it. It is a research tool for
+    deciding what to look into — not a signal to trade on by itself.</p>
+
+    <h2 id="sources">2. Where the data comes from</h2>
+    <ul>
+      <li><strong>Congress</strong> — the House Clerk's periodic transaction reports and the Senate's
+        electronic financial disclosure system. Members must report within 45 days of a trade, so
+        every row is at least days and often weeks old.</li>
+      <li><strong>Corporate insiders</strong> — SEC Form 4, filed by officers, directors and 10% owners
+        within two business days of trading their own company's stock.</li>
+      <li><strong>Institutions</strong> — SEC Form 13F, the quarterly holdings of 21 well-known
+        discretionary managers, published up to 45 days after each quarter ends.</li>
+      <li><strong>Prices, earnings, news</strong> — public market data feeds.</li>
+    </ul>
+    <p>Only electronically filed reports can be read directly. About one House filing in eight is a
+    scanned, often handwritten form; those are read by an AI vision model and marked
+    <strong>PAPER · AI-READ</strong> with the model's confidence — open the filing before relying
+    on one. Admins can have a paper filing read again or remove a misread row.</p>
+
+    <h2 id="trades">3. Reading a trade</h2>
+    <p>Each congressional trade shows the ticker, the type (purchase, sale, exchange), who holds the
+    position (the member, a spouse, a dependent child, or a joint account), the dollar bracket the
+    law requires (e.g. $15,001–$50,000 — exact amounts are never disclosed), the trade date and the
+    date it was disclosed. Colour follows the <em>bet</em>, not the verb: buying a put option is
+    bearish and shows red even though the filing says "purchase".</p>
+    <ul>
+      <li><strong>OPTION / OTHER</strong> — an option contract or a bond/note on that ticker. Options count
+        toward the score only when the filing says call or put.</li>
+      <li><strong>AMENDED</strong> — the member corrected an earlier filing; only the corrected version is shown.</li>
+      <li><strong>STALE</strong> — the trade is over five weeks old, or was disclosed more than five weeks
+        after it happened. The price has likely moved since.</li>
+      <li><strong>filing ↗</strong> — opens the original document on the Clerk's or Senate's site.</li>
+    </ul>
+
+    <h2 id="score">4. The score</h2>
+    <p>Every ticker a member traded in the last 45 days gets a score from 0 to 100, made of four parts:</p>
+    <ul>
+      <li><strong>Congress (up to 30)</strong> — buys versus sells in the last 45 days, weighted by the dollar
+        bracket and by each member's own track record (see below).</li>
+      <li><strong>Insiders (up to 25)</strong> — Form 4 open-market buys versus sells by the company's own
+        officers and directors in the last 90 days. Buying counts more than selling (executives sell for many
+        reasons); several insiders buying together earns a bonus.</li>
+      <li><strong>Smart money (up to 20)</strong> — whether the tracked funds opened, grew, trimmed or closed the
+        position last quarter, weighted by how large it is in each fund's book.</li>
+      <li><strong>Momentum (up to 25)</strong> — the price against its 20- and 50-day averages and RSI.</li>
+      <li><strong>Staleness penalty (up to −20)</strong> — old trades and long disclosure lags subtract.</li>
+    </ul>
+    <p>Labels: 70+ <em>Strong Watch</em>, 50–69 <em>Watch</em>, 30–49 <em>Neutral</em>, 15–29 <em>High Risk</em>,
+    below 15 <em>Avoid for Now</em>. Hover any sub-score on the Signals page for the reasons behind it.</p>
+    <div class="tip">"Strong Watch" means several kinds of informed buyers agree — it is a reason to research a
+    company, not a prediction. The Outcomes page shows how often each label has actually been followed by a
+    rise.</div>
+
+    <h2 id="members">5. Members, track records, leaderboard</h2>
+    <p>Every member with a filed disclosure is tracked. A member's page shows their trades, the tickers they
+    touch, and their <strong>track record</strong>: every stock purchase measured from the first close after
+    the public could see it to 30, 60 and 90 days later, against the S&amp;P 500 (SPY). Sales are measured
+    the same way, with a fall after the sale counted as the good call.</p>
+    <p>The share of a member's buys that beat SPY at 90 days becomes their <strong>weight</strong> in the
+    score, from ×0.5 (rarely right) to ×1.5 (usually right); members with fewer than ten measured buys count
+    ×1. The <strong>Leaderboard</strong> ranks members by that number. It is recomputed weekly.</p>
+
+    <h2 id="insiders">6. Corporate insiders and whales</h2>
+    <p><strong>Corporate Insiders</strong> lists Form 4 trades. The <strong>Cluster buys</strong> table at the top
+    shows companies where two or more insiders bought on the open market in the last 30 days — across the
+    whole market, including companies no member of Congress traded. <strong>Whales</strong> shows each tracked
+    fund's latest quarterly holdings and what changed. Each fund also has a <strong>track record</strong>: its
+    new and increased positions (and, inverted, its trims and exits) measured 30/60/90 days after the 13F was
+    filed — the first day anyone could have copied it — against SPY. The Whales page ranks funds by it.</p>
+
+    <h2 id="outcomes">7. Outcomes and the simulator</h2>
+    <p>Every score is snapshotted daily and checked 30, 60 and 90 days later. <strong>Outcomes</strong> shows
+    the hit-rate per label — the honest answer to "does the score work?" — only for snapshots made under the
+    current scoring version, so the numbers compare like with like. The <strong>Simulator</strong> shows what a
+    fixed amount invested on a member's disclosure date would be worth now, against SPY.</p>
+
+    <h2 id="watch">8. Watchlist, alerts and email</h2>
+    <p>Save tickers with <strong>+ Watch</strong>; enter an email under Settings to keep the list across
+    browsers and to receive the morning, midday and evening reports. <strong>Alerts</strong> are rules you
+    create — a score above a threshold, a member buy, a new fund position, an insider cluster buy, a buy by a
+    member with a strong track record, an AI Desk call on a ticker, earnings within N days — evaluated three times a day, with one digest
+    email per run.</p>
+
+    <h2 id="ai">9. AI research notes and the AI Desk</h2>
+    <p>A ticker page can show a short bull/bear note written by an AI model from the data on the page. The site
+    may provide this with its own key; you can also use your own Claude, Gemini or OpenAI key under
+    Settings — it is sent only with your own requests and never stored.</p>
+    <p>The <strong>AI Desk</strong> (Dashboard card, full page under Signals, and a section of your Watchlist
+    for the calls on your own tickers) goes one step further: each
+    morning the model reads the day's disclosures and makes three to five directional calls with a horizon and its
+    reasoning. Every call is stored as written and scored at its horizon against the S&amp;P 500, the same way
+    members' trades are — so the page's real content is the running hit-rate, not the calls. A model has no
+    information the site doesn't already show; the desk exists to find out whether reading it well is worth
+    anything.</p>
+
+    <h2 id="limits">10. What it can't tell you</h2>
+    <ul>
+      <li>Disclosures are late by design: 45 days for Congress, 45 days after quarter-end for 13F.</li>
+      <li>Amounts are brackets, and a member's motives are unknown — a sale may be for a house, not a view.</li>
+      <li>Scanned filings are read by a model and can be wrong.</li>
+      <li>Past track records are exactly that. Nothing here is investment advice.</li>
+    </ul>
+
+    <p class="footer-links"><a href="/">Back to the app</a> · <a href="/privacy">Privacy</a> ·
+    <a href="https://github.com/mrgutierrezmario/insidertrack">Source</a></p>
+  </div>
+</main>
+</body>
+</html>

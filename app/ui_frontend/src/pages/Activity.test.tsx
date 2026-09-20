@@ -93,7 +93,7 @@ describe("<Activity />", () => {
     renderPage();
     await screen.findByText("Nancy Pelosi");
     // Order: AAPL 03-10 > TSLA 03-09 > NVDA 03-08 > MSFT 03-07
-    const dates = ["2026-03-10", "2026-03-09", "2026-03-08", "2026-03-07"];
+    const dates = ["Mar 10, 2026", "Mar 9, 2026", "Mar 8, 2026", "Mar 7, 2026"];   // rendered via fmtDate
     const rendered = dates.map((d) => screen.getByText(d));
     // DOM order check: each must precede the next
     for (let i = 0; i < rendered.length - 1; i++) {

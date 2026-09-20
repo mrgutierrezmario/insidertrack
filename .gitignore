@@ -1,4 +1,6 @@
 .env
+.env.*
+!.env.example
 __pycache__/
 *.pyc
 .venv/
@@ -8,10 +10,13 @@ dist/
 logs/
 *.egg-info/
 .DS_Store
-db_migration.dump
 
 # production stack (deploy/)
 deploy/.env
+deploy/.env.*
+!deploy/.env.example
 deploy/state/
 backups/
-vite.preview.config.mjs
+
+# personal Claude Code settings
+.claude/

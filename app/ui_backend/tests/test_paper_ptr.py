@@ -73,3 +73,25 @@ class TestHelpers:
         assert pp._parse_json('```json\n{"a": 1}\n```') == {"a": 1}
         assert pp._parse_json('Here you go: {"a": 1} hope it helps') == {"a": 1}
         assert pp._parse_json("nope") is None
+
+
+class TestAmountNormalization:
+    def test_letter_and_written_ranges_map_to_brackets(self):
+        assert pp._normalize_amount("C") == "$50,001 - $100,000"
+        assert pp._normalize_amount("$1,001 - $15,000") == "$1,001 - $15,000"
+        assert pp._normalize_amount("1,001-15,000") == "$1,001 - $15,000"      # Senate paper often omits the $
+        assert pp._normalize_amount("$15,001 – $50,000") == "$15,001 - $50,000"
+        assert pp._normalize_amount("Over $50,000,000") == "Over $50,000,000"
+        assert pp._normalize_amount("") is None and pp._normalize_amount("??") is None
+
+    def test_chamber_prompt_renders(self):
+        for ch in ("house", "senate"):
+            txt = pp.PROMPT.format(intro=pp._CHAMBER_INTRO[ch])
+            assert '{"filer"' in txt and "Extract EVERY transaction" in txt
+
+    def test_images_to_png(self):
+        import io
+        from PIL import Image
+        buf = io.BytesIO(); Image.new("P", (40, 30), 1).save(buf, format="GIF")
+        (png,) = pp.images_to_png([buf.getvalue()])
+        assert png[:8] == b"\x89PNG\r\n\x1a\n"

@@ -25,7 +25,10 @@ class WhalePosition(Base):
     company_name = Column(String)
     shares = Column(BigInteger)
     value_usd = Column(BigInteger)
-    filing_date = Column(Date, index=True)
+    filing_date = Column(Date, index=True)   # the quarter END the holdings describe (report period)
+    # When the 13F became public — the actual SEC filing date, up to 45 days
+    # after the quarter end. Track records measure from here.
+    filed_on = Column(Date, index=True)
     quarter = Column(String)            # e.g. "2024-Q1"
     change_type = Column(String)        # new | increased | decreased | closed
     created_at = Column(DateTime(timezone=True), server_default=func.now())

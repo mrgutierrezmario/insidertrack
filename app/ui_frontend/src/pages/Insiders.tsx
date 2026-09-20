@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fmtDate } from "../lib/format";
 import { Link } from "react-router-dom";
 import { isAxiosError } from "axios";
 import { getInsiderTransactions, getInsiderSummary, syncInsiders } from "../lib/api";
@@ -88,7 +89,7 @@ function SyncButton({ onDone }: { onDone: () => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
       <button onClick={run} disabled={syncing}
-        style={{ background: syncing ? C.surfaceAlt : C.accentSolid, color: "#fff", border: "none", borderRadius: 6, padding: "7px 14px", fontSize: 13, cursor: syncing ? "not-allowed" : "pointer" }}>
+        style={{ background: syncing ? C.surfaceAlt : C.accentSolid, color: syncing ? C.textDim : "#fff", border: "none", borderRadius: 6, padding: "7px 14px", fontSize: 13, cursor: syncing ? "not-allowed" : "pointer" }}>
         {syncing ? "Syncing EDGAR…" : "↻ Sync Form 4 Filings"}
       </button>
       {result && !result.error && (
@@ -145,16 +146,16 @@ export default function Insiders() {
       <div className="page-head">
         <div>
           <h1>Corporate Insiders</h1>
-          <p style={{ color: C.dividerStrong, margin: 0, fontSize: 13 }}>
+          <p style={{ color: C.textDim, margin: 0, fontSize: 13 }}>
             SEC Form 4 filings — officers, directors, and 10%+ owners trading their own company's stock.
           </p>
           {lastSynced && (
-            <p style={{ color: C.divider, fontSize: 11, margin: "2px 0 0" }}>
+            <p style={{ color: C.textDim, fontSize: 11, margin: "2px 0 0" }}>
               Last loaded: {lastSynced.toLocaleTimeString()}
             </p>
           )}
         </div>
-        <SyncButton onDone={() => load()} />
+        {isAdmin && <SyncButton onDone={() => load()} />}
       </div>
 
       <ClusterBuys />
@@ -205,7 +206,7 @@ export default function Insiders() {
           {[...Array(5)].map((_, i) => <SkeletonCard key={i} lines={2} height={50} />)}
         </div>
       ) : rows.length === 0 ? (
-        <div style={{ color: C.dividerStrong, textAlign: "center", padding: "60px 0" }}>
+        <div style={{ color: C.textDim, textAlign: "center", padding: "60px 0" }}>
           {isAdmin
             ? "No Form 4 data yet — pulling from SEC EDGAR automatically…"
             : "No Form 4 data yet — use the Sync button (admin access required)."}
@@ -216,7 +217,7 @@ export default function Insiders() {
             <thead>
               <tr style={{ borderBottom: "1px solid var(--c-surfaceAlt)" }}>
                 {["Ticker", "Insider", "Role", "Type", "Shares", "Price", "Value", "Date"].map((h) => (
-                  <th key={h} style={{ padding: "10px 12px", color: C.dividerStrong, fontWeight: 600, fontSize: 11, textAlign: "left" }}>{h}</th>
+                  <th key={h} style={{ padding: "10px 12px", color: C.textDim, fontWeight: 600, fontSize: 11, textAlign: "left" }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -238,7 +239,7 @@ export default function Insiders() {
                     <td style={{ padding: "9px 12px", color: C.textSoft }}>{fmtShares(r.shares)}</td>
                     <td style={{ padding: "9px 12px", color: C.textSoft }}>{r.price ? `$${r.price.toFixed(2)}` : "—"}</td>
                     <td style={{ padding: "9px 12px", color: C.text, fontWeight: 600 }}>{fmtVal(r.value)}</td>
-                    <td style={{ padding: "9px 12px", color: C.textMuted, whiteSpace: "nowrap" }}>{r.transaction_date}</td>
+                    <td style={{ padding: "9px 12px", color: C.textMuted, whiteSpace: "nowrap" }}>{fmtDate(r.transaction_date)}</td>
                   </tr>
                 );
               })}
@@ -247,7 +248,7 @@ export default function Insiders() {
         </div>
       )}
 
-      <div style={{ marginTop: 14, color: C.divider, fontSize: 11, lineHeight: 1.6 }}>
+      <div style={{ marginTop: 14, color: C.textDim, fontSize: 11, lineHeight: 1.6 }}>
         Form 4 must be filed within 2 business days of an insider transaction · Codes: P = open-market purchase, S = sale.
       </div>
     </div>

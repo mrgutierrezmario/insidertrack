@@ -15,10 +15,18 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     gemini_api_key: str = ""
     openai_api_key: str = ""
-    ai_provider: str = "claude"            # claude | gemini | openai
+    ai_provider: str = "claude"            # ollama | claude | gemini | openai
     claude_model: str = "claude-opus-5"
     gemini_model: str = "gemini-flash-latest"
     openai_model: str = "gpt-4o-mini"
+    # Ollama: a local model server — free, unlimited, no key. Empty = not
+    # configured. Native on a Mac: http://host.docker.internal:11434
+    ollama_base_url: str = ""
+    ollama_model: str = "llama3"
+    ollama_vision_model: str = ""          # e.g. llava; empty = Ollama never reads images
+    # Provider for scheduled text jobs (the daily Model Desk brief) where a
+    # slower free model is fine. Falls back to ai_provider when not configured.
+    ai_batch_provider: str = "ollama"
     # Max fresh research notes per UTC day paid for by the site's keys
     # (cache hits and visitor-key notes don't count).
     ai_daily_cap: int = 150

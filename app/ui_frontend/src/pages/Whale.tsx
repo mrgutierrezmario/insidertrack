@@ -4,6 +4,7 @@ import { useParams, Link } from "react-router-dom";
 import { getWhaleDetail } from "../lib/api";
 import { card , C} from "../lib/theme";
 import useDocumentTitle from "../hooks/useDocumentTitle";
+import HolderRecord from "../components/HolderRecord";
 
 type ChangeType = "new" | "increased" | "decreased" | "closed" | "stable";
 
@@ -46,7 +47,7 @@ interface StatProps {
 function Stat({ label, value, color }: StatProps) {
   return (
     <div style={{ ...card, padding: "14px 16px", flex: 1, minWidth: 130 }}>
-      <div style={{ color: C.dividerStrong, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em" }}>{label}</div>
+      <div style={{ color: C.textDim, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em" }}>{label}</div>
       <div style={{ color: color || C.textBright, fontSize: 20, fontWeight: 700, marginTop: 4 }}>{value}</div>
     </div>
   );
@@ -70,7 +71,7 @@ export default function Whale() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  if (loading) return <div style={{ color: C.dividerStrong, textAlign: "center", padding: "60px 0" }}>Loading…</div>;
+  if (loading) return <div style={{ color: C.textDim, textAlign: "center", padding: "60px 0" }}>Loading…</div>;
   if (!data) return <div style={{ color: C.danger, textAlign: "center", padding: "60px 0" }}>Whale holder not found.</div>;
 
   const { holder, summary, conviction_buys, top_holdings, all_holdings } = data;
@@ -86,11 +87,11 @@ export default function Whale() {
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto" }}>
-      <Link to="/whales" style={{ color: C.dividerStrong, fontSize: 12, textDecoration: "none" }}>← All whales</Link>
+      <Link to="/whales" style={{ color: C.textDim, fontSize: 12, textDecoration: "none" }}>← All whales</Link>
 
       <div style={{ margin: "10px 0 20px" }}>
         <h1 style={{ color: C.textBright, margin: "0 0 4px", fontSize: "1.5rem" }}>{holder.name}</h1>
-        <p style={{ color: C.dividerStrong, margin: 0, fontSize: 13 }}>
+        <p style={{ color: C.textDim, margin: 0, fontSize: 13 }}>
           {holder.holder_type} · CIK {holder.cik} · latest filing {summary.latest_quarter || "—"}
         </p>
       </div>
@@ -123,6 +124,8 @@ export default function Whale() {
           </div>
         </div>
       )}
+
+      <HolderRecord holderId={Number(id)} />
 
       {/* Holdings header + filters */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "0 0 10px", flexWrap: "wrap", gap: 8 }}>
@@ -164,18 +167,18 @@ export default function Whale() {
       </div>
 
       {all_holdings.length === 0 ? (
-        <p style={{ color: C.dividerStrong, fontSize: 13 }}>
+        <p style={{ color: C.textDim, fontSize: 13 }}>
           No parsed holdings yet — run "↻ Sync 13F Holdings" on the Whales page.
         </p>
       ) : filtered.length === 0 ? (
-        <p style={{ color: C.dividerStrong, fontSize: 13 }}>No positions match your filters.</p>
+        <p style={{ color: C.textDim, fontSize: 13 }}>No positions match your filters.</p>
       ) : (
         <div style={{ ...card, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: "1px solid var(--c-surfaceAlt)" }}>
                 {["Ticker", "Company", "Value", "Weight", "Change"].map((h) => (
-                  <th key={h} style={{ padding: "10px 12px", color: C.dividerStrong, fontWeight: 600, fontSize: 11, textAlign: "left" }}>{h}</th>
+                  <th key={h} style={{ padding: "10px 12px", color: C.textDim, fontWeight: 600, fontSize: 11, textAlign: "left" }}>{h}</th>
                 ))}
               </tr>
             </thead>
