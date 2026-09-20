@@ -1,10 +1,14 @@
 """
-News and sentiment feed using Alpha Vantage NEWS_SENTIMENT.
+News feed for tickers.
 
-Free tier: 25 req/day, 5/min. We cache aggressively to stay within limits.
-Falls back to empty list if AV key is not configured.
+With an Alpha Vantage key: NEWS_SENTIMENT (headlines + a sentiment label;
+free tier 25 req/day, 5/min, so it's cached 4 h and batched). Without one,
+or when AV's quota is spent: Google News RSS — keyless headlines per ticker,
+no sentiment (labelled "Headline"). Either way the composite score no longer
+uses sentiment (scoring v2+); this feed is for reading.
 """
 
+import re
 import logging
 import time
 from datetime import datetime
@@ -76,7 +80,9 @@ def get_news(tickers: list[str], limit: int = 20) -> list[dict]:
         return cached
 
     if not settings.alpha_vantage_key:
-        return []
+        results = _google_news(tickers, limit)
+        _cache_set(cache_key, results)
+        return results
 
     try:
         with httpx.Client(timeout=20) as client:
@@ -91,7 +97,9 @@ def get_news(tickers: list[str], limit: int = 20) -> list[dict]:
 
         if "Note" in data or "Information" in data:
             logger.warning("AV rate limit or key issue: %s", data.get("Note") or data.get("Information"))
-            return []
+            results = _google_news(tickers, limit)
+            _cache_set(cache_key, results)
+            return results
 
         feed = data.get("feed", [])
         results = []
@@ -110,6 +118,7 @@ def get_news(tickers: list[str], limit: int = 20) -> list[dict]:
                 "overall_score": round(float(item.get("overall_sentiment_score", 0)), 3),
                 "overall_color": SENTIMENT_COLORS.get(item.get("overall_sentiment_label", ""), "#94a3b8"),
                 "sentiment_value": _sentiment_score(item.get("overall_sentiment_label", "Neutral")),
+                "provider": "alpha-vantage",
                 "tickers": list(ticker_sentiments.keys()),
                 "ticker_sentiment": {
                     t: {
@@ -127,7 +136,91 @@ def get_news(tickers: list[str], limit: int = 20) -> list[dict]:
 
     except Exception as e:
         logger.warning(f"News fetch failed: {e}")
-        return []
+        results = _google_news(tickers, limit)
+        _cache_set(cache_key, results)
+        return results
+
+
+GOOGLE_NEWS_RSS = "https://news.google.com/rss/search"
+
+
+def _parse_rss_time(s: str) -> str:
+    """'Fri, 19 Sep 2026 14:02:00 GMT' → ISO."""
+    from email.utils import parsedate_to_datetime
+    try:
+        return parsedate_to_datetime(s).isoformat()
+    except Exception:
+        return s
+
+
+# Headline-keyword sentiment for the keyless feed. Deliberately small and
+# financial: a headline is labelled only when it uses words the market
+# press reserves for a clear direction, and only as "Somewhat-" so it reads
+# as weaker than a provider's model. Ties and no hits stay Neutral.
+_BULL_WORDS = re.compile(r"\b(surg\w*|soar\w*|jump\w*|rall\w*|climb\w*|gain\w*|beat\w*|tops?|record high|all-time high|"
+                         r"upgrad\w*|outperform\w*|raise[sd]? (?:guidance|outlook|forecast|target)|boost\w*|"
+                         r"buyback|dividend (?:hike|increase|raise)|strong (?:quarter|results|demand|sales)|"
+                         r"profit rises?|revenue rises?|breakout|bullish|approv\w*|wins?)\b", re.I)
+_BEAR_WORDS = re.compile(r"\b(plung\w*|plummet\w*|tumbl\w*|sink\w*|slump\w*|slide\w*|drops?|falls?|fell|"
+                         r"miss\w*|downgrad\w*|underperform\w*|cuts? (?:guidance|outlook|forecast|target|jobs|dividend)|"
+                         r"lawsuit|probe|investigat\w*|recall\w*|layoffs?|bankrupt\w*|default\w*|"
+                         r"warn\w*|weak (?:quarter|results|demand|sales)|loss(?:es)?|selloff|sell-off|bearish|halt\w*|"
+                         r"record low|52-week low|delist\w*|fraud|sec charges?)\b", re.I)
+
+
+def headline_sentiment(title: str) -> str:
+    """'Somewhat-Bullish' / 'Somewhat-Bearish' / 'Neutral' from the words in
+    one headline. Crude by design — it never enters the score."""
+    bull = len(_BULL_WORDS.findall(title or ""))
+    bear = len(_BEAR_WORDS.findall(title or ""))
+    if bull > bear:
+        return "Somewhat-Bullish"
+    if bear > bull:
+        return "Somewhat-Bearish"
+    return "Neutral"
+
+
+def _google_news(tickers: list[str], limit: int = 20) -> list[dict]:
+    """Keyless headlines from Google News RSS, a few per ticker, newest
+    first. Sentiment is a keyword read of the headline (see
+    headline_sentiment), marked as such so the page can say so."""
+    import xml.etree.ElementTree as ET
+    per = max(3, limit // max(len(tickers), 1))
+    out: list[dict] = []
+    seen: set[str] = set()
+    with httpx.Client(timeout=15, headers={"User-Agent": "Mozilla/5.0 (InsiderTrack news reader)"}, follow_redirects=True) as client:
+        for t in tickers:
+            try:
+                r = client.get(GOOGLE_NEWS_RSS, params={"q": f"{t} stock", "hl": "en-US", "gl": "US", "ceid": "US:en"})
+                if r.status_code != 200:
+                    continue
+                root = ET.fromstring(r.text)
+            except Exception as exc:
+                logger.warning(f"Google News fetch failed for {t}: {exc}")
+                continue
+            for item in root.iter("item"):
+                title = (item.findtext("title") or "").strip()
+                link = (item.findtext("link") or "").strip()
+                if not title or link in seen:
+                    continue
+                seen.add(link)
+                src = item.find("source")
+                label = headline_sentiment(title)
+                out.append({
+                    "title": title, "url": link,
+                    "source": (src.text or "").strip() if src is not None else "",
+                    "published": _parse_rss_time(item.findtext("pubDate") or ""),
+                    "summary": "",
+                    "overall_label": label, "overall_score": None,
+                    "overall_color": SENTIMENT_COLORS[label], "sentiment_value": _sentiment_score(label),
+                    "sentiment_source": "keywords",
+                    "provider": "google-news",
+                    "tickers": [t], "ticker_sentiment": {},
+                })
+                if sum(1 for o in out if o["tickers"] == [t]) >= per:
+                    break
+    out.sort(key=lambda o: o["published"], reverse=True)
+    return out[:limit]
 
 
 def average_sentiment(tickers: list[str]) -> dict[str, float]:

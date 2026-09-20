@@ -99,3 +99,48 @@ class TestSkillFactor:
         assert out["members"] >= 1
         db.refresh(p)
         assert p.skill_factor == 1.25 and p.skill_n == 12 and p.skill_beat_spy == 75.0
+
+
+class TestSellsAndLeaderboard:
+    def test_sells_measured_with_inverted_wins(self, db, monkeypatch):
+        from models.politician import Politician
+        from models.trade import Trade
+        p = Politician(name="Rep Seller", chamber="house"); db.add(p); db.flush()
+        today = date.today()
+        d = today - timedelta(days=100)
+        db.add(Trade(politician_id=p.id, ticker="DOWN", transaction_type="sale", direction="sell", asset_type="stock",
+                     amount_range="$1,001 - $15,000", trade_date=d, disclosure_date=d, source="house", raw_data="{}"))
+        db.flush()
+        start = today - timedelta(days=400)
+        # DOWN falls $0.2/day; SPY rises $0.5/day → the sale was a good call on both measures
+        series = {"DOWN": _series(start, 401, -0.2, base=200), "SPY": _series(start, 401, 0.5)}
+        monkeypatch.setattr(tr, "get_price_history", lambda tk, days=90: series[tk])
+        monkeypatch.setattr(tr, "cache_get", lambda k: None)
+        monkeypatch.setattr(tr, "cache_set", lambda k, v, ttl: None)
+        out = tr.compute_track_record(db, p.id)
+        assert out["evaluated"] == 0 and out["sells"]["evaluated"] == 1
+        w = out["sells"]["windows"]["30"]
+        assert w["avg_return"] < 0 and w["win_rate"] == 100.0 and w["beat_spy_rate"] == 100.0
+
+    def test_leaderboard_ranks_by_beat_spy(self, db):
+        from datetime import date as _d
+        from fastapi.testclient import TestClient
+        from main import app
+        from database import get_db
+        from models.politician import Politician
+        db.add_all([
+            Politician(name="LB Good", chamber="house", skill_n=20, skill_beat_spy=70.0, skill_factor=1.2, skill_as_of=_d(2026, 9, 19)),
+            Politician(name="LB Meh", chamber="senate", skill_n=15, skill_beat_spy=48.0, skill_factor=0.98, skill_as_of=_d(2026, 9, 19)),
+            Politician(name="LB Few", chamber="house", skill_n=3, skill_beat_spy=100.0, skill_factor=1.0, skill_as_of=_d(2026, 9, 19)),
+        ])
+        db.flush()
+        app.dependency_overrides[get_db] = lambda: db
+        try:
+            r = TestClient(app).get("/politicians/leaderboard?min_trades=10")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+        body = r.json()
+        names = [x["name"] for x in body["ranked"]]
+        assert names.index("LB Good") < names.index("LB Meh")
+        assert body["ranked"][names.index("LB Good")]["rank"] == names.index("LB Good") + 1
+        assert "LB Few" in [x["name"] for x in body["unranked"]]

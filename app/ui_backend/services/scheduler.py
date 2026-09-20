@@ -126,6 +126,11 @@ def _form4_job():
 
 def _warm_history_job():
     logger.info("Warming daily price-history cache")
+    try:
+        from services.earnings_fetcher import warm_calendar
+        warm_calendar()
+    except Exception as exc:
+        logger.warning(f"earnings calendar warm failed: {exc}")
     with SessionLocal() as db:
         from routers.signals import _bullish_label  # noqa: F401  (ensure module import)
         from models.politician import Politician
@@ -154,6 +159,11 @@ def _whale_sync_job():
             source_health.record(db, "whale", ok=False, error=str(exc))
             raise
         logger.info(f"Whale 13F sync: {result}")
+        try:
+            from services.holder_record import refresh_all
+            logger.info(f"Holder records refreshed: {refresh_all(db)}")
+        except Exception as exc:
+            logger.warning(f"holder record refresh failed: {exc}")
 
 
 def _skill_refresh_job():
@@ -164,13 +174,34 @@ def _skill_refresh_job():
         logger.info(f"Skill refresh: {refresh_skill(db)}")
 
 
+def _model_desk_job():
+    """AI Desk, daily 08:30 ET, after the sync and the alert run: score any calls whose
+    horizon has passed, then have the model read today's data and make its
+    calls. One provider call a day on the site's keys."""
+    from services.model_desk import generate_brief, resolve_calls
+    with SessionLocal() as db:
+        resolve_calls(db)
+        logger.info(f"Model desk: {generate_brief(db)}")
+
+
 def _source_health_job():
     """Daily: email the admin if any data source is failing or has gone quiet.
     Only sends when there is something to say."""
     from services.email_sender import send_admin_email
+    from services.error_log import summary as error_summary
     with SessionLocal() as db:
         issues = source_health.problems(db)
+    errors = error_summary(24)
+    if not issues and errors["count"] == 0:
+        return
+    err_html = ""
+    if errors["count"]:
+        by_type = ", ".join(f"{k} ×{v}" for k, v in errors["by_type"].items())
+        latest = "".join(f"<li>{e['at']} — {e['type']} on {e['where']} (rid {e['rid']})</li>" for e in errors["latest"])
+        err_html = (f"<p><b>{errors['count']} unhandled exception(s)</b> in the last 24 h: {by_type}.</p>"
+                    f"<ul>{latest}</ul><p>Details: <code>docker compose -f deploy/compose.yml logs app | grep rid=…</code></p>")
     if not issues:
+        send_admin_email(f"InsiderTrack: {errors['count']} unhandled exception(s) today", err_html)
         return
     rows = "".join(
         f"<tr><td>{i['label']}</td><td><b>{i['status']}</b></td>"
@@ -186,6 +217,7 @@ def _source_health_job():
         "<p><i>failing</i> = the last "
         f"{source_health.FAILING_AFTER}+ runs raised; <i>stale</i> = runs succeed but no new rows "
         "for longer than expected (a site change the parser silently misses looks exactly like this).</p>"
+        + err_html
     )
     send_admin_email(f"InsiderTrack: {len(issues)} data source(s) need attention", html)
 
@@ -265,6 +297,7 @@ def start_scheduler():
     scheduler.add_job(_whale_sync_job, CronTrigger(day_of_week="sat", hour=6, minute=0, timezone=ET), id="whale_sync", **common)
     # After the morning syncs have run — so today's outcome is what gets judged.
     scheduler.add_job(_source_health_job, CronTrigger(hour=9, minute=0, timezone=ET), id="source_health", **common)
+    scheduler.add_job(_model_desk_job, CronTrigger(hour=8, minute=30, timezone=ET), id="model_desk", **common)
     scheduler.add_job(_skill_refresh_job, CronTrigger(day_of_week="sun", hour=4, minute=30, timezone=ET), id="skill_refresh", **common)
     # Risk classification depends on trade age — refresh once a day so old rows
     # bucket correctly without the /trades read path doing the work.

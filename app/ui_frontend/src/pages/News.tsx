@@ -4,9 +4,10 @@ import useDocumentTitle from "../hooks/useDocumentTitle";
 import { useEffect, useState } from "react";
 import { getNewsFeed } from "../lib/api";
 
-type SentimentLabel = "Bullish" | "Somewhat-Bullish" | "Neutral" | "Somewhat-Bearish" | "Bearish";
+type SentimentLabel = "Bullish" | "Somewhat-Bullish" | "Neutral" | "Somewhat-Bearish" | "Bearish" | "Headline";
 
 const LABEL_STYLE: Record<SentimentLabel, { color: string; bg: string }> = {
+  "Headline": { color: C.textMuted, bg: C.surfaceAlt },
   "Bullish":          { color: C.success, bg: C.successBg },
   "Somewhat-Bullish": { color: "var(--c-success)", bg: "var(--c-successBg)" },
   "Neutral":          { color: C.textSoft, bg: C.bgSunken },
@@ -78,8 +79,8 @@ export default function News() {
       <div className="page-head">
         <div>
           <h1>News & Sentiment</h1>
-          <p style={{ color: C.dividerStrong, margin: 0, fontSize: 13 }}>
-            AI-scored sentiment for tracked tickers · Alpha Vantage NEWS_SENTIMENT · cached 4 hrs
+          <p style={{ color: C.textDim, margin: 0, fontSize: 13 }}>
+            {data?.has_key ? "Headlines for the tickers members are trading most this month · sentiment labels from Alpha Vantage when available · cached 4 hrs" : "Headlines for the tickers members are trading most this month · Google News · labels are a keyword read of the headline, not a model · cached 4 hrs"}
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -108,8 +109,8 @@ export default function News() {
           }}
         />
         {data && data.tickers.length > 0 && (
-          <span style={{ color: C.dividerStrong, fontSize: 12, marginLeft: 12 }}>
-            Tracking: {data.tickers.join(", ")}
+          <span style={{ color: C.textDim, fontSize: 12, marginLeft: 12 }}>
+            Most traded this month: {data.tickers.join(", ")}
           </span>
         )}
       </div>
@@ -120,7 +121,7 @@ export default function News() {
 
       {!loading && items.length === 0 && (
         <div style={{ textAlign: "center", color: C.textDim, paddingTop: 60 }}>
-          <p>{data?.has_key ? "No news found for these tickers." : "Configure your Alpha Vantage key in Config to enable news."}</p>
+          <p>No news found for these tickers.</p>
         </div>
       )}
 
@@ -154,8 +155,8 @@ export default function News() {
                       {t}
                     </span>
                   ))}
-                  <span style={{ color: C.divider, fontSize: 11 }}>{item.source}</span>
-                  <span style={{ color: C.divider, fontSize: 11 }}>{fmtDate(item.published)}</span>
+                  <span style={{ color: C.textDim, fontSize: 11 }}>{item.source}</span>
+                  <span style={{ color: C.textDim, fontSize: 11 }}>{fmtDate(item.published)}</span>
                 </div>
               </div>
               <div style={{ flexShrink: 0 }}>

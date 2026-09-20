@@ -8,7 +8,7 @@ Rate-limit: SEC asks for ≤10 req/sec, User-Agent required.
 import logging
 import re
 import time
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Optional
 import xml.etree.ElementTree as ET
 
@@ -134,15 +134,18 @@ def _fetch_submissions(cik_padded: str) -> Optional[dict]:
         return None
 
 
-def _latest_13f(submissions: dict) -> Optional[tuple[str, str, str]]:
+def _latest_13f(submissions: dict) -> Optional[tuple[str, str, str, str]]:
     """
-    Returns (acc_no_dashes, period_date_str, cik_raw) for the most recent 13F-HR.
-    cik_raw is the unpadded CIK used in archives URLs.
+    Returns (acc_no_dashes, period_date_str, cik_raw, filed_str) for the most
+    recent 13F-HR. `period` is the quarter end the holdings describe; `filed`
+    is when the public could first see them (up to 45 days later) — the date
+    a track record has to start from. cik_raw is the unpadded CIK.
     """
     recent = submissions.get("filings", {}).get("recent", {})
     forms = recent.get("form", [])
     accessions = recent.get("accessionNumber", [])
     periods = recent.get("reportDate", [])
+    filed = recent.get("filingDate", [])
     cik_raw = str(submissions.get("cik", ""))
 
     for i, form in enumerate(forms):
@@ -151,7 +154,7 @@ def _latest_13f(submissions: dict) -> Optional[tuple[str, str, str]]:
         acc = accessions[i] if i < len(accessions) else ""
         period = periods[i] if i < len(periods) else ""
         if acc:
-            return acc.replace("-", ""), period, cik_raw
+            return acc.replace("-", ""), period, cik_raw, (filed[i] if i < len(filed) else "")
     return None
 
 
@@ -327,7 +330,16 @@ def _quarter(date_str: str) -> str:
         return ""
 
 
-def _change_type(holder_id: int, ticker: str, current_value: int, db: Session) -> str:
+def _change_type(holder_id: int, ticker: str, current_value: int, db: Session,
+                 holder_has_history: bool | None = None) -> str:
+    """new / increased / decreased / stable vs the holder's previous filing.
+    A holder's very first quarter has nothing to compare against: every
+    position would read "new", which is not information — those are
+    "initial" and score as neutral."""
+    if holder_has_history is None:
+        holder_has_history = db.query(WhalePosition.id).filter(WhalePosition.holder_id == holder_id).first() is not None
+    if not holder_has_history:
+        return "initial"
     prev = (
         db.query(WhalePosition)
         .filter(WhalePosition.holder_id == holder_id, WhalePosition.ticker == ticker)
@@ -398,7 +410,7 @@ def sync_whale_positions(db: Session) -> dict:
             logger.info(f"No 13F filing found for {holder.name}")
             continue
 
-        acc_no_dashes, period_str, cik_raw = filing
+        acc_no_dashes, period_str, cik_raw, filed_str = filing
         quarter = _quarter(period_str)
         if not quarter:
             logger.warning(f"Cannot parse period '{period_str}' for {holder.name}")
@@ -433,16 +445,23 @@ def sync_whale_positions(db: Session) -> dict:
             filing_date = datetime.strptime(period_str[:10], "%Y-%m-%d").date()
         except Exception:
             filing_date = date.today()
+        try:
+            filed_on = datetime.strptime(filed_str[:10], "%Y-%m-%d").date()
+        except Exception:
+            filed_on = filing_date + timedelta(days=45)   # the legal deadline, when the date is unknown
 
         count = 0
         unmapped = 0
+        # Decide once per filing whether this holder has an earlier quarter —
+        # rows added in this loop must not make the holder look "historic".
+        has_history = db.query(WhalePosition.id).filter(WhalePosition.holder_id == holder.id).first() is not None
         for h in holdings[:MAX_POSITIONS]:
             ticker = _lookup_ticker(h["company_name"], ticker_map)
             if not ticker:
                 unmapped += 1
                 continue
 
-            ct = _change_type(holder.id, ticker, h["value_usd"], db)
+            ct = _change_type(holder.id, ticker, h["value_usd"], db, holder_has_history=has_history)
             db.add(WhalePosition(
                 holder_id=holder.id,
                 ticker=ticker,
@@ -450,6 +469,7 @@ def sync_whale_positions(db: Session) -> dict:
                 shares=h["shares"],
                 value_usd=h["value_usd"],
                 filing_date=filing_date,
+                filed_on=filed_on,
                 quarter=quarter,
                 change_type=ct,
             ))

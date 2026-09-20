@@ -7,9 +7,9 @@ durability: after a restart the L1 is empty but the L2 still has whatever
 was in flight, so the first request for any still-fresh ticker warm-loads
 L1 instead of paying a fresh yfinance / Alpha Vantage round-trip.
 
-JSON-serialisable values only — the column is JSONB. Anything that doesn't
+JSON-serializable values only — the column is JSONB. Anything that doesn't
 encode is logged and silently skipped (the caller still got their L1 write,
-so behaviour degrades to L1-only rather than crashing).
+so behavior degrades to L1-only rather than crashing).
 """
 
 import json
@@ -52,7 +52,7 @@ def cache_set(key: str, value: object, ttl_seconds: int) -> None:
         # Pre-flight JSON encode so we fail loudly here instead of in the DB driver.
         json.dumps(value)
     except (TypeError, ValueError):
-        logger.debug("L2 cache_set skipped (not JSON-serialisable) for key=%s", key)
+        logger.debug("L2 cache_set skipped (not JSON-serializable) for key=%s", key)
         return
 
     expires_at = datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)

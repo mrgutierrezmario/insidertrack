@@ -18,6 +18,8 @@ from datetime import date, timedelta
 from sqlalchemy.orm import Session
 
 from models.alert import AlertEvent, AlertRule
+from models.insider import Form4Transaction
+from models.model_call import ModelCall
 from models.politician import Politician
 from models.trade import Trade
 from models.whale import WhaleHolder, WhalePosition
@@ -27,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 # With every member tracked, a rule with no ticker ("any politician buy")
 # matches dozens of trades per run. Cap new events per rule per evaluation;
-# the overflow is summarised in one extra event so nothing is silently lost.
+# the overflow is summarized in one extra event so nothing is silently lost.
 MAX_EVENTS_PER_RULE = 15
 _emitted: dict[int, int] = {}
 _overflow: dict[int, int] = {}
@@ -156,6 +158,63 @@ def evaluate_alerts(db: Session) -> dict:
                 msg = f"{holder} opened a NEW position in {p.ticker} ({p.quarter})."
                 if _emit(db, rule, p.ticker, msg, key):
                     new_events.append({"ticker": p.ticker, "message": msg, "rule": rule.name})
+
+        elif t == "cluster_buy":
+            from sqlalchemy import func
+            min_buyers = int(thr) if thr else 2
+            cutoff = today - timedelta(days=30)
+            q = (
+                db.query(Form4Transaction.ticker,
+                         func.count(func.distinct(Form4Transaction.insider_name)),
+                         func.sum(Form4Transaction.value),
+                         func.max(Form4Transaction.transaction_date))
+                .filter(Form4Transaction.transaction_type == "buy", Form4Transaction.transaction_date >= cutoff,
+                        Form4Transaction.ticker.isnot(None))
+            )
+            if rule.ticker:
+                q = q.filter(Form4Transaction.ticker == rule.ticker.upper())
+            q = q.group_by(Form4Transaction.ticker).having(func.count(func.distinct(Form4Transaction.insider_name)) >= min_buyers)
+            for ticker, buyers, dollars, last_buy in q.all():
+                # One event per ticker per latest-buy date: a new insider joining re-fires.
+                key = f"{rule.id}:cluster_buy:{ticker}:{last_buy}:{buyers}"
+                msg = f"{buyers} insiders bought {ticker} on the open market in the last 30 days (≈${(dollars or 0)/1e6:.1f}M, latest {last_buy})."
+                if _emit(db, rule, ticker, msg, key):
+                    new_events.append({"ticker": ticker, "message": msg, "rule": rule.name})
+
+        elif t == "skilled_buy":
+            min_rate = float(thr) if thr else 60.0
+            cutoff = today - timedelta(days=7)
+            q = (
+                db.query(Trade)
+                .join(Politician)
+                .filter(Politician.is_tracked == True, Trade.trade_date >= cutoff,  # noqa: E712
+                        Trade.direction == "buy", Politician.skill_n >= 10, Politician.skill_beat_spy >= min_rate)
+            )
+            if rule.ticker:
+                q = q.filter(Trade.ticker == rule.ticker.upper())
+            for tr in q.all():
+                key = f"{rule.id}:skilled_buy:{tr.id}"
+                who = tr.politician.name if tr.politician else "A member"
+                rate = tr.politician.skill_beat_spy if tr.politician else None
+                msg = (f"{who} — whose buys beat SPY {rate:.0f}% of the time — disclosed a purchase of {tr.ticker} "
+                       f"({tr.amount_range or 'amount n/a'}) on {tr.trade_date}.")
+                if _emit(db, rule, tr.ticker, msg, key):
+                    new_events.append({"ticker": tr.ticker, "message": msg, "rule": rule.name})
+
+        elif t == "ai_call":
+            min_conf = (float(thr) / 100.0) if thr else 0.0
+            cutoff = today - timedelta(days=3)
+            q = db.query(ModelCall).filter(ModelCall.call_date >= cutoff)
+            if rule.ticker:
+                q = q.filter(ModelCall.ticker == rule.ticker.upper())
+            for c in q.all():
+                if min_conf and (c.confidence or 0) < min_conf:
+                    continue
+                key = f"{rule.id}:ai_call:{c.id}"
+                msg = (f"AI Desk: {c.direction.upper()} on {c.ticker} over {c.horizon_days} days"
+                       f"{f' (confidence {round(c.confidence * 100)}%)' if c.confidence is not None else ''} — {c.reasoning or ''}")
+                if _emit(db, rule, c.ticker, msg, key):
+                    new_events.append({"ticker": c.ticker, "message": msg, "rule": rule.name})
 
         elif t == "earnings_soon":
             window = int(thr) if thr else 7

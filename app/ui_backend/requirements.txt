@@ -2,11 +2,12 @@ fastapi==0.111.0
 uvicorn[standard]==0.29.0
 sqlalchemy==2.0.30
 psycopg2-binary==2.9.9
-python-dotenv==1.0.1
+python-dotenv==1.2.2
 httpx==0.28.1
 beautifulsoup4==4.14.3
-lxml==6.0.4
-pypdf==6.13.3
+lxml==6.1.0
+pypdf==6.16.1
+Pillow==12.3.0
 yfinance==0.2.40
 apscheduler==3.11.2
 pydantic==2.7.1

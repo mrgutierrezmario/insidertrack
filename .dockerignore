@@ -12,7 +12,6 @@ logs/
 .env
 .claude
 *.md
-db_migration.dump
 
 deploy/.env
 deploy/state

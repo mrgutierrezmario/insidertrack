@@ -1,4 +1,5 @@
 import { C } from "../lib/theme";
+import { chamberLabel, fmtDate } from "../lib/format";
 import useDocumentTitle from "../hooks/useDocumentTitle";
 import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
@@ -52,7 +53,7 @@ function ActivityRow({ item }: { item: ActivityItem }) {
   return (
     <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 9, padding: "11px 14px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
       <div style={{ flexShrink: 0, width: 80 }}>
-        <div style={{ color: C.dividerStrong, fontSize: 11 }}>{item.trade_date}</div>
+        <div style={{ color: C.textDim, fontSize: 11 }}>{fmtDate(item.trade_date)}</div>
         <SourceBadge source={item._source} />
       </div>
 
@@ -63,7 +64,7 @@ function ActivityRow({ item }: { item: ActivityItem }) {
 
       <div style={{ flex: 1, minWidth: 120 }}>
         <div style={{ color: C.textSoft, fontSize: 12, fontWeight: 500 }}>{item._who}</div>
-        {item._role && <div style={{ color: C.dividerStrong, fontSize: 11 }}>{item._role}</div>}
+        {item._role && <div style={{ color: C.textDim, fontSize: 11 }}>{item._role}</div>}
       </div>
 
       <div style={{ flexShrink: 0 }}>
@@ -71,7 +72,7 @@ function ActivityRow({ item }: { item: ActivityItem }) {
           {item._direction === "buy" ? "BUY" : item._direction === "sell" ? "SELL" : (item.transaction_type || "—")}
         </span>
         {item.amount_range && (
-          <div style={{ color: C.dividerStrong, fontSize: 11 }}>{item.amount_range}</div>
+          <div style={{ color: C.textDim, fontSize: 11 }}>{item.amount_range}</div>
         )}
       </div>
     </div>
@@ -109,7 +110,7 @@ function normalize(results: [FetchResult, FetchResult, FetchResult]): { items: A
         _direction: (t.direction as "buy" | "sell" | null | undefined) ?? null,
         _source: "congressional",
         _who: pol?.name || "Unknown",
-        _role: `${pol?.party || ""} · ${pol?.chamber || ""}`.trim().replace(/^·|·$/, "").trim(),
+        _role: [pol?.party, chamberLabel(pol?.chamber)].filter(Boolean).join(" · "),
       });
     }
   }
@@ -235,7 +236,7 @@ export default function Activity() {
       <div className="page-head">
         <div>
           <h1>Activity</h1>
-          <p style={{ color: C.dividerStrong, margin: 0, fontSize: 13 }}>
+          <p style={{ color: C.textDim, margin: 0, fontSize: 13 }}>
             Congressional trades · Corporate Form 4 insiders · Federal Reserve disclosures — unified timeline.
           </p>
         </div>
@@ -293,7 +294,7 @@ export default function Activity() {
         />
 
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <label style={{ color: C.divider, fontSize: 10 }}>After date</label>
+          <label style={{ color: C.textDim, fontSize: 10 }}>After date</label>
           <input
             type="date"
             value={afterDate}
@@ -310,7 +311,7 @@ export default function Activity() {
         )}
       </div>
 
-      <p style={{ color: C.divider, fontSize: 12, marginBottom: 12 }}>
+      <p style={{ color: C.textDim, fontSize: 12, marginBottom: 12 }}>
         {filtered.length} of {items.length} loaded
       </p>
 
@@ -319,7 +320,7 @@ export default function Activity() {
           {[...Array(6)].map((_, i) => <SkeletonCard key={i} lines={2} height={54} />)}
         </div>
       ) : filtered.length === 0 ? (
-        <div style={{ color: C.dividerStrong, textAlign: "center", padding: "60px 0", background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 12 }}>
+        <div style={{ color: C.textDim, textAlign: "center", padding: "60px 0", background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 12 }}>
           No activity matches your filters.
         </div>
       ) : (
@@ -347,7 +348,7 @@ export default function Activity() {
           )}
 
           {!hasMore && items.length > PAGE_SIZE && (
-            <p style={{ textAlign: "center", color: C.divider, fontSize: 12, marginTop: 16 }}>
+            <p style={{ textAlign: "center", color: C.textDim, fontSize: 12, marginTop: 16 }}>
               All {items.length} activities loaded.
             </p>
           )}
