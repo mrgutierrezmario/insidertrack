@@ -153,6 +153,7 @@ export interface HolderLeaderboardRow {
   id: number;
   name: string;
   computed: boolean;
+  window: 30 | 60 | 90 | null;
   n: number | null;
   beat_spy_rate: number | null;
   avg_excess: number | null;

@@ -199,7 +199,7 @@ export default function Whales() {
         <div style={{ ...card, padding: "12px 16px", marginBottom: "1.5rem" }}>
           <div style={{ color: C.textSoft, fontSize: 12, fontWeight: 600, marginBottom: 2 }}>Fund track records</div>
           <p style={{ color: C.textMuted, fontSize: 12, margin: "0 0 8px" }}>
-            How each fund's new and increased positions did 90 days after the 13F was filed, versus SPY. Funds with fewer than five measured positions are left out.
+            How each fund's new and increased positions did after the 13F was filed, versus SPY — at the longest of 30/60/90 days with data so far. Funds with fewer than five measured positions are left out.
           </p>
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
@@ -208,7 +208,8 @@ export default function Whales() {
                   <th style={{ padding: "4px 8px" }}>#</th>
                   <th style={{ padding: "4px 8px" }}>Fund</th>
                   <th style={{ padding: "4px 8px", textAlign: "right" }}>Positions</th>
-                  <th style={{ padding: "4px 8px", textAlign: "right" }}>Beat SPY (90d)</th>
+                  <th style={{ padding: "4px 8px", textAlign: "right" }}>Window</th>
+                  <th style={{ padding: "4px 8px", textAlign: "right" }}>Beat SPY</th>
                   <th style={{ padding: "4px 8px", textAlign: "right" }}>Avg vs SPY</th>
                 </tr>
               </thead>
@@ -218,6 +219,7 @@ export default function Whales() {
                     <td style={{ padding: "6px 8px", color: C.textDim }}>{i + 1}</td>
                     <td style={{ padding: "6px 8px" }}><Link to={`/whale/${b.id}`} style={{ color: C.accent, fontWeight: 600, textDecoration: "none" }}>{b.name.split(" / ")[0]}</Link></td>
                     <td style={{ padding: "6px 8px", textAlign: "right", color: C.textSoft }}>{b.n}</td>
+                    <td style={{ padding: "6px 8px", textAlign: "right", color: C.textMuted }}>{b.window}d</td>
                     <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: 700, color: (b.beat_spy_rate ?? 0) >= 50 ? C.success : C.danger }}>{b.beat_spy_rate?.toFixed(0)}%</td>
                     <td style={{ padding: "6px 8px", textAlign: "right", color: (b.avg_excess ?? 0) > 0 ? C.success : (b.avg_excess ?? 0) < 0 ? C.danger : C.textSoft }}>
                       {b.avg_excess == null ? "—" : `${b.avg_excess > 0 ? "+" : ""}${b.avg_excess.toFixed(1)}%`}

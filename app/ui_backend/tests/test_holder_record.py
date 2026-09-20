@@ -32,3 +32,15 @@ def test_buys_and_sells_measured_from_filed_on(db, monkeypatch):
     assert b["public_on"] == filed.isoformat()                                     # measured from the filing date, not quarter end
     assert out["buys"]["windows"]["90"]["beat_spy_rate"] == 100.0
     assert out["sells"]["windows"]["90"]["beat_spy_rate"] == 100.0                # the closed position then lagged SPY → good call
+
+
+def test_leaderboard_uses_longest_window_with_data(db, monkeypatch):
+    from models.whale import WhaleHolder
+    h = WhaleHolder(name="Young Fund", cik="0000000098", is_tracked=True); db.add(h); db.flush()
+    rec = {"buys": {"windows": {
+        "30": {"n": 12, "beat_spy_rate": 58.3, "avg_excess": 1.1},
+        "60": {"n": 0, "beat_spy_rate": None, "avg_excess": None},
+        "90": {"n": 0, "beat_spy_rate": None, "avg_excess": None}}}}
+    monkeypatch.setattr(hr, "cache_get", lambda k: (rec,) if k == f"holder_record:{h.id}:v1" else None)
+    row = next(r for r in hr.holder_leaderboard(db) if r["id"] == h.id)
+    assert row["window"] == 30 and row["n"] == 12 and row["beat_spy_rate"] == 58.3

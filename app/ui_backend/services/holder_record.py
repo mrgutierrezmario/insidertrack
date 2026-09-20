@@ -128,17 +128,23 @@ def compute_holder_record(db: Session, holder_id: int, force: bool = False) -> d
 
 
 def holder_leaderboard(db: Session) -> list[dict]:
-    """Every tracked holder's 90-day beat-SPY rate on new/increased
-    positions. Reads the per-holder cache; holders never computed show as
-    pending rather than blocking the request."""
+    """Every tracked holder's beat-SPY rate on new/increased positions, at
+    the longest window that has data yet (90 → 60 → 30 days; a fresh filing
+    only has 30-day numbers for its first two months). Reads the per-holder
+    cache; holders never computed show as pending rather than blocking."""
     out = []
     for h in db.query(WhaleHolder).filter(WhaleHolder.is_tracked == True).all():  # noqa: E712
         hit = cache_get(f"holder_record:{h.id}:v1")
         rec = hit[0] if hit else None
-        w = (rec or {}).get("buys", {}).get("windows", {}).get("90") if rec else None
-        out.append({"id": h.id, "name": h.name, "computed": rec is not None,
+        windows = (rec or {}).get("buys", {}).get("windows", {})
+        window, w = None, None
+        for cand in ("90", "60", "30"):
+            if windows.get(cand, {}).get("n"):
+                window, w = int(cand), windows[cand]
+                break
+        out.append({"id": h.id, "name": h.name, "computed": rec is not None, "window": window,
                     "n": (w or {}).get("n"), "beat_spy_rate": (w or {}).get("beat_spy_rate"), "avg_excess": (w or {}).get("avg_excess")})
-    out.sort(key=lambda r: (r["beat_spy_rate"] is None, -(r["beat_spy_rate"] or 0)))
+    out.sort(key=lambda r: (r["beat_spy_rate"] is None, -(r["beat_spy_rate"] or 0), -(r["window"] or 0)))
     return out
 
 
