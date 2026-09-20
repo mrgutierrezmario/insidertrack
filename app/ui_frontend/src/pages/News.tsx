@@ -80,7 +80,7 @@ export default function News() {
         <div>
           <h1>News & Sentiment</h1>
           <p style={{ color: C.textDim, margin: 0, fontSize: 13 }}>
-            {data?.has_key ? "Headlines for the tickers members are trading most this month · sentiment labels from Alpha Vantage when available · cached 4 hrs" : "Headlines for the tickers members are trading most this month · Google News · cached 4 hrs"}
+            {data?.has_key ? "Headlines for the tickers members are trading most this month · sentiment labels from Alpha Vantage when available · cached 4 hrs" : "Headlines for the tickers members are trading most this month · Google News · labels are a keyword read of the headline, not a model · cached 4 hrs"}
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>

@@ -89,6 +89,11 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       AI_PROVIDER: ${AI_PROVIDER:-claude}
+      # Local model server (free). Native Ollama on the Mac is reachable from
+      # the container at host.docker.internal; leave empty to disable.
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3}
+      AI_BATCH_PROVIDER: ${AI_BATCH_PROVIDER:-ollama}
       AI_DAILY_CAP: ${AI_DAILY_CAP:-150}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}

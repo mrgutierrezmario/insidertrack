@@ -66,6 +66,9 @@ export const getTrades = (params: Record<string, unknown> = {}): Resp<PaginatedT
   api.get("/trades/", { params });
 export const syncTrades = (): Resp<{ status: string }> => api.post("/trades/sync");
 export const deleteTrade = (id: number): Resp<{ deleted: number }> => api.delete(`/trades/${id}`);
+// Admin: fetch the row's filing again and refresh its rows (a fresh AI reading for paper). Slow — one model call.
+export const rereadFiling = (id: number): Resp<{ filing_id: string; rows: number }> =>
+  api.post(`/trades/${id}/reread`, null, { timeout: 180_000 });
 
 export interface BackfillStatus {
   running: boolean;

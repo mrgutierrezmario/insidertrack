@@ -121,7 +121,7 @@ def _parse(text: str) -> Optional[dict]:
 
 def generate_brief(db: Session, day: Optional[date] = None, force: bool = False) -> dict:
     """Make today's brief and calls. Idempotent per day unless `force`."""
-    from services.providers import ProviderError, active_provider, generate_text
+    from services.providers import ProviderError, active_provider, generate_text, batch_provider
     day = day or date.today()
     if active_provider() is None:
         return {"status": "no_provider"}
@@ -133,7 +133,9 @@ def generate_brief(db: Session, day: Optional[date] = None, force: bool = False)
             | {s["ticker"] for s in context["top_scores"] + context["bottom_scores"]}
     prompt = PROMPT.format(min_calls=MIN_CALLS, max_calls=MAX_CALLS, context=json.dumps(context, separators=(",", ":")))
     try:
-        gen = generate_text(prompt, max_tokens=1800, timeout=90.0)
+        # A scheduled job: the free local model first when one is configured
+        # (slower, so a longer timeout), the cloud provider as the fallback.
+        gen = generate_text(prompt, max_tokens=1800, timeout=240.0, job="desk", prefer=batch_provider())
     except ProviderError as exc:
         logger.warning(f"model desk: generation failed: {exc}")
         return {"status": "failed", "error": str(exc)}

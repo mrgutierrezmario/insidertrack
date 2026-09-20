@@ -73,6 +73,7 @@ export default function Feed() {
 
   const [limit, setLimit] = useState(100);
   const [hasMore, setHasMore] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);   // bumped after an admin re-read a filing
 
   useEffect(() => {
     setLimit(100);
@@ -98,7 +99,7 @@ export default function Feed() {
         setHasMore(r.data.has_more);
       })
       .finally(() => setLoading(false));
-  }, [filters, limit]);
+  }, [filters, limit, reloadKey]);
 
   const set = <K extends keyof Filters>(key: K, val: Filters[K]) =>
     setFilters((f) => ({ ...f, [key]: val }));
@@ -292,7 +293,7 @@ export default function Feed() {
             {trades.length} trade{trades.length !== 1 ? "s" : ""}
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-            {trades.map((t) => <TradeCard key={t.id} trade={t} onRemoved={(id) => setTrades((l) => l.filter((x) => x.id !== id))} />)}
+            {trades.map((t) => <TradeCard key={t.id} trade={t} onRemoved={(id) => setTrades((l) => l.filter((x) => x.id !== id))} onReread={() => setReloadKey((k) => k + 1)} />)}
           </div>
           {hasMore && (
             <div style={{ textAlign: "center", marginTop: "1.5rem" }}>

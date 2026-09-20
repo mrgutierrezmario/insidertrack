@@ -54,6 +54,7 @@ export default function Politician() {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [signals, setSignals] = useState<SignalRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reloadKey, setReloadKey] = useState(0);   // bumped after an admin re-read a filing
 
   useEffect(() => {
     if (!id) return;
@@ -70,7 +71,7 @@ export default function Politician() {
         Array.isArray(sigData) ? sigData : (sigData?.signals ?? []),
       );
     }).finally(() => setLoading(false));
-  }, [id]);
+  }, [id, reloadKey]);
 
   const handleTrack = async () => {
     if (!politician || !id) return;
@@ -213,7 +214,7 @@ export default function Politician() {
       </h2>
       <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
         {trades.map((t) => (
-          <TradeCard key={t.id} trade={{ ...t, politician: t.politician } as Trade} onRemoved={(id) => setTrades((l) => l.filter((x) => x.id !== id))} />
+          <TradeCard key={t.id} trade={{ ...t, politician: t.politician } as Trade} onRemoved={(id) => setTrades((l) => l.filter((x) => x.id !== id))} onReread={() => setReloadKey((k) => k + 1)} />
         ))}
       </div>
     </div>

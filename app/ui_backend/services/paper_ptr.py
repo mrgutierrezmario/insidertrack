@@ -208,7 +208,7 @@ def read_paper_pages(pages: list[bytes], chamber: str = "house") -> Optional[dic
         return None
     prompt = PROMPT.format(intro=_CHAMBER_INTRO.get(chamber, _CHAMBER_INTRO["house"]))
     try:
-        gen = generate_text(prompt, max_tokens=2500, timeout=120.0, images=pages)
+        gen = generate_text(prompt, max_tokens=2500, timeout=120.0, images=pages, job="vision")
     except ProviderError as exc:
         logger.warning(f"paper PTR reading failed: {exc}")
         return None
