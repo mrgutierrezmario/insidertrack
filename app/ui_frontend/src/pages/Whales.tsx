@@ -147,7 +147,7 @@ export default function Whales() {
   const [board, setBoard] = useState<HolderLeaderboardRow[]>([]);
   useEffect(() => {
     getWhales().then((r) => setHolders(r.data as Holder[])).catch(() => {});
-    getWhaleLeaderboard().then((r) => setBoard(r.data)).catch(() => setBoard([]));
+    getWhaleLeaderboard().then((r) => setBoard(r.data.items)).catch(() => setBoard([]));
     loadFeed();
   }, []);
   const ranked = board.filter((b) => b.computed && (b.n ?? 0) >= 5);

@@ -132,7 +132,7 @@ def sync_whales(background_tasks: BackgroundTasks, _: None = Depends(require_adm
 @router.get("/leaderboard")
 def whales_leaderboard(db: Session = Depends(get_db)):
     """Tracked holders ranked by how their new/increased positions did vs SPY
-    at 90 days after the filing became public (from the weekly cache)."""
+    at the longest window with data since the filing (from the weekly cache)."""
     from services.holder_record import holder_leaderboard
     return {"items": holder_leaderboard(db)}
 
