@@ -164,6 +164,11 @@ refuses everything. It reads the public API only.
   restarts.
 - **Update the server** after pulling the MCP repo:
   `docker compose -f deploy/compose.yml up -d --build mcp`.
+- **Connect a client**: claude.ai → Settings → Connectors → Add custom
+  connector → URL `https://<host>/mcp`, Authentication *No sign-in*, request
+  header `X-API-Key` = the token (claude.ai reserves `Authorization`).
+  Claude Code: `claude mcp add --transport http insidertrack https://<host>/mcp
+  --header "Authorization: Bearer <token>"`.
 - **Check it**: `curl -s https://<host>/mcp/health` → `{"status":"ok",…}`;
   `curl -s -o /dev/null -w '%{http_code}' -X POST https://<host>/mcp` → `401`.
 - **Log**: `docker compose -f deploy/compose.yml logs mcp` — one line per
