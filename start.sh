@@ -77,9 +77,9 @@ elif command -v docker-compose >/dev/null 2>&1; then
 fi
 compose() { $COMPOSE -f "$ROOT_DIR/docker-compose.yml" --env-file "$BACKEND_DIR/.env" "$@"; }
 
-# Where the app reaches the Docker DB. Override DEV_DB_PORT if 5433 is taken;
+# Where the app reaches the Docker DB. Override DEV_DB_PORT if 54329 is taken;
 # DEV_DB_HOST only matters inside a devcontainer that shares the host's Docker.
-export DEV_DB_PORT="${DEV_DB_PORT:-5433}"
+export DEV_DB_PORT="${DEV_DB_PORT:-54329}"
 DEV_DB_HOST="${DEV_DB_HOST:-localhost}"
 
 # ── .env check ────────────────────────────────────────────────────────────────

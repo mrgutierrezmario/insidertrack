@@ -111,7 +111,7 @@ bash start.sh
 The script will:
 1. Create `app/ui_backend/.env` from `.env.example` if it doesn't exist (add API keys there later)
 2. Create a Python virtualenv (`app/ui_backend/.venv`) and install the backend packages
-3. Use the PostgreSQL in `DATABASE_URL` if it accepts this app's credentials, otherwise start one in Docker on 5433 (so it never fights another project's database on 5432)
+3. Use the PostgreSQL in `DATABASE_URL` if it accepts this app's credentials, otherwise start one in Docker on 54329 (so it never fights another project's database on 5432)
 4. Install Node packages (first run only)
 5. Build the frontend
 6. Start the backend on port 8003 (which also serves the built frontend)
@@ -124,7 +124,7 @@ Press **Ctrl+C** to shut everything down cleanly.
 |---|---|
 | App | http://localhost:8003 |
 | API docs | http://localhost:8003/docs |
-| Database | localhost:5433 (Docker; `DEV_DB_PORT=… bash start.sh` if taken) or 5432 (local) |
+| Database | localhost:54329 (Docker; `DEV_DB_PORT=… bash start.sh` if taken) or 5432 (local) |
 
 ---
 

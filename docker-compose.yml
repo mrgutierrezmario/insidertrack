@@ -17,11 +17,12 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-    # Published on 5433 (not 5432) so it never collides with a local Postgres.
+    # Published on 54329 (not 5432/5433) so it never collides with a local Postgres
+    # or a port VS Code has auto-forwarded from a devcontainer.
     # start.sh points the app here when it starts this container; override
-    # the port with DEV_DB_PORT if 5433 is taken on your machine.
+    # the port with DEV_DB_PORT if 54329 is taken on your machine.
     ports:
-      - "127.0.0.1:${DEV_DB_PORT:-5433}:5432"
+      - "127.0.0.1:${DEV_DB_PORT:-54329}:5432"
 
 volumes:
   pgdata:
