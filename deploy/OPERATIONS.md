@@ -120,6 +120,14 @@ saying what failed; Dependabot will not reopen it.
 5. Still stuck → `deploy/stop.sh && deploy/start.sh` restarts the whole stack
    without touching data.
 
+## When a build or pull says "error getting credentials"
+
+Nothing is broken in the project: the dev container's Docker credential
+helper is not answering. `deploy/start.sh` detects this and pulls anonymously
+on its own; for a bare `docker` command use
+`DOCKER_CONFIG=~/.docker-noauth docker …`. See
+[`DOCKER-CREDENTIALS.md`](DOCKER-CREDENTIALS.md).
+
 ## When data looks wrong
 
 - **A member's trades look duplicated or an amount is off** → Admin → Data

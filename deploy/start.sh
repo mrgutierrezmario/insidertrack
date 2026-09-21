@@ -29,6 +29,16 @@ gen() { python3 -c "import secrets; print(secrets.token_urlsafe(${1:-24}))"; }
 command -v docker >/dev/null || { echo "Docker is not installed or not on PATH." >&2; exit 1; }
 docker info >/dev/null 2>&1 || { echo "Docker is not running — start Docker Desktop first." >&2; exit 1; }
 
+# Every image here is public, so a Docker credential helper that cannot run
+# (a dev container's helper outside VS Code, a missing keychain) must not
+# stop the pulls: fall back to an empty Docker config for this run.
+# See DOCKER-CREDENTIALS.md.
+creds=$(python3 -c "import json,os; print(json.load(open(os.path.expanduser('~/.docker/config.json'))).get('credsStore',''))" 2>/dev/null || true)
+if [ -n "$creds" ] && ! echo | "docker-credential-$creds" list >/dev/null 2>&1; then
+  log "Docker credential helper '$creds' is not working here; pulling anonymously."
+  export DOCKER_CONFIG; DOCKER_CONFIG=$(mktemp -d); echo '{}' > "$DOCKER_CONFIG/config.json"
+fi
+
 # ── First run: create deploy/.env with generated secrets ──────────────────────
 if [ ! -f .env ]; then
   log "Creating deploy/.env with generated secrets..."
