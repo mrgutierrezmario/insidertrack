@@ -109,11 +109,14 @@ bash start.sh
 ```
 
 The script will:
-1. Start PostgreSQL in Docker (or use a local install if available)
-2. Install Python packages
-3. Install Node packages (first run only)
-4. Build the frontend
-5. Start the backend on port 8003 (which also serves the built frontend)
+1. Create `app/ui_backend/.env` from `.env.example` if it doesn't exist (add API keys there later)
+2. Use a local PostgreSQL on 5432 if one is running, otherwise start one in Docker on 5433
+3. Create a Python virtualenv (`app/ui_backend/.venv`) and install the backend packages
+4. Install Node packages (first run only)
+5. Build the frontend
+6. Start the backend on port 8003 (which also serves the built frontend)
+
+Needs Python 3, Node.js, and either PostgreSQL or Docker.
 
 Press **Ctrl+C** to shut everything down cleanly.
 
@@ -121,7 +124,7 @@ Press **Ctrl+C** to shut everything down cleanly.
 |---|---|
 | App | http://localhost:8003 |
 | API docs | http://localhost:8003/docs |
-| Database | localhost:5433 (Docker) or 5432 (local) |
+| Database | localhost:5433 (Docker; `DEV_DB_PORT=… bash start.sh` if taken) or 5432 (local) |
 
 ---
 

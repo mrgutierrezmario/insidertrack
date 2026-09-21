@@ -17,10 +17,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-    # No host port published — only the app container talks to it.
-    # Uncomment to allow psql from the host:
-    # ports:
-    #   - "5433:5432"
+    # Published on 5433 (not 5432) so it never collides with a local Postgres.
+    # start.sh points the app here when it starts this container; override
+    # the port with DEV_DB_PORT if 5433 is taken on your machine.
+    ports:
+      - "127.0.0.1:${DEV_DB_PORT:-5433}:5432"
 
 volumes:
   pgdata:
