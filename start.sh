@@ -103,39 +103,7 @@ if ! grep -q "MAIL_PASSWORD=." "$BACKEND_DIR/.env" 2>/dev/null; then
   warn "MAIL_PASSWORD not set — email reports will be disabled."
 fi
 
-# ── Step 1: PostgreSQL ────────────────────────────────────────────────────────
-# Try local PostgreSQL first (port 5432), fall back to Docker (port 5433)
-DB_READY=0
-
-info "Checking for local PostgreSQL..."
-if command -v pg_isready >/dev/null 2>&1 && pg_isready -h localhost -p 5432 -U "$PG_USER" -d "$PG_DB" >/dev/null 2>&1; then
-  success "Local PostgreSQL is ready (port 5432)."
-  DB_READY=1
-fi
-
-if [ "$DB_READY" = "0" ]; then
-  if [ -n "$COMPOSE" ]; then
-    info "Starting PostgreSQL via Docker (port $DEV_DB_PORT)..."
-    compose up -d db || error "Could not start the Docker database. If the port is taken, re-run with DEV_DB_PORT=<free port> bash start.sh"
-    STARTED_DOCKER_DB=1
-    info "Waiting for PostgreSQL to be ready..."
-    RETRIES=30
-    until compose exec -T db pg_isready -U "$PG_USER" -d "$PG_DB" >/dev/null 2>&1; do
-      RETRIES=$((RETRIES - 1))
-      [ "$RETRIES" -eq 0 ] && error "PostgreSQL did not start. Check: $COMPOSE -f docker-compose.yml logs db"
-      sleep 1
-    done
-    success "Docker PostgreSQL is ready."
-    DB_READY=1
-    # Environment beats .env in pydantic-settings, so this steers the app at
-    # the container without editing the user's file.
-    export DATABASE_URL="postgresql://${PG_USER}:${PG_PASSWORD}@${DEV_DB_HOST}:${DEV_DB_PORT}/${PG_DB}"
-  fi
-fi
-
-[ "$DB_READY" = "0" ] && error "No PostgreSQL found. Install PostgreSQL locally, or install Docker (with the compose plugin)."
-
-# ── Step 2: Python dependencies ───────────────────────────────────────────────
+# ── Step 1: Python dependencies ───────────────────────────────────────────────
 # A project-local venv (gitignored) keeps the app's pins off the system Python.
 VENV="$BACKEND_DIR/.venv"
 if [ ! -x "$VENV/bin/python" ]; then
@@ -146,6 +114,50 @@ info "Installing Python dependencies..."
 "$VENV/bin/pip" install -q --disable-pip-version-check -r "$BACKEND_DIR/requirements.txt" \
   || error "pip install failed. Check the output above."
 success "Python packages installed."
+
+# ── Step 2: PostgreSQL ────────────────────────────────────────────────────────
+# Try the DATABASE_URL from .env first (a local PostgreSQL, usually 5432), fall
+# back to the Docker DB on $DEV_DB_PORT. The check is a real login, not
+# pg_isready: another project's Postgres on 5432 (different user/database)
+# answers pg_isready fine but rejects this app, which must fall through to
+# its own container instead of failing at startup.
+DB_READY=0
+ENV_DB_URL="$(grep -E '^DATABASE_URL=' "$BACKEND_DIR/.env" | cut -d= -f2-)"
+
+db_reachable() {  # $1 = URL; 3 s timeout so an unreachable host doesn't hang
+  "$VENV/bin/python" - "$1" <<'PY' >/dev/null 2>&1
+import sys, psycopg2
+psycopg2.connect(sys.argv[1], connect_timeout=3).close()
+PY
+}
+
+info "Checking for a local PostgreSQL..."
+if [ -n "$ENV_DB_URL" ] && db_reachable "$ENV_DB_URL"; then
+  success "PostgreSQL from .env accepts this app's credentials."
+  DB_READY=1
+fi
+
+if [ "$DB_READY" = "0" ]; then
+  if [ -n "$COMPOSE" ]; then
+    info "Starting PostgreSQL via Docker (port $DEV_DB_PORT)..."
+    compose up -d db || error "Could not start the Docker database. If the port is taken, re-run with DEV_DB_PORT=<free port> bash start.sh"
+    STARTED_DOCKER_DB=1
+    # Environment beats .env in pydantic-settings, so this steers the app at
+    # the container without editing the user's file.
+    export DATABASE_URL="postgresql://${PG_USER}:${PG_PASSWORD}@${DEV_DB_HOST}:${DEV_DB_PORT}/${PG_DB}"
+    info "Waiting for PostgreSQL to be ready..."
+    RETRIES=30
+    until db_reachable "$DATABASE_URL"; do
+      RETRIES=$((RETRIES - 1))
+      [ "$RETRIES" -eq 0 ] && error "PostgreSQL did not start. Check: $COMPOSE -f docker-compose.yml logs db"
+      sleep 1
+    done
+    success "Docker PostgreSQL is ready."
+    DB_READY=1
+  fi
+fi
+
+[ "$DB_READY" = "0" ] && error "No PostgreSQL accepts DATABASE_URL from app/ui_backend/.env, and Docker (with the compose plugin) is not available to start one."
 
 # ── Step 3: Node dependencies ─────────────────────────────────────────────────
 if [ ! -d "$FRONTEND_DIR/node_modules" ]; then
