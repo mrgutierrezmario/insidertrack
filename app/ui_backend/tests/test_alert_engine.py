@@ -28,8 +28,17 @@ def _quiet_feeds(monkeypatch):
 @pytest.fixture()
 def clean(db):
     from models.alert import AlertEvent, AlertRule
-    db.query(AlertEvent).delete(); db.query(AlertRule).delete(); db.commit()
+    from models.model_call import ModelCall
+
+    # evaluate_alerts() commits, so rows these tests add outlive the test in
+    # the session-wide SQLite DB. ModelCall matters: TestAiCallAlert dates its
+    # calls relative to today, and one of them collided with the fixed date in
+    # test_model_desk once the calendar caught up.
+    def wipe():
+        db.query(AlertEvent).delete(); db.query(AlertRule).delete(); db.query(ModelCall).delete(); db.commit()
+    wipe()
     yield db
+    wipe()
 
 
 def _rule(db, alert_type, ticker=None, threshold=None, name=None):
