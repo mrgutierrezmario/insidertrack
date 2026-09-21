@@ -237,7 +237,7 @@ def jobs_running():
     return {"running": running, "any": bool(running)}
 
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health():
     from sqlalchemy import text
     from database import SessionLocal
@@ -289,7 +289,7 @@ def health():
 if DIST_DIR.exists():
     app.mount("/assets", StaticFiles(directory=DIST_DIR / "assets"), name="assets")
 
-    @app.get("/{full_path:path}")
+    @app.api_route("/{full_path:path}", methods=["GET", "HEAD"])
     def serve_frontend(full_path: str):
         # Root-level static files from the build (favicons, manifest, logos,
         # fonts) are served as-is; anything else is a client-side route and
