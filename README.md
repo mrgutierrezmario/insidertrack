@@ -166,6 +166,10 @@ docker compose -f deploy/compose.yml logs -f app
   separate from the lecture-notes backups. Failures email `MAIL_ADMIN_TO`.
 - If the Tailscale container restarts, the app notices within ~45 s that its
   network namespace is gone and restarts itself onto the new one.
+- CI pushes the same image to GHCR — `ghcr.io/mrgutierrezmario/insidertrack`
+  (`:main` follows the branch, `:1.2.3`-style tags are releases, amd64 and
+  arm64). A staging copy restored nightly from the off-site backup runs on
+  Kubernetes from [homelab-gitops](https://github.com/mrgutierrezmario/homelab-gitops).
 
 ## First Use
 
