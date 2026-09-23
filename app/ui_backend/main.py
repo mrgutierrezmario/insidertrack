@@ -12,6 +12,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from json_safe import SafeJSONResponse
+
 from config import settings
 from database import init_db
 from routers import access, ai, alerts, analysis, app_settings, config, earnings, fed, filings, insiders, market, model_desk, news, outcomes, politicians, search, signals, simulator, trades, watchlist, whales
@@ -123,7 +125,14 @@ async def lifespan(app: FastAPI):
 
 from version import __version__  # noqa: E402
 
-app = FastAPI(title="InsiderTrack API", version=__version__, lifespan=lifespan)
+# default_response_class: a single NaN or Infinity anywhere in a payload
+# otherwise fails the whole response at render time (see json_safe).
+app = FastAPI(
+    title="InsiderTrack API",
+    version=__version__,
+    lifespan=lifespan,
+    default_response_class=SafeJSONResponse,
+)
 
 
 # ── Global exception handlers ─────────────────────────────────────────────────
