@@ -7,6 +7,15 @@ All notable changes to InsiderTrack. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **A single `NaN` no longer takes down a whole page.** Starlette renders JSON with
+  `allow_nan=False`, so one non-finite float anywhere in a response raised *Out of range float
+  values are not JSON compliant* at render time and the endpoint returned 500 — in production
+  that meant `/signals/`, `/watchlist/signals`, `/ai-desk/today` and `/market/performance`
+  failing together. Non-finite values now serialise as `null` (every one of these fields is
+  already optional) and each is logged with its JSON path, so the source stays findable: grep
+  the app log for `non-finite`.
+
 ### Added
 - **Ollama** as a fourth AI provider (local model server, no key, no quota). `AI_BATCH_PROVIDER`
   (default `ollama`) chooses who writes the daily Model Desk brief so the cloud free tiers are not
