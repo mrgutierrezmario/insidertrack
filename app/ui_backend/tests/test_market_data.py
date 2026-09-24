@@ -171,3 +171,61 @@ class TestYahooParsers:
         monkeypatch.setattr(md, "_yahoo_chart", fake_chart)
         md._yahoo_intraday("AAPL", "15min")
         assert captured["interval"] == "15m"
+
+
+class TestYfinanceHistorySkipsNaNRows:
+    """yfinance carries holidays and halts as NaN, not None.
+
+    One NaN row used to reach closes[-1] (a ticker's current_price), every
+    SMA computed over it, and the L2 cache — where Postgres rejects NaN in a
+    `json` column, so the write failed and the ticker was re-fetched on every
+    request. Production, 2026-09-23: 202 non-finite floats in one /signals/
+    response and ~200 failed cache writes in twenty minutes.
+    """
+
+    def _frame(self):
+        import pandas as pd
+
+        return pd.DataFrame(
+            {
+                "Open": [10.0, float("nan"), 12.0],
+                "High": [11.0, float("nan"), 13.0],
+                "Low": [9.0, float("nan"), 11.0],
+                "Close": [10.5, float("nan"), 12.5],
+                # Volume stays valid on purpose: that is the production shape.
+                # With Volume NaN too, int(nan) raises inside the branch and
+                # the whole yfinance path falls back to demo data — so the
+                # bug would never reach the assertions.
+                "Volume": [1000, 1100, 1200],
+            },
+            index=pd.to_datetime(["2026-09-21", "2026-09-22", "2026-09-23"]),
+        )
+
+    def test_nan_rows_are_dropped(self, monkeypatch):
+        import services.market_data as md
+
+        monkeypatch.setattr(md, "_history_cache_get", lambda _k: None)
+        monkeypatch.setattr(md, "_history_cache_set", lambda *a, **k: None)
+        monkeypatch.setattr(md, "_yf_call", lambda *a, **k: self._frame())
+
+        rows = md.get_price_history("TEST", days=30)
+
+        assert [r["date"] for r in rows] == ["2026-09-21", "2026-09-23"]
+        assert all(
+            v == v  # NaN is the only value not equal to itself
+            for r in rows
+            for v in (r["open"], r["high"], r["low"], r["close"])
+        )
+
+    def test_result_survives_json_round_trip(self, monkeypatch):
+        """What the L2 cache does. NaN would raise here, as Postgres does."""
+        import json
+
+        import services.market_data as md
+
+        monkeypatch.setattr(md, "_history_cache_get", lambda _k: None)
+        monkeypatch.setattr(md, "_history_cache_set", lambda *a, **k: None)
+        monkeypatch.setattr(md, "_yf_call", lambda *a, **k: self._frame())
+
+        rows = md.get_price_history("TEST", days=30)
+        assert json.loads(json.dumps(rows, allow_nan=False)) == rows

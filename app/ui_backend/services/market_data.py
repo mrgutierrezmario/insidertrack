@@ -356,6 +356,13 @@ def get_price_history(ticker: str, days: int = 90) -> list[dict]:
             lambda: yf.Ticker(ticker).history(start=start.isoformat(), end=end.isoformat(), timeout=20),
             label=f"yfinance history[{ticker}]",
         )
+        # The chart-JSON paths above skip Yahoo's nulls for holidays and
+        # halts; pandas carries those same gaps as NaN instead, and
+        # round(nan, 2) is nan. One such row then poisons closes[-1] (a
+        # ticker's current_price), every SMA computed over it, and any
+        # attempt to cache the series — Postgres rejects NaN in a `json`
+        # column, so the L2 write fails and the ticker is re-fetched on
+        # every request. Skip them here, once, rather than in each caller.
         rows = [
             {
                 "date": str(idx.date()),
@@ -366,6 +373,7 @@ def get_price_history(ticker: str, days: int = 90) -> list[dict]:
                 "volume": int(row["Volume"]),
             }
             for idx, row in hist.iterrows()
+            if row[["Open", "High", "Low", "Close", "Volume"]].notna().all()
         ]
         if rows:
             _history_cache_set(cache_key, rows)

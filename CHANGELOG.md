@@ -8,6 +8,13 @@ All notable changes to InsiderTrack. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **The `NaN`s themselves are gone at the source.** yfinance carries the holidays and halts
+  that Yahoo's chart JSON reports as `null` as `NaN` instead, and `round(nan, 2)` is `nan`.
+  One such row poisoned that ticker's `current_price` (it is `closes[-1]`), every SMA computed
+  over it, and every attempt to cache the series — Postgres rejects `NaN` in a `json` column,
+  so the L2 write failed silently and the ticker was re-fetched from the market API on *every*
+  request (~200 failed writes in twenty minutes). Those rows are now skipped where the history
+  is built, the way the chart-JSON paths already skipped nulls.
 - **A single `NaN` no longer takes down a whole page.** Starlette renders JSON with
   `allow_nan=False`, so one non-finite float anywhere in a response raised *Out of range float
   values are not JSON compliant* at render time and the endpoint returned 500 — in production
