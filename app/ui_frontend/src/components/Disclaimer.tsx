@@ -2,7 +2,7 @@ import { C } from "../lib/theme";
 import { useState, useEffect } from "react";
 import type { ReactNode } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { restoreMessage, restoreWatchlist } from "../lib/api";
+import { recoverWatchlistToken, restoreMessage, restoreWatchlist } from "../lib/api";
 
 const STORAGE_KEY = "insidertrack_terms_v1";
 
@@ -41,6 +41,24 @@ export default function Disclaimer({ children }: DisclaimerProps) {
   const [subResult, setSubResult]     = useState<SubResult>(null);
   // Returning visitor on a new device: email + token loads their saved watchlist.
   const [token, setToken]             = useState("");
+  const [sendingToken, setSendingToken] = useState(false);
+  const [tokenSent, setTokenSent]     = useState("");
+
+  // "Email me a token": same flow as My Watchlist. The server answers the same
+  // whether or not the email has a watchlist, and rate-limits the requests.
+  const emailMeToken = async () => {
+    if (!isValidEmail(email)) { setEmailError("Enter your email first, then we can send your token."); return; }
+    setEmailError("");
+    setSendingToken(true);
+    try {
+      await recoverWatchlistToken(email.trim().toLowerCase());
+      setTokenSent(`If ${email.trim()} has a saved watchlist, a token is on its way. Paste it above, then Continue.`);
+    } catch {
+      setTokenSent("Couldn't send right now. Try again in a minute.");
+    } finally {
+      setSendingToken(false);
+    }
+  };
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -224,9 +242,22 @@ export default function Disclaimer({ children }: DisclaimerProps) {
                 boxSizing: "border-box",
               }}
             />
-            <p style={{ color: C.textDim, fontSize: "0.72rem", marginTop: "0.35rem" }}>
-              From your InsiderTrack "watchlist access token" email. New here, or no token? Leave it empty; My Watchlist can email you one.
-            </p>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.75rem", marginTop: "0.4rem", flexWrap: "wrap" }}>
+              <span style={{ color: C.textDim, fontSize: "0.72rem" }}>New here? Leave it empty.</span>
+              <button
+                type="button"
+                onClick={emailMeToken}
+                disabled={sendingToken}
+                style={{ background: "none", border: "none", padding: 0, color: C.accent, fontSize: "0.78rem", fontWeight: 600, cursor: sendingToken ? "wait" : "pointer" }}
+              >
+                {sendingToken ? "Sending…" : "Don't have it? Email me my token"}
+              </button>
+            </div>
+            {tokenSent && (
+              <p style={{ color: C.textSoft, fontSize: "0.75rem", marginTop: "0.45rem", lineHeight: 1.5 }}>
+                {tokenSent} A new token replaces the old one, so other devices will need it too.
+              </p>
+            )}
           </div>
         </div>
 
