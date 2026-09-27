@@ -95,9 +95,9 @@ export default function DataSourcesPanel() {
 
   return (
     <section style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, padding: "1.25rem", marginBottom: "1.5rem" }}>
-      <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>Data sources</div>
+      <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>Data Sources</div>
       <div style={{ color: C.textMuted, fontSize: "0.8rem", marginBottom: "1rem" }}>
-        Freshness of each scraper. <b>Stale</b> means runs succeed but nothing new has arrived for longer than expected — usually a site change the parser misses silently. A daily email goes to the admin address when anything is stale or failing.
+        Freshness of each scraper. <b>Stale</b> means runs succeed but nothing new has arrived for longer than expected, usually a site change the parser misses silently. A daily email goes to the admin address when anything is stale or failing.
       </div>
       {error && <div style={{ color: C.danger, fontSize: "0.85rem" }}>{error}</div>}
       {sources && (
@@ -119,7 +119,7 @@ export default function DataSourcesPanel() {
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
                     <button onClick={() => runSource(key)}
                       style={{ background: C.surfaceAlt, color: C.textSoft, border: "none", borderRadius: 4, padding: "3px 10px", cursor: "pointer", fontSize: "0.75rem" }}>
-                      ↻ Run now
+                      ↻ Run Now
                     </button>
                     <span style={{ color: running[key] === "error" ? C.danger : running[key] === "started" ? C.success : C.textDim, fontSize: "0.7rem" }}>
                       {running[key] === "started" ? "started in background" : running[key] === "error" ? "could not start" : RUNNERS[key].note}
@@ -133,22 +133,22 @@ export default function DataSourcesPanel() {
       )}
 
       <div style={{ borderTop: "1px solid var(--c-bgSunken)", marginTop: "1rem", paddingTop: "1rem" }}>
-        <div style={{ fontWeight: 600, fontSize: "0.9rem", marginBottom: 4 }}>Backfill history</div>
+        <div style={{ fontWeight: 600, fontSize: "0.9rem", marginBottom: 4 }}>Backfill History</div>
         <div style={{ color: C.textMuted, fontSize: "0.8rem", marginBottom: "0.6rem" }}>
-          The daily sync only looks back ~90 days. Import older filings from both chambers so the simulator, outcomes and per-member records have history. One PDF per filing — a full year takes tens of minutes. Safe to re-run.
+          The daily sync only looks back ~90 days. Import older filings from both chambers so the simulator, outcomes and per-member records have history. One PDF per filing, so a full year takes tens of minutes. Safe to re-run.
         </div>
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
           <label style={{ color: C.textMuted, fontSize: "0.8rem" }}>Filed since</label>
           <input type="date" value={since} onChange={(e) => setSince(e.target.value)} disabled={!!backfill?.running}
             style={{ background: C.bg, color: C.text, border: "1px solid var(--c-surfaceAlt)", borderRadius: 5, padding: "0.3rem 0.5rem", fontSize: 16 }} />
           <label style={{ color: C.textMuted, fontSize: "0.8rem", display: "flex", alignItems: "center", gap: 4 }}
-            data-tip="Also re-fetch filings already imported and refresh their rows with the current parser (owner, call/put, amount bounds). Slower — every filing in the range is downloaded again.">
+            data-tip="Also re-fetch filings already imported and refresh their rows with the current parser (owner, call/put, amount bounds). Slower, because every filing in the range is downloaded again.">
             <input type="checkbox" checked={reparse} onChange={(e) => setReparse(e.target.checked)} disabled={!!backfill?.running} />
-            re-parse imported filings
+            Re-parse imported filings
           </label>
           <button onClick={runBackfill} disabled={starting || !!backfill?.running || !since}
             style={{ background: C.accentSolid, color: "#fff", border: "none", borderRadius: 5, padding: "0.35rem 0.9rem", cursor: "pointer", fontSize: "0.8rem", opacity: backfill?.running ? 0.6 : 1 }}>
-            {backfill?.running ? "Running…" : "Start backfill"}
+            {backfill?.running ? "Running…" : "Start Backfill"}
           </button>
         </div>
         {backfill && (backfill.running || backfill.finished_at) && (

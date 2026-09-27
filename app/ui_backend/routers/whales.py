@@ -95,7 +95,7 @@ def holder_positions(holder_id: int, db: Session = Depends(get_db)):
     holder = db.query(WhaleHolder).filter(WhaleHolder.id == holder_id).first()
     if not holder:
         from fastapi import HTTPException
-        raise HTTPException(404, detail="Whale holder not found")
+        raise HTTPException(404, detail="Fund not found")
 
     positions = (
         db.query(WhalePosition)
@@ -142,7 +142,7 @@ def whale_track_record(holder_id: int, db: Session = Depends(get_db)):
     from fastapi import HTTPException
     from services.holder_record import compute_holder_record
     if not db.query(WhaleHolder.id).filter(WhaleHolder.id == holder_id).first():
-        raise HTTPException(404, detail="Whale holder not found")
+        raise HTTPException(404, detail="Fund not found")
     return compute_holder_record(db, holder_id)
 
 
@@ -152,7 +152,7 @@ def whale_detail(holder_id: int, db: Session = Depends(get_db)):
     from fastapi import HTTPException
     holder = db.query(WhaleHolder).filter(WhaleHolder.id == holder_id).first()
     if not holder:
-        raise HTTPException(404, detail="Whale holder not found")
+        raise HTTPException(404, detail="Fund not found")
 
     positions = (
         db.query(WhalePosition)

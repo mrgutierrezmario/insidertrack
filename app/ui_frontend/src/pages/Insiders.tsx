@@ -94,7 +94,7 @@ function SyncButton({ onDone }: { onDone: () => void }) {
       </button>
       {result && !result.error && (
         <span style={{ color: C.success, fontSize: 11 }}>
-          Syncing {result.tickers} tickers in the background — outcome in <Link to="/admin" style={{ color: C.accent }}>Admin → Data sources</Link>
+          Syncing {result.tickers} tickers in the background. See the result in <Link to="/admin" style={{ color: C.accent }}>Admin → Data Sources</Link>
         </span>
       )}
       {result?.error && <span style={{ color: C.danger, fontSize: 11 }}>{result.error}</span>}
@@ -147,7 +147,7 @@ export default function Insiders() {
         <div>
           <h1>Corporate Insiders</h1>
           <p style={{ color: C.textDim, margin: 0, fontSize: 13 }}>
-            SEC Form 4 filings — officers, directors, and 10%+ owners trading their own company's stock.
+            SEC Form 4 filings: officers, directors and 10%+ owners trading their own company's stock.
           </p>
           {lastSynced && (
             <p style={{ color: C.textDim, fontSize: 11, margin: "2px 0 0" }}>
@@ -208,8 +208,8 @@ export default function Insiders() {
       ) : rows.length === 0 ? (
         <div style={{ color: C.textDim, textAlign: "center", padding: "60px 0" }}>
           {isAdmin
-            ? "No Form 4 data yet — pulling from SEC EDGAR automatically…"
-            : "No Form 4 data yet — use the Sync button (admin access required)."}
+            ? "No Form 4 data yet. Pulling it from SEC EDGAR now…"
+            : "No Form 4 data yet. An admin can load it with the Sync button."}
         </div>
       ) : (
         <div style={{ ...card, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>

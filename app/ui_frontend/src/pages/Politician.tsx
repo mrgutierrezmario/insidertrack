@@ -118,7 +118,7 @@ export default function Politician() {
               <span
                 data-tip={politician.skill_n && politician.skill_n >= 10
                   ? `This member's stock buys beat SPY ${politician.skill_beat_spy?.toFixed(0)}% of the time at 90 days (${politician.skill_n} measured). Their trades count ×${politician.skill_factor.toFixed(2)} in the Congress sub-score. Recomputed weekly.`
-                  : `Fewer than 10 measured buys — trades count at the neutral ×1.00 until there is a track record.`}
+                  : `Fewer than 10 measured buys, so trades count at the neutral ×1.00 until there's a track record.`}
                 style={{ color: politician.skill_factor > 1.05 ? C.success : politician.skill_factor < 0.95 ? C.danger : C.textMuted,
                          fontWeight: 700, fontSize: 12, border: "1px solid var(--c-surfaceAlt)", borderRadius: 5, padding: "2px 8px" }}>
                 ×{politician.skill_factor.toFixed(2)} weight

@@ -72,7 +72,7 @@ export default function Whale() {
   }, [id]);
 
   if (loading) return <div style={{ color: C.textDim, textAlign: "center", padding: "60px 0" }}>Loading…</div>;
-  if (!data) return <div style={{ color: C.danger, textAlign: "center", padding: "60px 0" }}>Whale holder not found.</div>;
+  if (!data) return <div style={{ color: C.danger, textAlign: "center", padding: "60px 0" }}>Fund not found.</div>;
 
   const { holder, summary, conviction_buys, top_holdings, all_holdings } = data;
   const cb = summary.change_breakdown || {};
@@ -87,7 +87,7 @@ export default function Whale() {
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto" }}>
-      <Link to="/whales" style={{ color: C.textDim, fontSize: 12, textDecoration: "none" }}>← All whales</Link>
+      <Link to="/whales" style={{ color: C.textDim, fontSize: 12, textDecoration: "none" }}>← All Whales</Link>
 
       <div style={{ margin: "10px 0 20px" }}>
         <h1 style={{ color: C.textBright, margin: "0 0 4px", fontSize: "1.5rem" }}>{holder.name}</h1>
@@ -109,7 +109,7 @@ export default function Whale() {
       {conviction_buys.length > 0 && (
         <div style={{ ...card, padding: "12px 16px", marginBottom: 16 }}>
           <div style={{ color: C.textSoft, fontSize: 12, fontWeight: 600, marginBottom: 8 }}>
-            Conviction buys (new + increased)
+            Conviction Buys (New + Increased)
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {conviction_buys.map((h) => (
@@ -160,7 +160,7 @@ export default function Whale() {
           {all_holdings.length > top_holdings.length && (
             <button onClick={() => setShowAll((s) => !s)}
               style={{ background: C.surfaceAlt, color: C.textSoft, border: "1px solid var(--c-divider)", borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer" }}>
-              {showAll ? "Show top 25" : `Show all ${all_holdings.length}`}
+              {showAll ? "Show Top 25" : `Show All ${all_holdings.length}`}
             </button>
           )}
         </div>
@@ -168,7 +168,7 @@ export default function Whale() {
 
       {all_holdings.length === 0 ? (
         <p style={{ color: C.textDim, fontSize: 13 }}>
-          No parsed holdings yet — run "↻ Sync 13F Holdings" on the Whales page.
+          No holdings loaded yet. Run “↻ Sync 13F Holdings” on the Whales page.
         </p>
       ) : filtered.length === 0 ? (
         <p style={{ color: C.textDim, fontSize: 13 }}>No positions match your filters.</p>

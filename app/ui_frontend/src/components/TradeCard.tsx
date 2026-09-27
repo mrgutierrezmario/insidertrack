@@ -29,7 +29,7 @@ function RiskBadge({ level }: { level: RiskLevel | null }) {
   if (level !== "HIGH") return null;
   const m = RISK_META[level];
   return (
-    <span data-tip="Trade is over 5 weeks old, or was disclosed more than 5 weeks after it happened — the price has likely moved since." style={{
+    <span data-tip="Trade is over 5 weeks old, or was disclosed more than 5 weeks after it happened, so the price has likely moved since." style={{
       background: m.bg, color: m.color, border: `1px solid ${m.border}`,
       borderRadius: 5, padding: "1px 7px", fontSize: 10, fontWeight: 700,
       letterSpacing: "0.04em", whiteSpace: "nowrap",
@@ -88,7 +88,7 @@ export default function TradeCard({ trade, onRemoved, onReread }: TradeCardProps
       setRereadMsg(`Re-read: ${r.data.rows} row${r.data.rows === 1 ? "" : "s"} on this filing now`);
       onReread?.();
     } catch {
-      setRereadMsg("Re-read failed — provider quota or the filing is unavailable");
+      setRereadMsg("Re-read failed. The AI provider's quota is used up, or the filing is unavailable.");
     } finally { setRereading(false); }
   };
   const remove = async () => {
@@ -128,9 +128,9 @@ export default function TradeCard({ trade, onRemoved, onReread }: TradeCardProps
             </Tag>
           )}
           {trade.asset_type === "other" && <Tag tip="Not common stock (bond, note, fund). Doesn't count toward the signal.">OTHER</Tag>}
-          {ownerLabel && <Tag tip="Who holds the position, per the filing — the STOCK Act covers spouses and dependent children too.">{ownerLabel.toUpperCase()}</Tag>}
+          {ownerLabel && <Tag tip="Who holds the position, per the filing. The STOCK Act covers spouses and dependent children too.">{ownerLabel.toUpperCase()}</Tag>}
           {trade.amends && <Tag tip={`From an amended report that replaced the one filed ${trade.amends}. Only the corrected version is shown.`}>AMENDED</Tag>}
-          {isPaper && <Tag tip={`Filed on paper (a scanned, often handwritten form). Read by the site's AI model${trade.ai_confidence != null ? ` with ${Math.round(trade.ai_confidence * 100)}% confidence` : ""} — the asset name was matched to a ticker and the amount comes from a ticked box. Open the filing to check.`}>PAPER · AI-READ</Tag>}
+          {isPaper && <Tag tip={`Filed on paper (a scanned, often handwritten form). Read by the site's AI model${trade.ai_confidence != null ? ` with ${Math.round(trade.ai_confidence * 100)}% confidence` : ""}. The asset name was matched to a ticker and the amount comes from a ticked box. Open the filing to check.`}>PAPER · AI-READ</Tag>}
           <RiskBadge level={trade.risk_level} />
           {trade.ticker && <WatchlistButton ticker={trade.ticker} />}
         </div>
@@ -157,18 +157,18 @@ export default function TradeCard({ trade, onRemoved, onReread }: TradeCardProps
         <div style={{ color: C.textDim, fontSize: "0.7rem", marginTop: 2 }}>
           Disclosed {fmtDate(trade.disclosure_date)}
           {trade.filing_url && (
-            <> · <a href={safeHref(trade.filing_url)} target="_blank" rel="noreferrer" style={{ color: C.textMuted }}>filing ↗</a></>
+            <> · <a href={safeHref(trade.filing_url)} target="_blank" rel="noreferrer" style={{ color: C.textMuted }}>Filing ↗</a></>
           )}
         </div>
         {isAdmin && isPaper && (
           <div style={{ marginTop: 6, display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
             <button onClick={reread} disabled={rereading || removing}
               style={{ background: "none", border: "1px solid var(--c-surfaceAlt)", color: C.accent, borderRadius: 5, padding: "2px 8px", fontSize: "0.7rem", cursor: "pointer" }}>
-              {rereading ? "Reading again…" : "Re-read filing"}
+              {rereading ? "Reading again…" : "Re-Read Filing"}
             </button>
             <button onClick={remove} disabled={removing || rereading}
               style={{ background: "none", border: "1px solid var(--c-surfaceAlt)", color: C.danger, borderRadius: 5, padding: "2px 8px", fontSize: "0.7rem", cursor: "pointer" }}>
-              {removing ? "Removing…" : "Remove misread row"}
+              {removing ? "Removing…" : "Remove Misread Row"}
             </button>
             {rereadMsg && <span style={{ color: C.textMuted, fontSize: "0.7rem" }}>{rereadMsg}</span>}
           </div>

@@ -9,7 +9,7 @@ export default function NotFound() {
       <div style={{ fontSize: 64, marginBottom: 16 }}>404</div>
       <div style={{ color: C.textBright, fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Page not found</div>
       <div style={{ color: C.textDim, fontSize: 14, marginBottom: 32 }}>
-        That route doesn't exist. Check the URL or head back home.
+        That page doesn't exist. Check the address, or go back to the Dashboard.
       </div>
       <Link
         to="/"
@@ -18,7 +18,7 @@ export default function NotFound() {
           padding: "10px 24px", borderRadius: 8, fontWeight: 600, fontSize: 14,
         }}
       >
-        ← Go to Dashboard
+        ← Back to Dashboard
       </Link>
     </div>
   );

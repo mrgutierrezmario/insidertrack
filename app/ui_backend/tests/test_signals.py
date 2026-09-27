@@ -288,7 +288,7 @@ class TestRiskPenaltyFromTrades:
 
         penalty, reasons = _risk_penalty_from_trades([t])
         assert penalty == 5
-        assert any("HIGH" in r for r in reasons)
+        assert any("high-risk" in r for r in reasons)
 
     def test_penalty_capped_at_20(self):
         from datetime import date, timedelta

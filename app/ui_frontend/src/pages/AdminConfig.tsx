@@ -299,7 +299,7 @@ function AdminPanel() {
           onClick={() => { adminLogout(); sessionStorage.removeItem(ADMIN_SESSION_KEY); sessionStorage.removeItem(ADMIN_TOKEN_KEY); notifyAdminChange(); navigate("/config"); }}
           style={{ background: C.surfaceAlt, color: C.textMuted, border: "1px solid var(--c-divider)", borderRadius: 6, padding: "0.35rem 0.875rem", cursor: "pointer", fontSize: "0.8rem" }}
         >
-          ← Back to Config
+          ← Back to Settings
         </button>
       </div>
 
@@ -344,7 +344,7 @@ function AdminPanel() {
                 </div>
                 <div style={{ color: C.textMuted, fontSize: "0.78rem", marginBottom: isEditing ? "0.5rem" : 0 }}>
                   {k.description}
-                  {k.link && <> · <a href={safeHref(k.link)} target="_blank" rel="noreferrer" style={{ color: C.accent }}>Get one →</a></>}
+                  {k.link && <> · <a href={safeHref(k.link)} target="_blank" rel="noreferrer" style={{ color: C.accent }}>Get One →</a></>}
                 </div>
                 {k.is_set && !isEditing && k.masked_value && (
                   <div style={{ color: C.textDim, fontSize: "0.78rem", fontFamily: "monospace", marginTop: 3 }}>{k.masked_value}</div>
@@ -394,7 +394,7 @@ function AdminPanel() {
           {PERIODS.map(period => (
             <button key={period} onClick={() => handleSendNow(period)} disabled={sending[period]}
               style={{ background: "var(--c-surfaceAlt)", color: C.text, border: "1px solid var(--c-divider)", borderRadius: 6, padding: "0.5rem 1.25rem", cursor: "pointer", opacity: sending[period] ? 0.6 : 1, fontSize: "0.9rem" }}>
-              {sending[period] ? "Sending..." : `${period.charAt(0).toUpperCase() + period.slice(1)} (${periodLabel[period]})`}
+              {sending[period] ? "Sending…" : `${period.charAt(0).toUpperCase() + period.slice(1)} (${periodLabel[period]})`}
             </button>
           ))}
         </div>
@@ -421,7 +421,7 @@ function AdminPanel() {
           {error && <p style={{ color: C.danger, fontSize: "0.85rem" }}>{error}</p>}
           <button type="submit" disabled={adding}
             style={{ background: C.accentSolid, color: "#fff", border: "none", borderRadius: 6, padding: "0.5rem 1.25rem", cursor: "pointer", width: "fit-content", opacity: adding ? 0.6 : 1, fontSize: "0.9rem" }}>
-            {adding ? "Adding..." : "Add"}
+            {adding ? "Adding…" : "Add"}
           </button>
         </form>
       </section>
@@ -479,7 +479,7 @@ function AdminPanel() {
       <section style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, padding: "1.25rem", marginBottom: "1.5rem" }}>
         <div style={{ fontWeight: 600, marginBottom: "1rem" }}>13F Filing Institutions ({institutions.length})</div>
         <p style={{ color: C.textDim, fontSize: "0.78rem", marginTop: 0, marginBottom: "1rem" }}>
-          Institutions tracked on the Filings page. CIK is the SEC's 10-digit identifier — find it at sec.gov.
+          Institutions tracked on the Filings page. CIK is the SEC's 10-digit identifier; find it at sec.gov.
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", marginBottom: "1rem" }}>
           {institutions.map(inst => (

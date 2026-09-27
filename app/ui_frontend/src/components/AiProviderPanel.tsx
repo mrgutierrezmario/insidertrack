@@ -100,7 +100,7 @@ export default function AiProviderPanel({ keys, onChanged, onError }: { keys: Ke
   return (
     <section style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, padding: "1.25rem", marginBottom: "1.5rem" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
-        <span style={{ fontWeight: 600 }}>AI research notes</span>
+        <span style={{ fontWeight: 600 }}>AI Research Notes</span>
         {ai && (
           <span style={{ fontSize: "0.75rem", padding: "2px 9px", borderRadius: 4, background: ai.configured ? C.successBg : C.warningBg, color: ai.configured ? C.success : C.warningSolid }}>
             {ai.configured ? `Active: ${ai.providers[ai.active!].label} · ${ai.providers[ai.active!].model}` : "Not configured"}
@@ -110,7 +110,7 @@ export default function AiProviderPanel({ keys, onChanged, onError }: { keys: Ke
       <p style={{ color: C.textMuted, fontSize: "0.8rem", margin: "0 0 1rem", lineHeight: 1.5 }}>
         The bull/bear note on each ticker page is written by the provider you pick here. Save a key for any of them;
         if the chosen one fails (quota, outage), the others configured are tried as a fallback. Notes are cached 6 h.
-        Ollama is a free local model server (no key, no quota) — slower, so it suits the scheduled Model Desk brief;
+        Ollama is a free local model server (no key, no quota). It's slower, so it suits the scheduled Model Desk brief;
         scanned paper filings still need a cloud provider unless Ollama has a vision model.
       </p>
 
@@ -123,7 +123,7 @@ export default function AiProviderPanel({ keys, onChanged, onError }: { keys: Ke
           </button>
         ))}
       </div>
-      <div style={{ color: C.textMuted, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Writes the daily Model Desk brief</div>
+      <div style={{ color: C.textMuted, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Writes the daily AI Desk brief</div>
       <div className="segmented" role="group" aria-label="Scheduled jobs provider" style={{ marginBottom: "1.25rem" }}>
         {PROVIDERS.map((p) => (
           <button key={p} type="button" aria-pressed={batchChosen === p} disabled={busy.ai_batch_provider} onClick={() => save("ai_batch_provider", p)}>
@@ -150,7 +150,7 @@ export default function AiProviderPanel({ keys, onChanged, onError }: { keys: Ke
 
               {/* Key (or, for Ollama, the server URL) */}
               <div style={{ color: C.textMuted, fontSize: "0.72rem", marginBottom: 3 }}>
-                {p === "ollama" ? "Server URL" : "API key"}{k.link && <> · <a href={safeHref(k.link)} target="_blank" rel="noreferrer" style={{ color: C.accent }}>{p === "ollama" ? "install →" : "get one →"}</a></>}
+                {p === "ollama" ? "Server URL" : "API key"}{k.link && <> · <a href={safeHref(k.link)} target="_blank" rel="noreferrer" style={{ color: C.accent }}>{p === "ollama" ? "Install →" : "Get One →"}</a></>}
               </div>
               {keyDraft === undefined ? (
                 <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 10 }}>

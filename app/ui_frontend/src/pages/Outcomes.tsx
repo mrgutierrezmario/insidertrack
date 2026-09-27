@@ -173,9 +173,9 @@ export default function Outcomes() {
     setMsg(`${label}…`);
     try {
       await fn();
-      setMsg(`${label} started — refresh in a moment.`);
+      setMsg(`${label} started. Refresh in a moment.`);
     } catch {
-      setMsg("Error — check backend logs.");
+      setMsg("That didn't work. Check the server logs.");
     }
   };
 
@@ -248,7 +248,7 @@ export default function Outcomes() {
           onChange={(e) => setFilter((f) => ({ ...f, resolved: e.target.value as "" | "yes" | "no" }))}
           style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, color: C.textSoft, padding: "6px 12px", fontSize: 13 }}>
           <option value="">All rows</option>
-          <option value="yes">Resolved (30d+ done)</option>
+          <option value="yes">Resolved (30+ days)</option>
           <option value="no">Pending</option>
         </select>
         {(filter.ticker || filter.label || filter.resolved) && (
@@ -271,7 +271,7 @@ export default function Outcomes() {
         </div>
       ) : rows.length === 0 ? (
         <div style={{ color: C.textDim, textAlign: "center", padding: "60px 0" }}>
-          No outcome records yet — click "↻ Snapshot Today" to capture today's signals.
+          No outcome records yet. Click “↻ Snapshot Today” to capture today's signals.
         </div>
       ) : (
         <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 12, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>

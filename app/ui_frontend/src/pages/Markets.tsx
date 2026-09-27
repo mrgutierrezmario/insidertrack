@@ -262,12 +262,12 @@ export default function Markets() {
         <h1>Market Overview</h1>
         {movers?._demo && (
           <span style={{ background: "rgba(251,191,36,0.1)", color: C.warningSolid, border: "1px solid rgba(251,191,36,0.25)", borderRadius: 6, padding: "3px 10px", fontSize: 11 }}>
-            demo data — no tracked tickers with price history yet
+            Demo data: no tracked tickers have price history yet
           </span>
         )}
         {movers && !movers._demo && (
           <span style={{ background: "rgba(74,222,128,0.08)", color: C.success, border: "1px solid rgba(74,222,128,0.2)", borderRadius: 6, padding: "3px 10px", fontSize: 11 }}>
-            live — based on tracked tickers
+            Live, based on tracked tickers
           </span>
         )}
       </div>
@@ -298,7 +298,7 @@ export default function Markets() {
                   {sym === "FED_RATE" && (
                     <div style={{ fontSize: 10, marginTop: 2 }}>
                       {d._stale ? (
-                        <span style={{ color: C.warning }}>⚠ stale data</span>
+                        <span style={{ color: C.warning }}>⚠ Stale data</span>
                       ) : (
                         <span style={{ color: C.textDim }}>as of {d.as_of}</span>
                       )}
@@ -324,7 +324,7 @@ export default function Markets() {
       {/* ── Technical Signals ───────────────────────────────── */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <h2 style={{ color: C.textSoft, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>
-          Market Signals <span style={{ color: C.textDim, fontWeight: 400 }}>— tracked insider tickers</span>
+          Market Signals <span style={{ color: C.textDim, fontWeight: 400 }}>· Tracked insider tickers</span>
         </h2>
         <div style={{ display: "flex", gap: 6 }}>
           {(["ALL", "BULLISH", "NEUTRAL", "BEARISH"] as const).map((f) => {
@@ -351,7 +351,7 @@ export default function Markets() {
         <div style={{ color: C.textDim, padding: "40px 0", textAlign: "center" }}>Loading signals…</div>
       ) : filteredSignals.length === 0 ? (
         <div style={{ color: C.textDim, padding: "40px 0", textAlign: "center" }}>
-          No {sigFilter !== "ALL" ? sigFilter.toLowerCase() : ""} signals — sync trades first to track tickers
+          No {sigFilter !== "ALL" ? sigFilter.toLowerCase() : ""} signals. Sync trades first to start tracking tickers.
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 }}>

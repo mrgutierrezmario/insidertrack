@@ -237,7 +237,7 @@ export default function Activity() {
         <div>
           <h1>Activity</h1>
           <p style={{ color: C.textDim, margin: 0, fontSize: 13 }}>
-            Congressional trades · Corporate Form 4 insiders · Federal Reserve disclosures — unified timeline.
+            Congressional trades, corporate insiders (Form 4) and Federal Reserve disclosures in one timeline.
           </p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -342,7 +342,7 @@ export default function Activity() {
                   opacity: loadingMore ? 0.6 : 1,
                 }}
               >
-                {loadingMore ? "Loading…" : `Load more (${PAGE_SIZE} per source)`}
+                {loadingMore ? "Loading…" : `Load More (${PAGE_SIZE} per source)`}
               </button>
             </div>
           )}

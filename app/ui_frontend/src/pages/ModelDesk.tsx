@@ -33,7 +33,7 @@ export default function ModelDesk() {
   };
   useEffect(load, []);
   const run = async (force: boolean) => {
-    setMsg("Generating — 20–40 s…");
+    setMsg("Generating (20–40 seconds)…");
     try { await generateModelDesk(force); setTimeout(() => { load(); setMsg(""); }, 35000); } catch { setMsg("Could not start."); }
   };
   const pct = (v: number | null | undefined) => (v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(1)}%`);
@@ -43,11 +43,11 @@ export default function ModelDesk() {
       <div className="page-head">
         <div>
           <h1>AI Desk</h1>
-          <p>Each morning the site's AI model reads the day's disclosures and makes 3–5 directional calls. They're measured at their horizon against the S&amp;P 500, exactly like members' trades — so this page is a scorecard, not a forecast.</p>
+          <p>Each morning the site's AI model reads the day's disclosures and makes 3–5 directional calls. They're measured at their horizon against the S&amp;P 500, exactly like members' trades, so this page is a scorecard, not a forecast.</p>
         </div>
         {isAdmin && (
           <div className="page-head__actions">
-            <button onClick={() => run(false)} style={{ background: C.accentSolid, color: "#fff", border: "none", borderRadius: 6, padding: "0.45rem 1rem", cursor: "pointer", fontSize: "0.85rem" }}>Generate today</button>
+            <button onClick={() => run(false)} style={{ background: C.accentSolid, color: "#fff", border: "none", borderRadius: 6, padding: "0.45rem 1rem", cursor: "pointer", fontSize: "0.85rem" }}>Generate Today</button>
             <button onClick={() => run(true)} style={{ background: C.surfaceAlt, color: C.textSoft, border: "none", borderRadius: 6, padding: "0.45rem 1rem", cursor: "pointer", fontSize: "0.85rem" }}>Regenerate</button>
             {msg && <span style={{ color: C.textMuted, fontSize: "0.8rem" }}>{msg}</span>}
           </div>
@@ -65,7 +65,7 @@ export default function ModelDesk() {
       )}
       {stats && stats.resolved === 0 && calls.length > 0 && (
         <p style={{ color: C.textMuted, fontSize: "0.85rem", margin: "-0.5rem 0 1.5rem" }}>
-          Nothing has scored yet — a call is only judged once its horizon has passed. First call scores on{" "}
+          Nothing has scored yet. A call is only judged once its horizon has passed. First call scores on{" "}
           <strong style={{ color: C.textSoft }}>{fmtDate([...calls].sort((a, b) => a.resolves_on.localeCompare(b.resolves_on))[0].resolves_on)}</strong>;
           the hit-rate starts to mean something after a few dozen. Calls are never written after the fact, so the wait is the point.
         </p>
@@ -73,18 +73,18 @@ export default function ModelDesk() {
 
       {today?.brief && (
         <div style={{ marginBottom: "1.5rem" }}>
-          <h2 style={{ fontSize: "0.9rem", fontWeight: 600, color: C.textMuted, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>Today — {fmtDate(today.brief.date)}</h2>
+          <h2 style={{ fontSize: "0.9rem", fontWeight: 600, color: C.textMuted, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>Today · {fmtDate(today.brief.date)}</h2>
           <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 10, overflow: "hidden" }}>
             <p style={{ color: C.textSoft, fontSize: "0.88rem", lineHeight: 1.6, margin: 0, padding: "0.85rem 0.9rem", borderBottom: "1px solid var(--c-surfaceAlt)" }}>{today.brief.summary}</p>
             {today.calls.map((c) => <CallRow key={c.id} c={c} />)}
           </div>
         </div>
       )}
-      {!today?.brief && <p style={{ color: C.textMuted }}>No brief yet — the first one is written at 8:30 AM ET after the morning sync{isAdmin ? ", or generate it now" : ""}.</p>}
+      {!today?.brief && <p style={{ color: C.textMuted }}>No brief yet. The first one is written at 8:30 AM ET after the morning sync{isAdmin ? ", or generate it now" : ""}.</p>}
 
       {calls.length > 0 && (
         <div>
-          <h2 style={{ fontSize: "0.9rem", fontWeight: 600, color: C.textMuted, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>All calls</h2>
+          <h2 style={{ fontSize: "0.9rem", fontWeight: 600, color: C.textMuted, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>All Calls</h2>
           <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 10, overflow: "hidden" }}>
             {calls.map((c) => (
               <div key={c.id} style={{ display: "grid", gridTemplateColumns: "96px 1fr", alignItems: "start" }}>

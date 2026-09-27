@@ -65,7 +65,7 @@ export default function TrackRecord({ politicianId }: { politicianId: number }) 
 
   const head = (
     <h2 style={{ fontSize: "0.9rem", fontWeight: 600, color: C.textMuted, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-      Track record — stock purchases
+      Track Record: Stock Purchases
     </h2>
   );
 
@@ -119,17 +119,17 @@ export default function TrackRecord({ politicianId }: { politicianId: number }) 
       {data.trades.length > 10 && (
         <button onClick={() => setShowAll((v) => !v)}
           style={{ marginTop: 8, background: "none", border: "none", color: C.accent, cursor: "pointer", fontSize: "0.8rem", padding: 0 }}>
-          {showAll ? "Show fewer" : `Show all ${data.trades.length}`}
+          {showAll ? "Show Fewer" : `Show All ${data.trades.length}`}
         </button>
       )}
 
       {data.sells && data.sells.evaluated > 0 && (
         <div style={{ marginTop: "1.25rem" }}>
           <h2 style={{ fontSize: "0.9rem", fontWeight: 600, color: C.textMuted, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            Track record — stock sales
+            Track Record: Stock Sales
           </h2>
           <p style={{ color: C.textMuted, fontSize: "0.8rem", margin: "0 0 10px" }}>
-            {data.sells.evaluated} sale{data.sells.evaluated === 1 ? "" : "s"} measured the same way. A sale was a good call if the stock then <em>fell</em> (or lagged SPY) — so here down is green.
+            {data.sells.evaluated} sale{data.sells.evaluated === 1 ? "" : "s"} measured the same way. A sale was a good call if the stock then <em>fell</em> (or lagged SPY), so here down is green.
           </p>
           <WindowCards windows={data.sells.windows} invert />
         </div>

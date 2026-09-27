@@ -37,16 +37,16 @@ export default function ModelDeskCard() {
   return (
     <div style={{ marginBottom: "1.75rem" }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-        <h2 style={{ fontSize: "1rem", fontWeight: 600, margin: 0 }}>AI Desk — {fmtDate(data.brief.date)}</h2>
+        <h2 style={{ fontSize: "1rem", fontWeight: 600, margin: 0 }}>AI Desk · {fmtDate(data.brief.date)}</h2>
         <Link to="/ai-desk" style={{ color: C.textMuted, fontSize: "0.8rem", textDecoration: "none" }}>
-          {s.resolved > 0 ? `${s.hit_rate}% right vs SPY over ${s.resolved} scored calls · track record →` : "Track record →"}
+          {s.resolved > 0 ? `${s.hit_rate}% right vs SPY over ${s.resolved} scored calls · Track Record →` : "Track Record →"}
         </Link>
       </div>
       <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 10, overflow: "hidden" }}>
         <p style={{ color: C.textSoft, fontSize: "0.88rem", lineHeight: 1.6, margin: 0, padding: "0.85rem 0.9rem", borderBottom: "1px solid var(--c-surfaceAlt)" }}>{data.brief.summary}</p>
         {data.calls.map((c) => <CallRow key={c.id} c={c} />)}
         <p style={{ color: C.textDim, fontSize: "0.72rem", margin: 0, padding: "0.5rem 0.9rem" }}>
-          Written by {data.brief.provider ?? "the site's AI model"} from today's disclosures. Every call is scored at its horizon against the S&amp;P 500 — that scorecard, not the calls, is the point. Not advice.
+          Written by {data.brief.provider ?? "the site's AI model"} from today's disclosures. Every call is scored at its horizon against the S&amp;P 500. That scorecard, not the calls, is the point. Not advice.
         </p>
       </div>
     </div>

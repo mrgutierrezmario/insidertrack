@@ -229,7 +229,7 @@ export default function Alerts() {
     try {
       const r = await runAlerts();
       const data = r.data as { new_events?: number; rules?: number };
-      setMsg(`Done — ${data.new_events ?? 0} new alert(s) from ${data.rules ?? 0} rule(s).`);
+      setMsg(`Done: ${data.new_events ?? 0} new alert(s) from ${data.rules ?? 0} rule(s).`);
       const ts = new Date().toISOString();
       localStorage.setItem("insidertrack_alerts_last_run", ts);
       setLastEvaluated(ts);
@@ -245,7 +245,7 @@ export default function Alerts() {
         <div>
           <h1>Alerts</h1>
           <p style={{ color: C.textDim, margin: 0, fontSize: 13 }}>
-            Define conditions on signals, insiders, whales, and earnings — get notified when they fire.
+            Set conditions on signals, insiders, whales and earnings, and get notified when they fire.
           </p>
           {lastEvaluated && (
             <p style={{ color: C.textDim, margin: "4px 0 0", fontSize: 11 }}>
@@ -286,7 +286,7 @@ export default function Alerts() {
         Triggered Alerts ({events.length})
       </h2>
       {events.length === 0 ? (
-        <p style={{ color: C.textDim, fontSize: 13 }}>Nothing has triggered yet. Try "Evaluate Now".</p>
+        <p style={{ color: C.textDim, fontSize: 13 }}>Nothing has triggered yet. Try “Evaluate Now”.</p>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {events.map((e) => (

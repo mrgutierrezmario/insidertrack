@@ -153,7 +153,7 @@ export default function Config() {
       <section style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 10, padding: "1.5rem", marginBottom: "1.5rem" }}>
         <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>Manage My Email Subscription</div>
         <p style={{ color: C.textMuted, fontSize: "0.82rem", marginBottom: "1rem" }}>
-          Enter the email you used when you agreed to the terms.
+          Enter the email you signed up for reports with.
         </p>
         <div style={{ display: "flex", gap: "0.5rem" }}>
           <input
@@ -173,7 +173,7 @@ export default function Config() {
             disabled={looking}
             style={{ background: C.accentSolid, color: "#fff", border: "none", borderRadius: 7, padding: "0.6rem 1.25rem", cursor: "pointer", fontSize: "0.88rem", fontWeight: 600, opacity: looking ? 0.6 : 1 }}
           >
-            {looking ? "…" : "Look up"}
+            {looking ? "…" : "Look Up"}
           </button>
         </div>
         {emailError && <p style={{ color: C.dangerSolid, fontSize: "0.78rem", marginTop: "0.4rem" }}>{emailError}</p>}

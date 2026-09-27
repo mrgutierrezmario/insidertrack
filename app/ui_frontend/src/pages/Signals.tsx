@@ -60,7 +60,7 @@ function ScoreBar({ score }: { score: number | null | undefined }) {
 }
 
 const SUB_TIPS: Record<string, string> = {
-  "Smart money": "Institutional 13F holders in this ticker — new or growing positions score higher, weighted by how large the position is in each holder's book (a 5%+ position earns a conviction bonus). A holder's first loaded quarter is neutral. Max 20.",
+  "Smart money": "Institutional 13F holders in this ticker. New or growing positions score higher, weighted by how large the position is in each holder's book (a 5%+ position earns a conviction bonus). A holder's first loaded quarter is neutral. Max 20.",
   "Congress": "Congressional buys vs. sells in the last 45 days, weighted by the disclosed dollar bracket and by each member's own track record (×0.5–1.5 from their 90-day beat-SPY rate; ×1 until 10 buys are measured). Options count by contract direction; unknown contracts and bonds are neutral. Max 30.",
   "Insiders": "Company officers and directors (SEC Form 4) in the last 90 days: open-market buys vs. sells by dollar value. Buying counts more than selling, and several insiders buying together earns a bonus. Max 25.",
   "Momentum": "Price vs. 20/50-day averages and RSI. Oversold with an uptrend scores best. Max 25.",
@@ -126,7 +126,7 @@ export default function Signals() {
         <div>
           <h1>Signal Scores</h1>
           <p style={{ color: C.textDim, margin: 0, fontSize: 13 }}>
-            Composite scores for all tracked insider tickers — sorted by conviction strength.
+            Composite scores for every tracked ticker, strongest first.
             {computedAt && (
               <span style={{ color: C.textDim, marginLeft: 10, fontSize: 11 }}>
                 · computed {new Date(computedAt).toLocaleString()}
@@ -221,7 +221,7 @@ export default function Signals() {
         </div>
       ) : filtered.length === 0 ? (
         <div style={{ textAlign: "center", color: C.textDim, padding: "60px 0" }}>
-          No signals yet — sync trades from the Dashboard first.
+          No signals yet. Sync trades from the Dashboard first.
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

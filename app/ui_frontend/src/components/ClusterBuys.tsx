@@ -27,7 +27,7 @@ export default function ClusterBuys() {
   return (
     <div style={{ ...card, padding: "12px 16px", marginBottom: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
-        <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>Cluster buys — last {data.days} days, market-wide</div>
+        <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>Cluster Buys: Last {data.days} Days, Market-Wide</div>
         <div style={{ color: C.textMuted, fontSize: 11 }}
           data-tip="Two or more different insiders buying their own company's stock on the open market in the same window. Several people with inside knowledge putting in their own money is the strongest Form 4 pattern. Includes companies no member of Congress traded.">
           2+ insiders buying · by dollars

@@ -28,7 +28,7 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
         borderRadius: 12, padding: "2rem",
       }}>
         <div style={{ fontSize: "2rem", marginBottom: "0.75rem" }}>⚠️</div>
-        <h2 style={{ color: "var(--c-danger)", fontWeight: 700, marginBottom: "0.5rem" }}>Something went wrong</h2>
+        <h2 style={{ color: "var(--c-danger)", fontWeight: 700, marginBottom: "0.5rem" }}>Something Went Wrong</h2>
         <p style={{ color: C.textMuted, fontSize: "0.85rem", marginBottom: "1.5rem" }}>
           {this.state.error?.message || "An unexpected error occurred."}
         </p>
@@ -40,7 +40,7 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
             cursor: "pointer", fontSize: "0.9rem", fontWeight: 600,
           }}
         >
-          Reload page
+          Reload Page
         </button>
       </div>
     );

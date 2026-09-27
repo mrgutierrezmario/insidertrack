@@ -180,6 +180,6 @@ describe("<Fed />", () => {
   it("shows the compliant empty state when no trades come back", async () => {
     vi.mocked(getFedTrades).mockResolvedValue({ data: { items: [], has_more: false } } as any);
     renderPage();
-    expect(await screen.findByText(/No individual-stock transactions on record/i)).toBeInTheDocument();
+    expect(await screen.findByText(/No individual stock transactions on record/i)).toBeInTheDocument();
   });
 });

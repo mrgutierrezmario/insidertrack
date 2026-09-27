@@ -202,7 +202,7 @@ export default function Ticker() {
         <button
           onClick={() => setChartMode("intraday")}
           disabled={!intradayEnabled}
-          title={!intradayEnabled ? "Add ALPHA_VANTAGE_KEY to .env to enable" : ""}
+          title={!intradayEnabled ? "Intraday prices aren't available right now" : ""}
           style={{
             background: chartMode === "intraday" ? C.accentSolid : C.surfaceAlt,
             color: chartMode === "intraday" ? "#fff" : intradayEnabled ? C.textSoft : C.textDim,
@@ -210,7 +210,7 @@ export default function Ticker() {
             cursor: intradayEnabled ? "pointer" : "not-allowed", fontSize: "0.85rem",
           }}
         >
-          Intraday {!intradayEnabled && "(no key)"}
+          Intraday {!intradayEnabled && "(unavailable)"}
         </button>
         <button
           onClick={() => setChartMode("history")}
@@ -221,7 +221,7 @@ export default function Ticker() {
             cursor: "pointer", fontSize: "0.85rem",
           }}
         >
-          90-day
+          90-Day
         </button>
         {chartMode === "intraday" && intradayEnabled && (
           <div style={{ display: "flex", gap: "0.25rem", marginLeft: "0.5rem" }}>
@@ -245,7 +245,7 @@ export default function Ticker() {
             </span>
           )}
           {intradayEnabled && (
-            <span style={{ color: C.textDim, fontSize: "0.7rem" }}>Intraday cached 5 min · 25 req/day limit</span>
+            <span style={{ color: C.textDim, fontSize: "0.7rem" }}>Intraday prices refresh every 5 minutes</span>
           )}
         </div>
       </div>
@@ -253,7 +253,7 @@ export default function Ticker() {
       {/* Chart */}
       <div style={{ background: C.bg, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, marginBottom: "2rem", minHeight: 320 }}>
         {chartLoading ? (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 320, color: C.textMuted }}>Loading chart...</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 320, color: C.textMuted }}>Loading chart…</div>
         ) : chartError ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 320, color: C.danger, fontSize: "0.9rem", padding: "2rem", textAlign: "center" }}>
             {chartError}
@@ -272,7 +272,7 @@ export default function Ticker() {
         Congressional Trades ({trades.length})
       </h2>
       {loading ? (
-        <p style={{ color: C.textMuted }}>Loading...</p>
+        <p style={{ color: C.textMuted }}>Loading…</p>
       ) : trades.length === 0 ? (
         <p style={{ color: C.textDim }}>No congressional trades recorded for {symbol}.</p>
       ) : (
@@ -286,7 +286,7 @@ export default function Ticker() {
         Corporate Insider Trades ({insiderTxns.length})
       </h2>
       {loading ? (
-        <p style={{ color: C.textMuted }}>Loading...</p>
+        <p style={{ color: C.textMuted }}>Loading…</p>
       ) : insiderTxns.length === 0 ? (
         <p style={{ color: C.textDim }}>No Form 4 filings recorded for {symbol}.</p>
       ) : (

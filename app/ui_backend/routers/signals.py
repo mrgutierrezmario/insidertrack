@@ -114,12 +114,12 @@ def _momentum_score(closes: list[float]) -> tuple[int, list[str]]:
     if rsi is not None:
         if rsi < 30:
             score += 4
-            reasons.append(f"RSI {rsi} — oversold, potential bounce")
+            reasons.append(f"RSI {rsi}: oversold, potential bounce")
         elif rsi > 70:
             score -= 4
-            reasons.append(f"RSI {rsi} — overbought, potential pullback")
+            reasons.append(f"RSI {rsi}: overbought, potential pullback")
         else:
-            reasons.append(f"RSI {rsi} — neutral range")
+            reasons.append(f"RSI {rsi}: neutral range")
 
     return max(0, min(25, score)), reasons
 
@@ -155,19 +155,19 @@ def _insider_score(buys: int, sells: int, buy_dollars: float = 0, sell_dollars: 
 
     if buy_ratio >= 1.0:
         score = 30
-        reasons.append(f"Congress: {buy_txt}, no recent sells — strong conviction")
+        reasons.append(f"Congress: {buy_txt}, no recent sells (strong conviction)")
     elif buy_ratio >= 0.7:
         score = 24
-        reasons.append(f"Congress: {buy_txt} vs {sell_txt} — bullish lean")
+        reasons.append(f"Congress: {buy_txt} vs. {sell_txt} (bullish lean)")
     elif buy_ratio >= 0.4:
         score = 15
-        reasons.append(f"Congress: mixed — {buy_txt}, {sell_txt}")
+        reasons.append(f"Congress: mixed ({buy_txt}, {sell_txt})")
     elif buy_ratio > 0:
         score = 7
         reasons.append(f"Congress: {sell_txt} outweigh {buy_txt}")
     else:
         score = 0
-        reasons.append(f"Congress: {sell_txt}, no recent buys — bearish signal")
+        reasons.append(f"Congress: {sell_txt}, no recent buys (bearish signal)")
 
     return score, reasons
 
@@ -200,10 +200,10 @@ def _corporate_score(txns: list) -> tuple[int, list[str]]:
         reasons.append(f"Form 4: {buy_txt}, no open-market sells")
     elif buy_ratio >= 0.7:
         score = 18
-        reasons.append(f"Form 4: {buy_txt} vs {sell_txt} — insiders net buyers")
+        reasons.append(f"Form 4: {buy_txt} vs. {sell_txt} (insiders are net buyers)")
     elif buy_ratio >= 0.4:
         score = 12
-        reasons.append(f"Form 4: mixed — {buy_txt}, {sell_txt}")
+        reasons.append(f"Form 4: mixed ({buy_txt}, {sell_txt})")
     elif buy_ratio > 0:
         score = 7
         reasons.append(f"Form 4: {sell_txt} outweigh {buy_txt}")
@@ -296,9 +296,9 @@ def _risk_penalty_from_trades(recent_trades: list) -> tuple[int, list[str]]:
     penalty = min(20, high_count * 5 + medium_count * 2)
     reasons = []
     if high_count:
-        reasons.append(f"{high_count} HIGH-risk disclosure(s) — stale data")
+        reasons.append(f"{high_count} high-risk disclosure(s): stale data")
     if medium_count:
-        reasons.append(f"{medium_count} MEDIUM-risk disclosure(s)")
+        reasons.append(f"{medium_count} medium-risk disclosure(s)")
     return penalty, reasons
 
 

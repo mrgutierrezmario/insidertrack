@@ -244,11 +244,11 @@ export default function Dashboard() {
         <Stat
           label="Latest read"
           value={latest ? <><span style={{ color: C.success }}>{latest.a.tickers_bullish?.length ?? 0}</span><span style={{ fontSize: "0.8rem", color: C.textMuted }}> bullish</span> · <span style={{ color: C.danger }}>{latest.a.tickers_bearish?.length ?? 0}</span><span style={{ fontSize: "0.8rem", color: C.textMuted }}> bearish</span></> : "…"}
-          sub={latest ? `${latest.period} · ${fmtDate(latest.a.analysis_date)}` : "no analysis yet"}
+          sub={latest ? `${latest.period} · ${fmtDate(latest.a.analysis_date)}` : "No analysis yet"}
           to="/signals"
         />
         {isAdmin
-          ? <Stat label="Unseen alerts" value={unseen} sub={unseen > 0 ? "rules have fired" : "all caught up"} to="/alerts" tone={unseen > 0 ? C.warningSolid : undefined} />
+          ? <Stat label="Unseen alerts" value={unseen} sub={unseen > 0 ? "rules have fired" : "All caught up"} to="/alerts" tone={unseen > 0 ? C.warningSolid : undefined} />
           : <Stat label="Alerts fired" value={firedWeek ?? "…"} sub="last 7 days" to="/alerts" tone={(firedWeek ?? 0) > 0 ? C.warningSolid : undefined} />}
       </div>
 
@@ -259,7 +259,7 @@ export default function Dashboard() {
           {/* ── Latest read + watchlist ───────────────────────────────── */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1.25rem", marginBottom: "1.75rem" }}>
             <div>
-              <SectionHead title={latest ? `Latest read — ${latest.period}, ${fmtDate(latest.a.analysis_date)}` : "Latest read"} to="/signals" linkLabel="All scores →" />
+              <SectionHead title={latest ? `Latest Read · ${latest.period.charAt(0).toUpperCase() + latest.period.slice(1)}, ${fmtDate(latest.a.analysis_date)}` : "Latest Read"} to="/signals" linkLabel="All Scores →" />
               <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 10, padding: "1rem" }}>
                 {latest ? (
                   <>
@@ -267,13 +267,13 @@ export default function Dashboard() {
                     <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginBottom: 12 }}>
                       {(latest.a.tickers_bullish ?? []).length === 0 && <span style={{ color: C.textDim, fontSize: "0.82rem" }}>none</span>}
                       {(latest.a.tickers_bullish ?? []).slice(0, CHIP_CAP).map((t) => <Chip key={t} t={t} up />)}
-                      {(latest.a.tickers_bullish ?? []).length > CHIP_CAP && <Link to="/signals" style={{ color: C.textMuted, fontSize: "0.8rem", alignSelf: "center", textDecoration: "none" }}>+{(latest.a.tickers_bullish ?? []).length - CHIP_CAP} more →</Link>}
+                      {(latest.a.tickers_bullish ?? []).length > CHIP_CAP && <Link to="/signals" style={{ color: C.textMuted, fontSize: "0.8rem", alignSelf: "center", textDecoration: "none" }}>+{(latest.a.tickers_bullish ?? []).length - CHIP_CAP} More →</Link>}
                     </div>
                     <div style={{ color: C.textMuted, fontSize: "0.72rem", textTransform: "uppercase", marginBottom: 6 }}>Bearish</div>
                     <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
                       {(latest.a.tickers_bearish ?? []).length === 0 && <span style={{ color: C.textDim, fontSize: "0.82rem" }}>none</span>}
                       {(latest.a.tickers_bearish ?? []).slice(0, CHIP_CAP).map((t) => <Chip key={t} t={t} up={false} />)}
-                      {(latest.a.tickers_bearish ?? []).length > CHIP_CAP && <Link to="/signals" style={{ color: C.textMuted, fontSize: "0.8rem", alignSelf: "center", textDecoration: "none" }}>+{(latest.a.tickers_bearish ?? []).length - CHIP_CAP} more →</Link>}
+                      {(latest.a.tickers_bearish ?? []).length > CHIP_CAP && <Link to="/signals" style={{ color: C.textMuted, fontSize: "0.8rem", alignSelf: "center", textDecoration: "none" }}>+{(latest.a.tickers_bearish ?? []).length - CHIP_CAP} More →</Link>}
                     </div>
                     <div style={{ color: C.textDim, fontSize: "0.72rem", marginTop: 12 }}>
                       Runs at 8 AM, noon and 6 PM ET.{" "}
@@ -290,7 +290,7 @@ export default function Dashboard() {
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
-              <SectionHead title="Your watchlist" to="/watchlist" linkLabel={watch ? "Manage →" : "Set up →"} />
+              <SectionHead title="Your Watchlist" to="/watchlist" linkLabel={watch ? "Manage →" : "Set Up →"} />
               {/* Fills the column to match the card on the left; longer lists scroll inside. */}
               <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 10, padding: watch && watch.length ? "0.25rem 0" : "1rem",
                             flex: "1 1 0px", minHeight: 0, overflowY: "auto" }}>
@@ -309,7 +309,7 @@ export default function Dashboard() {
                   ))
                 ) : (
                   <div style={{ color: C.textMuted, fontSize: "0.85rem", lineHeight: 1.6 }}>
-                    {watch ? "Your watchlist is empty — add tickers from any page with “+ Watch”." : "Save tickers you care about and they show up here with their current score."}
+                    {watch ? "Your watchlist is empty. Add tickers from any page with “+ Watch”." : "Save tickers you care about and they show up here with their current score."}
                   </div>
                 )}
               </div>
@@ -321,7 +321,7 @@ export default function Dashboard() {
           {/* ── Top signals + latest disclosures ──────────────────────── */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1.25rem", marginBottom: "1.75rem" }}>
             <div>
-              <SectionHead title="Top signals right now" to="/signals" />
+              <SectionHead title="Top Signals Right Now" to="/signals" />
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {topSignals.length === 0 && <div style={{ color: C.textDim, fontSize: "0.85rem" }}>No scores computed yet.</div>}
                 {topSignals.map((s) => (
@@ -340,7 +340,7 @@ export default function Dashboard() {
             </div>
 
             <div>
-              <SectionHead title="Latest disclosures" to="/feed" />
+              <SectionHead title="Latest Disclosures" to="/feed" />
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {recentTrades.length === 0 && <div style={{ color: C.textDim, fontSize: "0.85rem" }}>No trades loaded yet.</div>}
                 {recentTrades.map((t) => {
@@ -363,7 +363,7 @@ export default function Dashboard() {
           {/* ── Recent corporate insiders ──────────────────────────────── */}
           {recentInsiders.length > 0 && (
             <div style={{ marginBottom: "1.75rem" }}>
-              <SectionHead title="Recent corporate insiders" to="/insiders" />
+              <SectionHead title="Recent Corporate Insiders" to="/insiders" />
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 6 }}>
                 {recentInsiders.map((t) => (
                   <Link key={t.id} to={`/ticker/${t.ticker}`} style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 8, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, textDecoration: "none" }}>
@@ -385,10 +385,10 @@ export default function Dashboard() {
       {/* ── 30-day performance ────────────────────────────────────────── */}
       <div style={{ marginBottom: "1rem" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem", gap: 8, flexWrap: "wrap" }}>
-          <h2 style={{ fontSize: "0.95rem", fontWeight: 600, color: C.textSoft, margin: 0 }}>30-day performance of signaled tickers</h2>
+          <h2 style={{ fontSize: "0.95rem", fontWeight: 600, color: C.textSoft, margin: 0 }}>30-Day Performance of Signaled Tickers</h2>
           {perfDemo && (
             <span style={{ background: C.warningBg, color: C.warningSolid, border: "1px solid var(--c-warningDeep)", fontSize: "0.68rem", padding: "1px 8px", borderRadius: 4 }}>
-              demo data
+              Demo data
             </span>
           )}
         </div>

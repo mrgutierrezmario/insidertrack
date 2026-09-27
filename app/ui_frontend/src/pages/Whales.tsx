@@ -114,7 +114,7 @@ function SyncButton({ onRefresh }: { onRefresh: () => void }) {
       </button>
       {result && !result.error && (
         <span style={{ color: C.success, fontSize: "0.72rem" }}>
-          Sync started in the background — outcome in <Link to="/admin" style={{ color: C.accent }}>Admin → Data sources</Link>
+          Sync started in the background. See the result in <Link to="/admin" style={{ color: C.accent }}>Admin → Data Sources</Link>
         </span>
       )}
       {result?.error && <span style={{ color: C.danger, fontSize: "0.72rem" }}>{result.error}</span>}
@@ -176,11 +176,11 @@ export default function Whales() {
         <div>
           <h1>Whales</h1>
           <p style={{ color: C.textMuted, fontSize: "0.85rem", marginTop: 4 }}>
-            Institutional & billionaire 13F filings — what the big money is moving.
+            Institutional and billionaire 13F filings: what the big money is moving.
           </p>
           {latestQuarter && (
             <p style={{ color: C.textMuted, fontSize: 12, margin: "4px 0 0" }}>
-              Data through <strong style={{ color: C.textSoft }}>{latestQuarter}</strong> — 13F filings are quarterly and due 45 days after quarter end, so holdings are always at least that stale.
+              Data through <strong style={{ color: C.textSoft }}>{latestQuarter}</strong> . 13F filings are quarterly and due 45 days after quarter end, so holdings are always at least that old.
             </p>
           )}
           {lastSynced && (
@@ -194,12 +194,12 @@ export default function Whales() {
         )}
       </div>
 
-      {/* Fund track records */}
+      {/* Fund Track Records */}
       {ranked.length > 0 && (
         <div style={{ ...card, padding: "12px 16px", marginBottom: "1.5rem" }}>
-          <div style={{ color: C.textSoft, fontSize: 12, fontWeight: 600, marginBottom: 2 }}>Fund track records</div>
+          <div style={{ color: C.textSoft, fontSize: 12, fontWeight: 600, marginBottom: 2 }}>Fund Track Records</div>
           <p style={{ color: C.textMuted, fontSize: 12, margin: "0 0 8px" }}>
-            How each fund's new and increased positions did after the 13F was filed, versus SPY — at the longest of 30/60/90 days with data so far. Funds with fewer than five measured positions are left out.
+            How each fund's new and increased positions did after the 13F was filed, compared with SPY at the longest of 30, 60 or 90 days with data so far. Funds with fewer than five measured positions are left out.
           </p>
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
@@ -265,7 +265,7 @@ export default function Whales() {
                 padding: "0.4rem 0.875rem",
               }}
             >
-              View profile →
+              View Profile →
             </Link>
           </div>
         ))}
@@ -325,7 +325,7 @@ export default function Whales() {
 
       {/* Feed */}
       {loading ? (
-        <p style={{ color: C.textMuted }}>Loading...</p>
+        <p style={{ color: C.textMuted }}>Loading…</p>
       ) : feed.length === 0 ? (
         <p style={{ color: C.textDim }}>No positions match these filters.</p>
       ) : (

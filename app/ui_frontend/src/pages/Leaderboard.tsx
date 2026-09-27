@@ -53,7 +53,7 @@ export default function Leaderboard() {
       </div>
       {error && <p style={{ color: C.danger }}>{error}</p>}
       {data && data.ranked.length === 0 && !error && (
-        <p style={{ color: C.textMuted }}>No member has {data.min_trades} measured buys yet — the weekly job hasn't run, or the history is too short.</p>
+        <p style={{ color: C.textMuted }}>No member has {data.min_trades} measured buys yet. The weekly job hasn't run yet, or the history is too short.</p>
       )}
       {data && data.ranked.length > 0 && (
         <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 10, padding: "0.5rem 0.5rem 0.25rem", overflowX: "auto" }}>

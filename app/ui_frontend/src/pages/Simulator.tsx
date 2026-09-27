@@ -116,7 +116,7 @@ export default function Simulator() {
             opacity: loading ? 0.6 : 1,
           }}
         >
-          {loading ? "Calculating..." : "Project"}
+          {loading ? "Calculating…" : "Calculate"}
         </button>
       </form>
 

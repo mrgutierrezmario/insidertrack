@@ -83,7 +83,7 @@ export default function Disclaimer({ children }: DisclaimerProps) {
   }, []);
 
   const handleAgree = async () => {
-    if (email.trim() && !isValidEmail(email)) { setEmailError("Please enter a valid email address."); return; }
+    if (email.trim() && !isValidEmail(email)) { setEmailError("Enter a valid email address."); return; }
     if (wantsEmails && !email.trim()) { setEmailError("An email address is required to sign up for reports."); return; }
     if (token.trim() && !email.trim()) { setEmailError("Enter the email your watchlist is saved under."); return; }
     setEmailError("");
@@ -325,9 +325,9 @@ export default function Disclaimer({ children }: DisclaimerProps) {
               borderRadius: 6,
             }}>
               <p style={{ color: C.warningSolid, fontSize: "0.8rem", margin: 0 }}>
-                ⚠️ <strong>{email}</strong> is already registered for reports.
-                To manage or deregister, visit the{" "}
-                <strong style={{ color: C.textBright }}>Settings → Config page</strong> after logging in.
+                ⚠️ <strong>{email}</strong> is already subscribed to reports.
+                To change or cancel them, go to{" "}
+                <strong style={{ color: C.textBright }}>Settings</strong>.
               </p>
               <button
                 onClick={handleAgree}
@@ -342,7 +342,7 @@ export default function Disclaimer({ children }: DisclaimerProps) {
                   textDecoration: "underline",
                 }}
               >
-                Continue without subscribing →
+                Continue Without Subscribing →
               </button>
             </div>
           )}
@@ -370,7 +370,7 @@ export default function Disclaimer({ children }: DisclaimerProps) {
             onClick={() => { if (window.history.length > 1) window.history.back(); else window.close(); }}
             style={{ background: "none", border: "none", color: C.textDim, fontSize: "0.78rem", cursor: "pointer", padding: 0 }}
           >
-            No thanks, take me back
+            No Thanks, Take Me Back
           </button>
         </div>
 

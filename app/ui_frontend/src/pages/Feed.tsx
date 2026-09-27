@@ -245,7 +245,7 @@ export default function Feed() {
             onChange={(e) => set("risk_level", e.target.value)}
             style={inputStyle}
           >
-            <option value="">All risk</option>
+            <option value="">All risk levels</option>
             <option value="LOW">Low</option>
             <option value="MEDIUM">Medium</option>
             <option value="HIGH">High</option>
@@ -277,13 +277,13 @@ export default function Feed() {
 
       {/* Results */}
       {loading ? (
-        <p style={{ color: C.textMuted }}>Loading trades...</p>
+        <p style={{ color: C.textMuted }}>Loading trades…</p>
       ) : trades.length === 0 ? (
         <div style={{ textAlign: "center", color: C.textDim, paddingTop: "3rem" }}>
           <p>No trades match these filters.</p>
           {activeFilterCount > 0 && (
             <button onClick={clearAll} style={{ marginTop: "0.75rem", background: "none", color: C.textMuted, border: "1px solid var(--c-surfaceAlt)", borderRadius: 6, padding: "0.35rem 1rem", cursor: "pointer", fontSize: "0.85rem" }}>
-              Clear filters
+              Clear Filters
             </button>
           )}
         </div>
@@ -302,7 +302,7 @@ export default function Feed() {
                 disabled={loading}
                 style={{ background: C.surfaceAlt, color: C.textSoft, border: "1px solid var(--c-divider)", borderRadius: 6, padding: "0.5rem 1.5rem", cursor: "pointer", fontSize: "0.85rem" }}
               >
-                {loading ? "Loading…" : "Load 100 more"}
+                {loading ? "Loading…" : "Load 100 More"}
               </button>
             </div>
           )}

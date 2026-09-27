@@ -115,7 +115,7 @@ export default function Politicians() {
     <div>
       {deleteTarget && (
         <ConfirmModal
-          message={`Remove Politician — permanently delete ${deleteTarget.name} and all their trades? This cannot be undone.`}
+          message={`Permanently delete ${deleteTarget.name} and all of their trades? This can't be undone.`}
           confirmLabel="Remove Permanently"
           danger
           onConfirm={handleDeleteConfirm}
@@ -126,7 +126,7 @@ export default function Politicians() {
       <div className="page-head">
         <div>
           <h1>Politicians</h1>
-          <p>{isAdmin ? "Every member with a filed disclosure is tracked. Mute anyone whose trades should stay out of signals and alerts." : "Every member with a filed disclosure is tracked — their trades feed the signals, analysis and alerts."}</p>
+          <p>{isAdmin ? "Every member with a filed disclosure is tracked. Mute anyone whose trades should stay out of signals and alerts." : "Every member with a filed disclosure is tracked. Their trades feed the signals, analysis and alerts."}</p>
         </div>
         <div className="page-head__actions">
           <input
@@ -151,7 +151,7 @@ export default function Politicians() {
       {showAdd && (
         <form onSubmit={handleAdd}
           style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 10, padding: "1.5rem", marginBottom: "2rem" }}>
-          <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "1rem", color: C.textSoft }}>Add new politician to track</h2>
+          <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "1rem", color: C.textSoft }}>Add a Politician to Track</h2>
           {error && <p style={{ color: C.danger, marginBottom: "0.75rem", fontSize: "0.85rem" }}>{error}</p>}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "0.75rem", marginBottom: "0.75rem" }}>
             <div>
@@ -180,23 +180,23 @@ export default function Politicians() {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "0.75rem", marginBottom: "1rem" }}>
             <div>
-              <label style={{ color: C.textMuted, fontSize: "0.75rem", display: "block", marginBottom: 4 }}>Bio / description</label>
-              <textarea style={{ ...inputStyle, resize: "vertical", minHeight: 72 }} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Brief background on this person..." />
+              <label style={{ color: C.textMuted, fontSize: "0.75rem", display: "block", marginBottom: 4 }}>Bio</label>
+              <textarea style={{ ...inputStyle, resize: "vertical", minHeight: 72 }} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Brief background on this person…" />
             </div>
             <div>
               <label style={{ color: C.textMuted, fontSize: "0.75rem", display: "block", marginBottom: 4 }}>Why we track them</label>
-              <textarea style={{ ...inputStyle, resize: "vertical", minHeight: 72 }} value={form.why_tracked} onChange={(e) => setForm((f) => ({ ...f, why_tracked: e.target.value }))} placeholder="What makes their trades worth watching..." />
+              <textarea style={{ ...inputStyle, resize: "vertical", minHeight: 72 }} value={form.why_tracked} onChange={(e) => setForm((f) => ({ ...f, why_tracked: e.target.value }))} placeholder="What makes their trades worth watching…" />
             </div>
           </div>
           <button type="submit" disabled={saving}
             style={{ background: C.accentSolid, color: "#fff", border: "none", padding: "0.5rem 1.5rem", borderRadius: 6, cursor: "pointer", opacity: saving ? 0.6 : 1 }}>
-            {saving ? "Adding..." : "Add & Track"}
+            {saving ? "Adding…" : "Add & Track"}
           </button>
         </form>
       )}
 
       {loading ? (
-        <p style={{ color: C.textMuted }}>Loading...</p>
+        <p style={{ color: C.textMuted }}>Loading…</p>
       ) : (
         <>
           <PoliticianGroup title={`Tracking (${tracked.length})`} items={tracked}
@@ -204,7 +204,7 @@ export default function Politicians() {
             onCancelEdit={() => setEditId(null)} onDelete={setDeleteTarget}
             editId={editId} editNotes={editNotes} setEditNotes={setEditNotes} navigate={navigate} isAdmin={isAdmin} />
           {untracked.length > 0 && (
-            <PoliticianGroup title={`Muted — excluded from signals (${untracked.length})`} items={untracked}
+            <PoliticianGroup title={`Muted (${untracked.length})`} items={untracked}
               onTrack={handleTrack} onEdit={startEdit} onSaveEdit={saveEdit}
               onCancelEdit={() => setEditId(null)} onDelete={setDeleteTarget}
               editId={editId} editNotes={editNotes} setEditNotes={setEditNotes} navigate={navigate} isAdmin={isAdmin} muted />
@@ -276,7 +276,7 @@ function PoliticianCard({ p, muted, onTrack, onEdit, onSaveEdit, onCancelEdit, o
             </div>
           )}
           {!isEditing && !p.description && !p.why_tracked && isAdmin && (
-            <p style={{ color: "var(--c-textDim)", fontSize: "0.8rem", fontStyle: "italic" }}>No description yet — click edit to add one.</p>
+            <p style={{ color: "var(--c-textDim)", fontSize: "0.8rem", fontStyle: "italic" }}>No description yet. Click Edit to add one.</p>
           )}
         </div>
 
@@ -306,7 +306,7 @@ function PoliticianCard({ p, muted, onTrack, onEdit, onSaveEdit, onCancelEdit, o
                 value={editNotes.description} onChange={(e) => setEditNotes((n) => ({ ...n, description: e.target.value }))} />
             </div>
             <div>
-              <label style={{ color: C.textMuted, fontSize: "0.72rem", display: "block", marginBottom: 3 }}>Why we track</label>
+              <label style={{ color: C.textMuted, fontSize: "0.72rem", display: "block", marginBottom: 3 }}>Why we track them</label>
               <textarea style={{ background: C.bg, color: C.text, border: "1px solid var(--c-divider)", borderRadius: 5, padding: "0.4rem 0.6rem", fontSize: "0.82rem", width: "100%", resize: "vertical", minHeight: 72 }}
                 value={editNotes.why_tracked} onChange={(e) => setEditNotes((n) => ({ ...n, why_tracked: e.target.value }))} />
             </div>

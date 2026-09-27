@@ -104,7 +104,7 @@ export default function AiSummaryPanel({ symbol }: { symbol: string }) {
               <Section label="Bear Case" color={C.danger} text={data.bear_case} />
               <Section label="Key Risk" color={C.warning} text={data.risk_note} />
               <div style={{ color: C.textDim, fontSize: 10, marginTop: 8 }}>
-                {providerLabel(data.model)}{data.source === "own" ? " (your key)" : ""} · {data.generated_at} · Not financial advice — informational only.
+                {providerLabel(data.model)}{data.source === "own" ? " (your key)" : ""} · {data.generated_at} · Not financial advice; for information only.
                 {data.fallback && <> · {PROVIDER_LABEL[data.fallback] ?? data.fallback} was {data.fallback_reason ?? "unavailable"}, so another provider answered.</>}
               </div>
             </>

@@ -186,7 +186,7 @@ export default function Fed() {
       setOfficials(r.data as Official[]);
       setMsg("Roster refreshed.");
     } catch {
-      setMsg("Error — check backend logs.");
+      setMsg("That didn't work. Check the server logs.");
     }
   };
 
@@ -207,7 +207,7 @@ export default function Fed() {
         <div>
           <h1>Federal Reserve Officials</h1>
           <p style={{ color: C.textDim, margin: 0, fontSize: 13 }}>
-            Who sets rates — the FOMC roster, with links to each official's annual disclosure.
+            Who sets interest rates: the FOMC roster, with links to each official's annual disclosure.
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -224,7 +224,7 @@ export default function Fed() {
               data-tip="Re-applies the built-in roster (activates new members, retires departed ones)."
               style={{ background: "rgba(56,189,248,0.1)", color: C.accent, border: "1px solid rgba(56,189,248,0.3)", borderRadius: 6, padding: "6px 14px", fontSize: 12, cursor: "pointer" }}
             >
-              ↻ Refresh roster
+              ↻ Refresh Roster
             </button>
           )}
         </div>
@@ -242,7 +242,7 @@ export default function Fed() {
         Since the 2022 investment rules (a response to the 2021 trading scandal), Fed governors and reserve-bank presidents may not
         hold individual stocks, bonds or crypto, must pre-clear trades and give 45-day notice. So this page is a <em>roster</em>, not a trade feed:
         an empty transactions list is the normal, compliant state. Annual disclosures (Form 278) are published as PDFs.
-        {" "}<a href="https://www.federalreserve.gov/aboutthefed/disclosures.htm" target="_blank" rel="noopener noreferrer" style={{ color: C.accent }}>Official disclosures ↗</a>
+        {" "}<a href="https://www.federalreserve.gov/aboutthefed/disclosures.htm" target="_blank" rel="noopener noreferrer" style={{ color: C.accent }}>Official Disclosures ↗</a>
       </div>
 
       <div className="fed-grid" style={{ display: "grid", gridTemplateColumns: "clamp(220px, 28%, 300px) 1fr", gap: 20, alignItems: "start" }}>
@@ -275,7 +275,7 @@ export default function Fed() {
               fontSize: 13, fontWeight: !selectedId ? 600 : 400,
             }}
           >
-            All {ROLE_LABEL[activeTab] || "Officials"} — {displayed.length} members
+            All {ROLE_LABEL[activeTab] || "Officials"} · {displayed.length} members
           </div>
 
           {loading ? (
@@ -353,7 +353,7 @@ export default function Fed() {
           ) : trades.length === 0 ? (
             <div style={{ color: C.textDim, textAlign: "center", padding: "60px 24px", background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 12 }}>
               <div style={{ fontSize: 32, marginBottom: 12 }}>📋</div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: C.textMuted, marginBottom: 8 }}>No individual-stock transactions on record</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: C.textMuted, marginBottom: 8 }}>No individual stock transactions on record</div>
               <div style={{ fontSize: 13, color: C.textMuted, maxWidth: 360, margin: "0 auto", lineHeight: 1.6 }}>
                 That is what the rules require. If a disclosed transaction ever appears in a Form 278 or 278-T,
                 it can be entered here; until then, use the roster and the official PDF disclosures.

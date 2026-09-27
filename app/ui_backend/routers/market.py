@@ -45,7 +45,7 @@ def intraday(
     if not has_intraday():
         raise HTTPException(
             status_code=503,
-            detail="No Alpha Vantage key configured. Add ALPHA_VANTAGE_KEY to .env to enable intraday data.",
+            detail="Intraday prices aren't available right now.",
         )
     candles = get_intraday(ticker.upper(), interval)
     if not candles:

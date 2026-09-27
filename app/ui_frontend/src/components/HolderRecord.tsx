@@ -51,7 +51,7 @@ function Rows({ trades }: { trades: HolderRecordTrade[] }) {
       {trades.length > 10 && (
         <button onClick={() => setShowAll((v) => !v)}
           style={{ marginTop: 8, background: "none", border: "none", color: C.accent, cursor: "pointer", fontSize: "0.8rem", padding: 0 }}>
-          {showAll ? "Show fewer" : `Show all ${trades.length}`}
+          {showAll ? "Show Fewer" : `Show All ${trades.length}`}
         </button>
       )}
     </>
@@ -74,12 +74,12 @@ export default function HolderRecord({ holderId }: { holderId: number }) {
       .catch(() => setState("error"));
   }, [holderId]);
 
-  if (state === "loading") return <div style={{ marginBottom: "1.5rem" }}><Head>Track record — new & increased positions</Head><p style={{ color: C.textMuted, fontSize: "0.85rem" }}>Computing from price history…</p></div>;
-  if (state === "error" || !data) return <div style={{ marginBottom: "1.5rem" }}><Head>Track record — new & increased positions</Head><p style={{ color: C.textMuted, fontSize: "0.85rem" }}>Track record unavailable right now.</p></div>;
+  if (state === "loading") return <div style={{ marginBottom: "1.5rem" }}><Head>Track Record: New & Increased Positions</Head><p style={{ color: C.textMuted, fontSize: "0.85rem" }}>Computing from price history…</p></div>;
+  if (state === "error" || !data) return <div style={{ marginBottom: "1.5rem" }}><Head>Track Record: New & Increased Positions</Head><p style={{ color: C.textMuted, fontSize: "0.85rem" }}>Track record unavailable right now.</p></div>;
   if (data.buys.evaluated === 0 && data.sells.evaluated === 0) {
     return (
       <div style={{ marginBottom: "1.5rem" }}>
-        <Head>Track record — new & increased positions</Head>
+        <Head>Track Record: New & Increased Positions</Head>
         <p style={{ color: C.textMuted, fontSize: "0.85rem" }}>
           No position changes old enough to measure yet (a filing needs 30 days on the record). The first quarter a fund is tracked only establishes its holdings.
         </p>
@@ -91,9 +91,9 @@ export default function HolderRecord({ holderId }: { holderId: number }) {
     <div style={{ marginBottom: "1.5rem" }}>
       {data.buys.evaluated > 0 && (
         <>
-          <Head>Track record — new & increased positions</Head>
+          <Head>Track Record: New & Increased Positions</Head>
           <p style={{ color: C.textMuted, fontSize: "0.8rem", margin: "0 0 10px" }}>
-            {data.buys.evaluated} position{data.buys.evaluated === 1 ? "" : "s"} measured from the first close after the 13F was filed — the earliest anyone could have followed it. "vs SPY" is the return minus SPY over the same days.
+            {data.buys.evaluated} position{data.buys.evaluated === 1 ? "" : "s"} measured from the first close after the 13F was filed, the earliest anyone could have followed it. "vs SPY" is the return minus SPY over the same days.
           </p>
           <WindowCards windows={data.buys.windows} />
           <Rows trades={data.buys.trades} />
@@ -101,9 +101,9 @@ export default function HolderRecord({ holderId }: { holderId: number }) {
       )}
       {data.sells.evaluated > 0 && (
         <div style={{ marginTop: data.buys.evaluated > 0 ? "1.25rem" : 0 }}>
-          <Head>Track record — trimmed & closed positions</Head>
+          <Head>Track Record: Trimmed & Closed Positions</Head>
           <p style={{ color: C.textMuted, fontSize: "0.8rem", margin: "0 0 10px" }}>
-            {data.sells.evaluated} position{data.sells.evaluated === 1 ? "" : "s"} measured the same way. A trim was a good call if the stock then <em>fell</em> (or lagged SPY) — so here down is green.
+            {data.sells.evaluated} position{data.sells.evaluated === 1 ? "" : "s"} measured the same way. A trim was a good call if the stock then <em>fell</em> (or lagged SPY), so here down is green.
           </p>
           <WindowCards windows={data.sells.windows} invert />
           <Rows trades={data.sells.trades} />

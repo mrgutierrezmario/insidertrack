@@ -76,7 +76,7 @@ export default function OwnAiSettings({ onToast }: { onToast: (m: string) => voi
   return (
     <section style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 10, padding: "1.5rem", marginBottom: "1.5rem" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <div style={{ fontWeight: 600 }}>AI research notes</div>
+        <div style={{ fontWeight: 600 }}>AI Research Notes</div>
         {isSaved
           ? <span style={{ fontSize: "0.75rem", padding: "2px 9px", borderRadius: 4, background: C.successBg, color: C.success }}>Using your {PROVIDERS.find((p) => p.id === saved!.provider)?.label} key</span>
           : site?.configured
@@ -86,7 +86,7 @@ export default function OwnAiSettings({ onToast }: { onToast: (m: string) => voi
       <p style={{ color: C.textMuted, fontSize: "0.82rem", margin: "0.35rem 0 1rem", lineHeight: 1.55 }}>
         The bull/bear note on each ticker page is written by an AI model. Bring your own key and it runs on your account
         {site?.configured ? " instead of the site's" : ""}. The key is stored only in this browser and sent to this site over HTTPS
-        just to generate a note — it is never saved on the server.
+        just to generate a note. It's never saved on the server.
       </p>
 
       <div style={{ color: C.textMuted, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Provider</div>
@@ -97,12 +97,12 @@ export default function OwnAiSettings({ onToast }: { onToast: (m: string) => voi
       </div>
 
       <label style={{ color: C.textMuted, fontSize: "0.72rem", display: "block", marginBottom: 4 }}>
-        {meta.label} API key · <a href={meta.link} target="_blank" rel="noreferrer" style={{ color: C.accent }}>get one →</a>
+        {meta.label} API key · <a href={meta.link} target="_blank" rel="noreferrer" style={{ color: C.accent }}>Get One →</a>
       </label>
       <input type="password" value={key} placeholder={meta.placeholder} autoComplete="off" spellCheck={false}
         onChange={(e) => setKey(e.target.value)} style={{ ...inputStyle, width: "100%", marginBottom: "0.75rem" }} />
 
-      <label style={{ color: C.textMuted, fontSize: "0.72rem", display: "block", marginBottom: 4 }}>Model <span style={{ color: C.textDim }}>(optional — default {meta.defaultModel})</span></label>
+      <label style={{ color: C.textMuted, fontSize: "0.72rem", display: "block", marginBottom: 4 }}>Model <span style={{ color: C.textDim }}>(optional, default {meta.defaultModel})</span></label>
       {(() => {
         // Built-in list until a key is pasted; the provider's live list after.
         const live = models && models.length > 0;
@@ -124,7 +124,7 @@ export default function OwnAiSettings({ onToast }: { onToast: (m: string) => voi
               <input type="text" value={model} placeholder="e.g. claude-opus-5" autoFocus onChange={(e) => setModel(e.target.value)} style={{ ...inputStyle, width: "100%", marginTop: 6 }} />
             )}
             <div style={{ color: C.textDim, fontSize: "0.72rem", marginTop: 4 }}>
-              {live ? `${models!.length} models available to this key.` : key.trim().length >= 8 ? (models === null ? "Checking which models this key can use…" : "Couldn't fetch the list for this key — showing common models.") : "Common models shown; paste a key to see everything it can use."}
+              {live ? `${models!.length} models available to this key.` : key.trim().length >= 8 ? (models === null ? "Checking which models this key can use…" : "Couldn't fetch the list for this key, so common models are shown.") : "Common models shown; paste a key to see everything it can use."}
             </div>
           </div>
         );

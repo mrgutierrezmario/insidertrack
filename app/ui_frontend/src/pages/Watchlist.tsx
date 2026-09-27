@@ -194,7 +194,7 @@ export default function Watchlist() {
           />
           <button onClick={saveEmail} disabled={signingIn}
             style={{ background: C.accentSolid, color: "#fff", border: "none", borderRadius: 7, padding: "10px 18px", fontSize: 14, cursor: signingIn ? "wait" : "pointer", fontWeight: 600 }}>
-            {signingIn ? "Checking…" : tokenInput.trim() ? "Load my watchlist" : "Continue"}
+            {signingIn ? "Checking…" : tokenInput.trim() ? "Load My Watchlist" : "Continue"}
           </button>
         </div>
         <p style={{ color: C.textDim, fontSize: 12, marginTop: 10, lineHeight: 1.5 }}>
@@ -212,34 +212,34 @@ export default function Watchlist() {
   if (state === "needs_token") {
     return (
       <div style={{ maxWidth: 520, margin: "60px auto" }}>
-        <h1 style={{ color: C.textBright, fontSize: "1.4rem", marginBottom: 8 }}>Watchlist access</h1>
+        <h1 style={{ color: C.textBright, fontSize: "1.4rem", marginBottom: 8 }}>Watchlist Access</h1>
         <p style={{ color: C.textSoft, fontSize: 13, marginBottom: 16, lineHeight: 1.5 }}>
           Your watchlist for <strong style={{ color: C.text }}>{email}</strong> requires a
-          security token. We'll email a fresh token to that address — paste it below to
-          regain access.
+          security token. We'll email a new one to that address. Paste it below to
+          get back in.
         </p>
         <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
           <button
             onClick={requestRecovery}
             style={{ background: C.accentSolid, color: "#fff", border: "none", borderRadius: 7, padding: "9px 16px", fontSize: 13, cursor: "pointer", fontWeight: 600 }}>
-            Email me a new token
+            Email Me a New Token
           </button>
           <button
             onClick={switchEmail}
             style={{ background: "transparent", color: C.textSoft, border: "1px solid var(--c-divider)", borderRadius: 7, padding: "9px 16px", fontSize: 13, cursor: "pointer" }}>
-            Use a different email
+            Use a Different Email
           </button>
         </div>
         {recoveryMsg && (
           <p style={{ color: C.textSoft, fontSize: 12, marginBottom: 12 }}>{recoveryMsg}</p>
         )}
         <label style={{ display: "block", color: C.textSoft, fontSize: 12, marginBottom: 6, fontWeight: 600 }}>
-          PASTE YOUR TOKEN
+          Paste your token
         </label>
         <div style={{ display: "flex", gap: 8 }}>
           <input
             type="text"
-            placeholder="paste token from email"
+            placeholder="Paste the token from your email"
             value={pasteToken}
             onChange={(e) => setPasteToken(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") applyPastedToken(); }}
@@ -274,19 +274,19 @@ export default function Watchlist() {
             onClick={() => { setShowToken((v) => !v); setCopied(false); }}
             aria-expanded={showToken}
             style={{ background: C.surface, color: C.textMuted, border: "1px solid var(--c-divider)", borderRadius: 6, padding: "6px 12px", fontSize: 12, cursor: "pointer" }}>
-            {showToken ? "Hide my token" : "Show my token"}
+            {showToken ? "Hide My Token" : "Show My Token"}
           </button>
           <button
             onClick={switchEmail}
             style={{ background: C.surface, color: C.textMuted, border: "1px solid var(--c-divider)", borderRadius: 6, padding: "6px 12px", fontSize: 12, cursor: "pointer" }}>
-            Switch email
+            Switch Email
           </button>
         </div>
       </div>
 
       {showToken && (
         <div style={{ ...card, padding: "14px 16px", marginBottom: 20 }}>
-          <div style={{ color: C.textSoft, fontSize: 12, fontWeight: 600, marginBottom: 8 }}>YOUR WATCHLIST TOKEN</div>
+          <div style={{ color: C.textSoft, fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Your watchlist token</div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <code style={{ flex: 1, minWidth: 220, background: C.bg, color: C.text, border: "1px solid var(--c-divider)", borderRadius: 6, padding: "8px 10px", fontSize: 13, wordBreak: "break-all", userSelect: "all" }}>
               {localStorage.getItem(WATCHLIST_TOKEN_KEY) || "No token in this browser yet. Save a stock first."}
@@ -300,7 +300,7 @@ export default function Watchlist() {
           </div>
           <p style={{ color: C.textDim, fontSize: 12, margin: "10px 0 0", lineHeight: 1.5 }}>
             Paste it with {email} on another phone or computer to open this watchlist there. Unlike
-            "Email me a new token", this keeps every device signed in. Keep it private: with it and your
+            “Email Me a New Token”, this keeps every device signed in. Keep it private: with it and your
             email, anyone can change your watchlist.
           </p>
         </div>
@@ -348,7 +348,7 @@ export default function Watchlist() {
                 {it.composite_score != null && (
                   <div style={{ textAlign: "right" }}>
                     <div style={{ color: C.textBright, fontWeight: 700, fontSize: 18 }}>{it.composite_score}</div>
-                    <div style={{ color: C.textDim, fontSize: 10 }}>composite</div>
+                    <div style={{ color: C.textDim, fontSize: 10 }}>Composite</div>
                   </div>
                 )}
                 {it.current_price != null && (
@@ -370,12 +370,12 @@ export default function Watchlist() {
         return (
           <div style={{ ...card, padding: "14px 16px", marginTop: 20 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
-              <div style={{ color: C.textSoft, fontSize: 12, fontWeight: 600 }}>AI Desk calls on your tickers</div>
-              <Link to="/ai-desk" style={{ color: C.accent, fontSize: 12, textDecoration: "none" }}>All calls →</Link>
+              <div style={{ color: C.textSoft, fontSize: 12, fontWeight: 600 }}>AI Desk Calls on Your Tickers</div>
+              <Link to="/ai-desk" style={{ color: C.accent, fontSize: 12, textDecoration: "none" }}>All Calls →</Link>
             </div>
             {hits.length === 0 ? (
               <p style={{ color: C.textDim, fontSize: 12, margin: "4px 0 0" }}>
-                The AI Desk hasn't made a call on any of your tickers yet. It picks a handful each morning from the day's filings; add an alert of type "AI Desk call" to be told when one lands.
+                The AI Desk hasn't made a call on any of your tickers yet. It picks a handful each morning from the day's filings; add an “AI Desk call” alert to be told when one lands.
               </p>
             ) : (
               <>

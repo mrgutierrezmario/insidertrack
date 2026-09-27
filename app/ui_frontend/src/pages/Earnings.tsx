@@ -63,12 +63,12 @@ export default function Earnings() {
         <div>
           <h1>Earnings Calendar</h1>
           <p style={{ color: C.textDim, margin: 0, fontSize: 13 }}>
-            Upcoming earnings for tracked tickers · Nasdaq calendar · cached 24 hrs
+            Upcoming earnings for tracked tickers, from Nasdaq's calendar (updated daily)
           </p>
         </div>
         {data && !data.has_key && (
           <span style={{ color: C.warningSolid, fontSize: 12, border: "1px solid var(--c-warningDeep)", background: C.warningBg, padding: "4px 10px", borderRadius: 6 }}>
-            No AV key — add ALPHA_VANTAGE_KEY to .env
+            Basic calendar data
           </span>
         )}
       </div>
@@ -79,7 +79,7 @@ export default function Earnings() {
 
       {!loading && upcoming.length === 0 && (
         <div style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 10, padding: "1.25rem", color: C.textMuted, fontSize: "0.9rem" }}>
-          No upcoming earnings found for tracked tickers in the next 3 months. The calendar comes from Nasdaq and refreshes daily; if this persists, the Markets card in Admin → Data sources will say why.
+          No upcoming earnings found for tracked tickers in the next 3 months. The calendar comes from Nasdaq and refreshes daily; if this persists, the Markets card in Admin → Data Sources will say why.
         </div>
       )}
 

@@ -102,7 +102,7 @@ function HoldingsPanel({ holderId }: { holderId: number | null }) {
     <div style={{ borderTop: "1px solid var(--c-surfaceAlt)", padding: "12px 20px 16px" }}>
       {loading && <p style={{ color: C.textDim, fontSize: 12 }}>Loading holdings…</p>}
       {!loading && positions && items.length === 0 && (
-        <p style={{ color: C.textDim, fontSize: 12 }}>No position data yet — click "↻ Sync 13F Holdings" on the Whales page to parse holdings.</p>
+        <p style={{ color: C.textDim, fontSize: 12 }}>No holdings loaded yet. Click “↻ Sync 13F Holdings” on the Whales page.</p>
       )}
       {!loading && items.length > 0 && (
         <>
@@ -217,8 +217,8 @@ export default function Filings() {
         <div>
           <h1>SEC Filings</h1>
           <p style={{ color: C.textDim, margin: 0, fontSize: 13 }}>
-            SEC 13F-HR filings — required quarterly from funds managing &gt;$100M in US equities.
-            Data pulled live from{" "}
+            SEC 13F-HR filings, required every quarter from funds managing more than $100M in U.S. stocks.
+            Pulled live from{" "}
             <a href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&type=13F-HR" target="_blank" rel="noopener noreferrer" style={{ color: C.accent }}>
               SEC EDGAR
             </a>.
@@ -255,7 +255,7 @@ export default function Filings() {
           </div>
 
           <div style={{ marginTop: 24, padding: "14px 16px", background: C.bg, borderRadius: 8, border: "1px solid var(--c-surfaceAlt)", fontSize: 12, color: C.textDim, lineHeight: 1.6 }}>
-            <strong style={{ color: C.textMuted }}>About 13F filings:</strong> The SEC requires institutional investment managers with ≥$100M in US equity assets to file Form 13F within 45 days of each quarter end. Filings disclose long equity positions — they do not include short positions, options strategies, or non-US holdings. Each filing reflects holdings as of the quarter end date, not the current date.
+            <strong style={{ color: C.textMuted }}>About 13F filings:</strong> The SEC requires institutional investment managers with ≥$100M in US equity assets to file Form 13F within 45 days of each quarter end. Filings disclose long stock positions. They don't include short positions, options strategies, or non-US holdings. Each filing reflects holdings as of the quarter end date, not the current date.
           </div>
         </>
       )}

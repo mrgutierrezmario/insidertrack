@@ -86,7 +86,7 @@ export default function News() {
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {data && !data.has_key && (
             <span style={{ color: C.warningSolid, fontSize: 12, border: "1px solid var(--c-warningDeep)", background: C.warningBg, padding: "4px 10px", borderRadius: 6 }}>
-              No AV key — add ALPHA_VANTAGE_KEY to .env
+              Keyword sentiment only
             </span>
           )}
           <button onClick={load} disabled={loading}
