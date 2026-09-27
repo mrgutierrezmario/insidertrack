@@ -3,7 +3,6 @@ Sends analysis report emails via Gmail SMTP.
 Requires MAIL_USERNAME and MAIL_PASSWORD (Gmail App Password) in .env.
 """
 
-import html
 import logging
 import smtplib
 from email.mime.multipart import MIMEMultipart
@@ -12,14 +11,27 @@ from email.utils import formataddr
 
 from config import settings
 from models.analysis import DailyAnalysis
+from services.email_layout import (
+    DOWN_BG,
+    DOWN_FG,
+    HOLD_BG,
+    HOLD_FG,
+    LINE,
+    MUTED,
+    PAGE,
+    SITE_URL,
+    TEXT,
+    UP_BG,
+    UP_FG,
+    button,
+    e,
+    layout,
+    pill,
+    to_text,
+)
 
-
-def _e(value) -> str:
-    """HTML-escape a value before interpolating into a template string.
-    Defends against injection from any user/feed-controlled field (tickers,
-    insider names, reasons) that flows from the DB into the email body.
-    """
-    return html.escape("" if value is None else str(value), quote=True)
+# Kept for callers that import it; same escaping as email_layout.e.
+_e = e
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +49,10 @@ def _safe_from(addr: str) -> str:
 
 
 def _new_message(subject: str, from_addr: str, recipient: str, html_body: str) -> MIMEMultipart:
-    """Build the message with the shared headers (From, optional Reply-To)."""
+    """Build the message with the shared headers (From, optional Reply-To).
+
+    Plain text first, HTML second (clients show the last part they can
+    render); the text part also helps deliverability."""
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"] = _safe_from(from_addr)
@@ -45,11 +60,12 @@ def _new_message(subject: str, from_addr: str, recipient: str, html_body: str) -
     reply_to = (settings.mail_reply_to or "").replace("\r", "").replace("\n", "").strip()
     if reply_to:
         msg["Reply-To"] = reply_to
-    msg.attach(MIMEText(html_body, "html"))
+    msg.attach(MIMEText(to_text(html_body), "plain", "utf-8"))
+    msg.attach(MIMEText(html_body, "html", "utf-8"))
     return msg
 
-SIGNAL_COLOR = {"BUY": "#4ade80", "SELL": "#f87171", "HOLD": "#fbbf24"}
-SIGNAL_BG = {"BUY": "#052e16", "SELL": "#450a0a", "HOLD": "#1c1917"}
+
+SIGNAL_STYLE = {"BUY": (UP_FG, UP_BG), "SELL": (DOWN_FG, DOWN_BG), "HOLD": (HOLD_FG, HOLD_BG)}
 
 
 def _build_html(analysis: DailyAnalysis) -> str:
@@ -58,67 +74,53 @@ def _build_html(analysis: DailyAnalysis) -> str:
     bullish = analysis.tickers_bullish or []
     bearish = analysis.tickers_bearish or []
 
-    signal_rows = ""
+    th = f"padding:8px 10px;text-align:left;color:{MUTED};font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid {LINE};"
+    td = f"padding:10px;border-bottom:1px solid {LINE};vertical-align:top;"
+    rows = ""
     for s in signals:
-        signal_value = s.get("signal", "HOLD")
-        color = SIGNAL_COLOR.get(signal_value, "#fbbf24")
-        bg = SIGNAL_BG.get(signal_value, "#1c1917")
-        price = f"${_e(s['current_price'])}" if s.get("current_price") else "—"
-        insiders = _e(", ".join(s.get("insiders", []))) or "—"
-        signal_rows += f"""
-        <tr>
-          <td style="padding:10px 12px;color:#38bdf8;font-weight:700">{_e(s['ticker'])}</td>
-          <td style="padding:10px 12px">
-            <span style="background:{bg};color:{color};padding:2px 10px;border-radius:4px;font-size:12px;font-weight:700">
-              {_e(signal_value)}
-            </span>
-          </td>
-          <td style="padding:10px 12px;color:#e2e8f0">{price}</td>
-          <td style="padding:10px 12px;color:#94a3b8;font-size:13px">{_e(s.get('reason',''))}</td>
-          <td style="padding:10px 12px;color:#64748b;font-size:12px">{insiders}</td>
-        </tr>"""
+        value = s.get("signal", "HOLD")
+        fg, bg = SIGNAL_STYLE.get(value, SIGNAL_STYLE["HOLD"])
+        price = f"${e(s['current_price'])}" if s.get("current_price") else "–"
+        insiders = e(", ".join(s.get("insiders", []))) or "–"
+        rows += (
+            f"<tr>"
+            f'<td style="{td}color:{TEXT};font-weight:800;">{e(s["ticker"])}</td>'
+            f'<td style="{td}">{pill(value, fg, bg)}</td>'
+            f'<td style="{td}color:{TEXT};">{price}</td>'
+            f'<td style="{td}color:{TEXT};font-size:13px;">{e(s.get("reason", ""))}</td>'
+            f'<td style="{td}color:{MUTED};font-size:12px;">{insiders}</td>'
+            f"</tr>"
+        )
 
-    buy_chips = "".join(
-        f'<span style="background:#052e16;color:#4ade80;padding:3px 10px;border-radius:4px;margin:3px;display:inline-block">↑ {_e(t)}</span>'
-        for t in bullish
-    ) or '<span style="color:#4b5563">None</span>'
+    buys = "".join(pill(f"↑ {t}", UP_FG, UP_BG) for t in bullish) or f'<span style="color:{MUTED};">None</span>'
+    sells = "".join(pill(f"↓ {t}", DOWN_FG, DOWN_BG) for t in bearish) or f'<span style="color:{MUTED};">None</span>'
+    box = f"background:{PAGE};border:1px solid {LINE};border-radius:8px;padding:14px 16px;vertical-align:top;"
+    label = f"margin:0 0 8px;color:{MUTED};font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;"
 
-    sell_chips = "".join(
-        f'<span style="background:#450a0a;color:#f87171;padding:3px 10px;border-radius:4px;margin:3px;display:inline-block">↓ {_e(t)}</span>'
-        for t in bearish
-    ) or '<span style="color:#4b5563">None</span>'
+    body = (
+        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>'
+        f'<td width="48%" style="{box}"><p style="{label}">Buy signals</p>{buys}</td>'
+        f'<td width="4%" style="font-size:0;line-height:0;">&nbsp;</td>'
+        f'<td width="48%" style="{box}"><p style="{label}">Sell signals</p>{sells}</td>'
+        f"</tr></table>"
+    )
+    if signals:
+        body += (
+            f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;border-collapse:collapse;">'
+            f'<tr><th style="{th}">Ticker</th><th style="{th}">Signal</th><th style="{th}">Price</th>'
+            f'<th style="{th}">Reason</th><th style="{th}">Insiders</th></tr>{rows}</table>'
+        )
+    else:
+        body += f'<p style="color:{MUTED};margin:20px 0 0;">No signals yet. Sync trades from the dashboard first.</p>'
+    body += button("Open InsiderTrack", SITE_URL)
 
-    return f"""
-<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"></head>
-<body style="background:#0f1117;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;padding:0">
-  <div style="max-width:680px;margin:0 auto;padding:32px 24px">
-
-    <div style="margin-bottom:24px">
-      <span style="color:#38bdf8;font-size:20px;font-weight:700">📈 InsiderTrack</span>
-      <span style="color:#64748b;font-size:14px;margin-left:12px">{_e(period_label)} Report · {_e(analysis.analysis_date)}</span>
-    </div>
-
-    <div style="display:flex;gap:16px;margin-bottom:24px">
-      <div style="background:#161b27;border:1px solid #1e2533;border-radius:8px;padding:16px;flex:1">
-        <div style="color:#64748b;font-size:11px;text-transform:uppercase;margin-bottom:8px">Buy signals</div>
-        {buy_chips}
-      </div>
-      <div style="background:#161b27;border:1px solid #1e2533;border-radius:8px;padding:16px;flex:1">
-        <div style="color:#64748b;font-size:11px;text-transform:uppercase;margin-bottom:8px">Sell signals</div>
-        {sell_chips}
-      </div>
-    </div>
-
-    {"<table style='width:100%;border-collapse:collapse;background:#161b27;border:1px solid #1e2533;border-radius:8px;overflow:hidden'><thead><tr style='border-bottom:1px solid #1e2533'><th style='padding:10px 12px;text-align:left;color:#64748b;font-size:11px;text-transform:uppercase'>Ticker</th><th style='padding:10px 12px;text-align:left;color:#64748b;font-size:11px;text-transform:uppercase'>Signal</th><th style='padding:10px 12px;text-align:left;color:#64748b;font-size:11px;text-transform:uppercase'>Price</th><th style='padding:10px 12px;text-align:left;color:#64748b;font-size:11px;text-transform:uppercase'>Reason</th><th style='padding:10px 12px;text-align:left;color:#64748b;font-size:11px;text-transform:uppercase'>Insiders</th></tr></thead><tbody>" + signal_rows + "</tbody></table>" if signals else "<p style='color:#4b5563;text-align:center;padding:32px'>No signals yet — sync trades from the dashboard first.</p>"}
-
-    <div style="margin-top:32px;padding-top:16px;border-top:1px solid #1e2533;color:#4b5563;font-size:12px;text-align:center">
-      InsiderTrack · Based on public STOCK Act disclosures · Not financial advice
-    </div>
-  </div>
-</body>
-</html>"""
+    return layout(
+        f"{period_label} report · {analysis.analysis_date}",
+        body,
+        eyebrow="InsiderTrack report",
+        preheader=f"{len(bullish)} bullish, {len(bearish)} bearish",
+        footer_note="Based on public STOCK Act and SEC disclosures. Not financial advice.",
+    )
 
 
 def send_report(analysis: DailyAnalysis, recipients: list[str]) -> bool:
@@ -128,7 +130,7 @@ def send_report(analysis: DailyAnalysis, recipients: list[str]) -> bool:
         logger.warning("Email not configured — skipping report send. Add MAIL_PASSWORD to .env.")
         return False
 
-    subject = f"InsiderTrack {analysis.period.capitalize()} Report — {analysis.analysis_date}"
+    subject = f"InsiderTrack {analysis.period} report · {analysis.analysis_date}"
     html = _build_html(analysis)
     from_addr = settings.mail_from or settings.mail_username
 
@@ -153,13 +155,27 @@ def send_admin_email(subject: str, html_body: str) -> bool:
     to = settings.mail_admin_to or settings.mail_from or settings.mail_username
     if not to:
         return False
-    return send_simple_email(subject, html_body, [to])
+    return send_simple_email(subject, html_body, [to], eyebrow="Admin notice")
 
 
-def send_simple_email(subject: str, html_body: str, recipients: list[str]) -> bool:
-    """Send a plain HTML email — used for alert notifications."""
+def send_simple_email(
+    subject: str,
+    html_body: str,
+    recipients: list[str],
+    *,
+    title: str | None = None,
+    eyebrow: str = "",
+    preheader: str = "",
+    footer_note: str = "",
+) -> bool:
+    """Send one email. ``html_body`` is a fragment; it goes out in the shared
+    layout (a full document passed in is sent as is)."""
     if not recipients:
         return True
+    if not html_body.lstrip().lower().startswith("<!doctype"):
+        html_body = layout(
+            title or subject, html_body, eyebrow=eyebrow, preheader=preheader, footer_note=footer_note
+        )
     if not settings.mail_username or not settings.mail_password:
         logger.warning("Email not configured — skipping alert email.")
         return False

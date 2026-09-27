@@ -194,28 +194,41 @@ def _source_health_job():
     errors = error_summary(24)
     if not issues and errors["count"] == 0:
         return
+    from services.email_layout import DOWN_BG, DOWN_FG, HOLD_BG, HOLD_FG, LINE, MUTED, TEXT, pill
+    from services.email_layout import e as esc
+
     err_html = ""
     if errors["count"]:
-        by_type = ", ".join(f"{k} ×{v}" for k, v in errors["by_type"].items())
-        latest = "".join(f"<li>{e['at']} — {e['type']} on {e['where']} (rid {e['rid']})</li>" for e in errors["latest"])
-        err_html = (f"<p><b>{errors['count']} unhandled exception(s)</b> in the last 24 h: {by_type}.</p>"
-                    f"<ul>{latest}</ul><p>Details: <code>docker compose -f deploy/compose.yml logs app | grep rid=…</code></p>")
+        by_type = ", ".join(f"{esc(k)} ×{esc(v)}" for k, v in errors["by_type"].items())
+        latest = "".join(
+            f"<li>{esc(x['at'])}: {esc(x['type'])} on {esc(x['where'])} (rid {esc(x['rid'])})</li>"
+            for x in errors["latest"]
+        )
+        err_html = (
+            f"<p style=\"margin:16px 0 6px;\"><b>{esc(errors['count'])} unhandled exception(s)</b> in the last 24 h: {by_type}.</p>"
+            f'<ul style="margin:0 0 10px;padding-left:20px;color:{TEXT};font-size:14px;">{latest}</ul>'
+            f'<p style="margin:0;color:{MUTED};font-size:13px;">Details: <code>docker compose -f deploy/compose.yml logs app | grep rid=…</code></p>'
+        )
     if not issues:
         send_admin_email(f"InsiderTrack: {errors['count']} unhandled exception(s) today", err_html)
         return
+    cell = f"padding:8px;border-bottom:1px solid {LINE};vertical-align:top;font-size:13px;color:{TEXT};"
+    head = f"padding:8px;text-align:left;color:{MUTED};font-size:11px;font-weight:700;text-transform:uppercase;border-bottom:1px solid {LINE};"
     rows = "".join(
-        f"<tr><td>{i['label']}</td><td><b>{i['status']}</b></td>"
-        f"<td>{i.get('last_success_at') or '—'}</td><td>{i.get('last_new_rows_at') or '—'}</td>"
-        f"<td>{i.get('last_error') or ''}</td></tr>"
+        f'<tr><td style="{cell}font-weight:700;">{esc(i["label"])}</td>'
+        f'<td style="{cell}">{pill(i["status"], *( (DOWN_FG, DOWN_BG) if i["status"] == "failing" else (HOLD_FG, HOLD_BG) ))}</td>'
+        f'<td style="{cell}">{esc(i.get("last_success_at") or "–")}</td>'
+        f'<td style="{cell}">{esc(i.get("last_new_rows_at") or "–")}</td>'
+        f'<td style="{cell}color:{MUTED};">{esc(i.get("last_error") or "")}</td></tr>'
         for i in issues
     )
     html = (
-        "<p>These data sources need a look:</p>"
-        "<table border='1' cellpadding='6' style='border-collapse:collapse'>"
-        "<tr><th>Source</th><th>Status</th><th>Last success</th><th>Last new rows</th><th>Last error</th></tr>"
-        f"{rows}</table>"
-        "<p><i>failing</i> = the last "
-        f"{source_health.FAILING_AFTER}+ runs raised; <i>stale</i> = runs succeed but no new rows "
+        "<p style=\"margin:0 0 14px;\">These data sources need a look:</p>"
+        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">'
+        f'<tr><th style="{head}">Source</th><th style="{head}">Status</th><th style="{head}">Last success</th>'
+        f'<th style="{head}">Last new rows</th><th style="{head}">Last error</th></tr>{rows}</table>'
+        f'<p style="margin:14px 0 0;color:{MUTED};font-size:13px;"><i>failing</i>: the last '
+        f"{source_health.FAILING_AFTER}+ runs raised. <i>stale</i>: runs succeed but no new rows "
         "for longer than expected (a site change the parser silently misses looks exactly like this).</p>"
         + err_html
     )

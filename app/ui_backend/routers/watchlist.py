@@ -360,19 +360,30 @@ def recover_watchlist_token(
 
     # Best-effort email send. We do not surface delivery failures to the client.
     try:
+        from services.email_layout import LINE, MUTED, PAGE, SITE_URL, TEXT, button, e
         from services.email_sender import send_simple_email
-        import html as _html
-        # `new_token` is from secrets.token_urlsafe — already HTML-safe, but escape
-        # defensively in case the implementation ever changes.
+
+        # `new_token` is from secrets.token_urlsafe (already HTML-safe), but it
+        # is escaped anyway in case that ever changes. The bare <code> tag is
+        # what tests/test_watchlist.py reads the token back from.
         body = (
-            "<p>You requested a new watchlist access token for InsiderTrack.</p>"
-            f"<p><strong>Token:</strong> <code>{_html.escape(new_token)}</code></p>"
-            "<p>Paste it into the InsiderTrack watchlist page to regain access. "
-            "Any prior token for this email is now invalid.</p>"
-            "<p>If you did not request this, you can ignore this email — your "
-            "watchlist data has not been disclosed.</p>"
+            "<p style=\"margin:0 0 14px;\">You asked for a new access token for your InsiderTrack watchlist.</p>"
+            f'<div style="margin:0 0 14px;padding:14px 16px;background:{PAGE};border:1px solid {LINE};'
+            f'border-radius:8px;font-family:Menlo,Consolas,monospace;font-size:15px;color:{TEXT};word-break:break-all;">'
+            f"<code>{e(new_token)}</code></div>"
+            "<p style=\"margin:0;\">Paste it into the watchlist page to get back in. Any earlier token for "
+            "this email address no longer works.</p>"
+            + button("Open your watchlist", f"{SITE_URL}/watchlist")
+            + f'<p style="margin:16px 0 0;color:{MUTED};font-size:13px;">Didn\'t ask for this? You can ignore '
+            "this email. Your watchlist hasn't been shared with anyone.</p>"
         )
-        send_simple_email("InsiderTrack — watchlist access token", body, [email])
+        send_simple_email(
+            "Your InsiderTrack watchlist access token",
+            body,
+            [email],
+            title="Your watchlist access token",
+            eyebrow="InsiderTrack watchlist",
+        )
     except Exception:
         logger.exception("Failed to send watchlist recovery email to %s", email)
 

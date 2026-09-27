@@ -258,19 +258,26 @@ def _send_notifications(db: Session, rules: list[AlertRule], new_events: list[di
     except Exception:
         return
 
-    import html as _html
+    from services.email_layout import LINE, MUTED, SITE_URL, TEXT, button, e
+
     for email, events in by_rule_email.items():
         rows = "".join(
-            f'<tr><td style="padding:8px 12px;color:#38bdf8;font-weight:700">{_html.escape(str(e.get("ticker", "")))}</td>'
-            f'<td style="padding:8px 12px;color:#94a3b8;font-size:13px">{_html.escape(str(e.get("message", "")))}</td></tr>'
-            for e in events
+            f'<tr><td style="padding:10px;border-bottom:1px solid {LINE};color:{TEXT};font-weight:800;vertical-align:top;">{e(ev.get("ticker", ""))}</td>'
+            f'<td style="padding:10px;border-bottom:1px solid {LINE};color:{TEXT};font-size:14px;">{e(ev.get("message", ""))}</td></tr>'
+            for ev in events
         )
-        body = f"""<div style="background:#0f1117;padding:24px;font-family:-apple-system,sans-serif">
-        <div style="max-width:600px;margin:0 auto">
-        <h2 style="color:#38bdf8">InsiderTrack Alerts</h2>
-        <p style="color:#64748b">{len(events)} alert(s) triggered.</p>
-        <table style="width:100%;border-collapse:collapse;background:#161b27;border:1px solid #1e2533;border-radius:8px">
-        {rows}</table>
-        <p style="color:#4b5563;font-size:12px;margin-top:16px">Not financial advice. Based on delayed public disclosures.</p>
-        </div></div>"""
-        send_simple_email(f"InsiderTrack — {len(events)} new alert(s)", body, [email])
+        n = len(events)
+        body = (
+            f'<p style="margin:0 0 14px;color:{MUTED};">{n} of your alert rule{"s" if n != 1 else ""} matched new disclosures.</p>'
+            f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid {LINE};border-collapse:collapse;">{rows}</table>'
+            + button("Open your alerts", f"{SITE_URL}/alerts")
+        )
+        send_simple_email(
+            f"InsiderTrack: {n} new alert{'s' if n != 1 else ''}",
+            body,
+            [email],
+            title=f"{n} new alert{'s' if n != 1 else ''}",
+            eyebrow="InsiderTrack alerts",
+            preheader=", ".join(str(ev.get("ticker", "")) for ev in events[:6]),
+            footer_note="Based on delayed public disclosures. Not financial advice.",
+        )
