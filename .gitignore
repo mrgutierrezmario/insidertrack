@@ -21,3 +21,7 @@ backups/
 # personal Claude Code settings
 .claude/
 design/linkedin/
+
+# personal notes — kept in the private notes repo, not published
+CHECKPOINT.md
+linkedin-guide.md

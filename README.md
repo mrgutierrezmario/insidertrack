@@ -168,8 +168,9 @@ docker compose -f deploy/compose.yml logs -f app
   network namespace is gone and restarts itself onto the new one.
 - CI pushes the same image to GHCR — `ghcr.io/mrgutierrezmario/insidertrack`
   (`:main` follows the branch, `:1.2.3`-style tags are releases, amd64 and
-  arm64). A staging copy restored nightly from the off-site backup runs on
-  Kubernetes from [homelab-gitops](https://github.com/mrgutierrezmario/homelab-gitops).
+  arm64). A staging copy, restored from the nightly off-site backup, ran on
+  Kubernetes from [homelab-gitops](https://github.com/mrgutierrezmario/homelab-gitops);
+  it is paused (since 2026-09-23) until it moves to its own machine.
 
 ## First Use
 
