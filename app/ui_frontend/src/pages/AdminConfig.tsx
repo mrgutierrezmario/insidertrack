@@ -293,7 +293,7 @@ function AdminPanel() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.25rem" }}>
         <div>
           <h1>🔐 Admin Panel</h1>
-          <p style={{ color: C.textMuted, fontSize: "0.85rem" }}>M.G. Network &amp; Technology Solutions</p>
+          <p style={{ color: C.textMuted, fontSize: "0.85rem" }}>M.G. Network and Technology Solutions</p>
         </div>
         <button
           onClick={() => { adminLogout(); sessionStorage.removeItem(ADMIN_SESSION_KEY); sessionStorage.removeItem(ADMIN_TOKEN_KEY); notifyAdminChange(); navigate("/config"); }}

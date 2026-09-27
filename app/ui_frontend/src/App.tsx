@@ -179,7 +179,7 @@ function Drawer({ open, onClose, alerts }: { open: boolean; onClose: () => void;
           <img src="/logo-mark.svg" alt="" />
           <div>
             <div>Insider<b>Track</b></div>
-            <small>M.G. Network &amp; Technology Solutions · v{__APP_VERSION__} · <a href="/guide" style={{ color: "inherit" }}>Guide</a> · <a href="/privacy" style={{ color: "inherit" }}>Privacy</a></small>
+            <small>M.G. Network and Technology Solutions · v{__APP_VERSION__} · <a href="/guide" style={{ color: "inherit" }}>Guide</a> · <a href="/privacy" style={{ color: "inherit" }}>Privacy</a></small>
           </div>
         </div>
       </div>
@@ -201,7 +201,7 @@ export default function App() {
           <img src="/logo-mark.svg" alt="" />
           <span className="appbar__wordmark">
             <span>Insider<b>Track</b></span>
-            <small>M.G. Network &amp; Technology Solutions</small>
+            <small>M.G. Network and Technology Solutions</small>
           </span>
         </Link>
 
@@ -257,7 +257,7 @@ export default function App() {
       </main>
 
       <footer className="site-footer">
-        © {new Date().getFullYear()} M.G. Network &amp; Technology Solutions · Public filings only · Not financial advice
+        © {new Date().getFullYear()} M.G. Network and Technology Solutions · Public filings only · Not financial advice
       </footer>
     </Disclaimer>
   );

@@ -352,7 +352,7 @@ export default function Disclaimer({ children }: DisclaimerProps) {
         </div>
 
         <p style={{ color: C.textDim, fontSize: "0.68rem", marginTop: "1rem" }}>
-          © {new Date().getFullYear()} M.G. Network &amp; Technology Solutions. All rights reserved.
+          © {new Date().getFullYear()} M.G. Network and Technology Solutions. All rights reserved.
         </p>
       </div>
     </div>

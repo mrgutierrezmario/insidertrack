@@ -236,7 +236,7 @@ export default function Config() {
         <a href="/guide" target="_blank" rel="noreferrer" style={{ color: C.textMuted }}>User guide</a> ·{" "}
         <a href="/privacy" target="_blank" rel="noreferrer" style={{ color: C.textMuted }}>Privacy</a>
         <br />
-        InsiderTrack <span data-tip="Application version">v{__APP_VERSION__}</span> · M.G. Network &amp; Technology Solutions ·{" "}
+        InsiderTrack <span data-tip="Application version">v{__APP_VERSION__}</span> · M.G. Network and Technology Solutions ·{" "}
         <a href="https://github.com/mrgutierrezmario/insidertrack" target="_blank" rel="noreferrer" style={{ color: C.textMuted }}>source</a> ·{" "}
         <a href="https://github.com/mrgutierrezmario/insidertrack/blob/main/LICENSE" target="_blank" rel="noreferrer" style={{ color: C.textMuted }}>PolyForm Noncommercial 1.0.0</a>
       </p>
