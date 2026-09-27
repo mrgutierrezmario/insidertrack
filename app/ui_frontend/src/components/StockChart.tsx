@@ -37,9 +37,20 @@ function toChartTime(timeStr: string | undefined): ChartTime {
   return Math.floor(new Date(timeStr.replace(" ", "T")).getTime() / 1000);
 }
 
-function timeToMs(t: ChartTime): number {
-  if (typeof t === "string") return new Date(t + "T00:00:00").getTime();
-  return t * 1000;
+// lightweight-charts may report a time as the string we gave it, a UNIX
+// timestamp, or (v5, for "YYYY-MM-DD" data) a { year, month, day } object.
+interface BusinessDay { year: number; month: number; day: number }
+function fromLibTime(t: ChartTime | BusinessDay): ChartTime {
+  if (t && typeof t === "object") {
+    return `${t.year}-${String(t.month).padStart(2, "0")}-${String(t.day).padStart(2, "0")}`;
+  }
+  return t;
+}
+
+function timeToMs(t: ChartTime | BusinessDay): number {
+  const v = fromLibTime(t);
+  if (typeof v === "string") return new Date(v + "T00:00:00").getTime();
+  return v * 1000;
 }
 
 function findNearest(points: Candle[] | null | undefined, targetMs: number): Candle | null {
@@ -131,7 +142,8 @@ export default function StockChart({ data, height = 300, interactive = false, ti
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     import("lightweight-charts").then((lc: any) => {
-      const { createChart, CrosshairMode } = lc;
+      // lightweight-charts v5: addSeries(<type>, options) replaces addCandlestickSeries().
+      const { createChart, CrosshairMode, CandlestickSeries } = lc;
       if (!containerRef.current) return;
 
       chart = createChart(containerRef.current, {
@@ -151,7 +163,7 @@ export default function StockChart({ data, height = 300, interactive = false, ti
 
       chartRef.current = chart;
 
-      const candleSeries = chart.addCandlestickSeries({
+      const candleSeries = chart.addSeries(CandlestickSeries, {
         upColor: R.success, downColor: R.danger,
         borderUpColor: R.success, borderDownColor: R.danger,
         wickUpColor: R.success, wickDownColor: R.danger,
@@ -173,7 +185,7 @@ export default function StockChart({ data, height = 300, interactive = false, ti
           return;
         }
         const candle = param.seriesData.get(candleSeries) as Candle | undefined;
-        renderCandleTooltip(tooltip, candle, param.time, param.point.x, param.point.y, height, containerRef.current?.clientWidth ?? 300);
+        renderCandleTooltip(tooltip, candle, fromLibTime(param.time), param.point.x, param.point.y, height, containerRef.current?.clientWidth ?? 300);
       });
 
       // ── Mobile: direct touch → find nearest candle ────────────────
@@ -186,7 +198,8 @@ export default function StockChart({ data, height = 300, interactive = false, ti
         const x = touch.clientX - rect.left;
         const y = touch.clientY - rect.top;
 
-        const t = chartRef.current.timeScale().coordinateToTime(x) as ChartTime | null;
+        const raw = chartRef.current.timeScale().coordinateToTime(x) as ChartTime | BusinessDay | null;
+        const t = raw == null ? null : fromLibTime(raw);
         if (!t) return;
         const targetMs = timeToMs(t);
 

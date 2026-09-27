@@ -85,6 +85,15 @@ export default function Watchlist() {
   useEffect(() => { if (email) load(email); }, [email]);
 
   const [tokenInput, setTokenInput] = useState("");
+  // "Show my token": copy this browser's token to another device without
+  // requesting a new one (which would sign this device out).
+  const [showToken, setShowToken] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copyToken = async () => {
+    const t = localStorage.getItem(WATCHLIST_TOKEN_KEY) || "";
+    try { await navigator.clipboard.writeText(t); setCopied(true); setTimeout(() => setCopied(false), 2000); }
+    catch { /* clipboard blocked: the token is visible to select by hand */ }
+  };
   const [signingIn, setSigningIn] = useState(false);
 
   const saveEmail = async () => {
@@ -262,12 +271,40 @@ export default function Watchlist() {
             ↻ Refresh
           </button>
           <button
+            onClick={() => { setShowToken((v) => !v); setCopied(false); }}
+            aria-expanded={showToken}
+            style={{ background: C.surface, color: C.textMuted, border: "1px solid var(--c-divider)", borderRadius: 6, padding: "6px 12px", fontSize: 12, cursor: "pointer" }}>
+            {showToken ? "Hide my token" : "Show my token"}
+          </button>
+          <button
             onClick={switchEmail}
             style={{ background: C.surface, color: C.textMuted, border: "1px solid var(--c-divider)", borderRadius: 6, padding: "6px 12px", fontSize: 12, cursor: "pointer" }}>
             Switch email
           </button>
         </div>
       </div>
+
+      {showToken && (
+        <div style={{ ...card, padding: "14px 16px", marginBottom: 20 }}>
+          <div style={{ color: C.textSoft, fontSize: 12, fontWeight: 600, marginBottom: 8 }}>YOUR WATCHLIST TOKEN</div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <code style={{ flex: 1, minWidth: 220, background: C.bg, color: C.text, border: "1px solid var(--c-divider)", borderRadius: 6, padding: "8px 10px", fontSize: 13, wordBreak: "break-all", userSelect: "all" }}>
+              {localStorage.getItem(WATCHLIST_TOKEN_KEY) || "No token in this browser yet. Save a stock first."}
+            </code>
+            {localStorage.getItem(WATCHLIST_TOKEN_KEY) && (
+              <button onClick={copyToken}
+                style={{ background: C.accentSolid, color: "#fff", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 12, cursor: "pointer", fontWeight: 600 }}>
+                {copied ? "✓ Copied" : "Copy"}
+              </button>
+            )}
+          </div>
+          <p style={{ color: C.textDim, fontSize: 12, margin: "10px 0 0", lineHeight: 1.5 }}>
+            Paste it with {email} on another phone or computer to open this watchlist there. Unlike
+            "Email me a new token", this keeps every device signed in. Keep it private: with it and your
+            email, anyone can change your watchlist.
+          </p>
+        </div>
+      )}
 
       {/* Add ticker */}
       <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>

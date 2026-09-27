@@ -44,9 +44,20 @@ const PALETTE = [
   "#60a5fa", "#e879f9",
 ];
 
-function timeToMs(t: ChartTime): number {
-  if (typeof t === "string") return new Date(t + "T00:00:00").getTime();
-  return t * 1000;
+// lightweight-charts may report a time as the string we gave it, a UNIX
+// timestamp, or (v5, for "YYYY-MM-DD" data) a { year, month, day } object.
+interface BusinessDay { year: number; month: number; day: number }
+function fromLibTime(t: ChartTime | BusinessDay): ChartTime {
+  if (t && typeof t === "object") {
+    return `${t.year}-${String(t.month).padStart(2, "0")}-${String(t.day).padStart(2, "0")}`;
+  }
+  return t;
+}
+
+function timeToMs(t: ChartTime | BusinessDay): number {
+  const v = fromLibTime(t);
+  if (typeof v === "string") return new Date(v + "T00:00:00").getTime();
+  return v * 1000;
 }
 
 function findNearest<T extends { time: ChartTime }>(points: T[] | null | undefined, targetMs: number): T | null {
@@ -139,7 +150,9 @@ export default function LineChart({ series, height = 300, normalized = false, in
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     import("lightweight-charts").then((lc: any) => {
-      const { createChart, CrosshairMode } = lc;
+      // lightweight-charts v5: series are added with addSeries(<type>, options);
+      // the v4 addLineSeries() no longer exists (calling it left this chart blank).
+      const { createChart, CrosshairMode, LineSeries } = lc;
       if (!containerRef.current) return;
 
       chart = createChart(containerRef.current, {
@@ -165,7 +178,7 @@ export default function LineChart({ series, height = 300, normalized = false, in
         const base = normalized ? data[0].value : null;
         const color = resolveCss(PALETTE[i % PALETTE.length]);
 
-        const seriesApi = chart.addLineSeries({
+        const seriesApi = chart.addSeries(LineSeries, {
           color,
           lineWidth: 2,
           title: label,
@@ -196,7 +209,7 @@ export default function LineChart({ series, height = 300, normalized = false, in
           if (tooltip) tooltip.style.display = "none";
           return;
         }
-        const dateStr = new Date(param.time + "T00:00:00").toLocaleDateString("en-US", {
+        const dateStr = new Date(timeToMs(param.time)).toLocaleDateString("en-US", {
           month: "short", day: "numeric", year: "numeric",
         });
         renderTooltip(
@@ -220,7 +233,8 @@ export default function LineChart({ series, height = 300, normalized = false, in
         const x = touch.clientX - rect.left;
         const y = touch.clientY - rect.top;
 
-        const t = chartRef.current.timeScale().coordinateToTime(x) as ChartTime | null;
+        const raw = chartRef.current.timeScale().coordinateToTime(x) as ChartTime | BusinessDay | null;
+        const t = raw == null ? null : fromLibTime(raw);
         if (!t) return;
         const targetMs = timeToMs(t);
 
