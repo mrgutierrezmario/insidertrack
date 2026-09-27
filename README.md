@@ -17,7 +17,8 @@ own machine from free public data sources; cloud AI providers are optional.
 
 **By M.G. Network and Technology Solutions.**
 
-**Live site: [mgnts-stock-tracker.tail3659a6.ts.net](https://mgnts-stock-tracker.tail3659a6.ts.net)** — no
+**Live site: [insidertrack.mgnetsolutions.com](https://insidertrack.mgnetsolutions.com)**
+(also at [mgnts-stock-tracker.tail3659a6.ts.net](https://mgnts-stock-tracker.tail3659a6.ts.net)) — no
 account needed; it runs on a Mac mini at home, so if it is ever down, it is
 being worked on.
 
@@ -35,7 +36,7 @@ being worked on.
 | Outcomes | Daily snapshots of every score, filled at 30/60/90 days, so the hit-rate of each label is a number rather than a claim |
 | AI Desk | Each morning the site's AI model reads the day's disclosures and makes 3–5 directional calls — which are then scored at 30/60/90 days against SPY exactly like the members' trades. A scorecard, not a forecast |
 | Also | Alerts (rules + digest email), investment simulator vs SPY, watchlist and email reports, earnings calendar, AI research notes per ticker (site key or bring your own) |
-| Runs as | A Docker Compose stack (Postgres, app, Tailscale sidecar) with a fixed public HTTPS URL via Tailscale Funnel — free, no domain needed |
+| Runs as | A Docker Compose stack (Postgres, app, Tailscale sidecar) with a fixed public HTTPS URL via Tailscale Funnel — free, no domain needed — plus an optional custom domain through Cloudflare Tunnel |
 | Docs in the app | `/guide` (how to read every page and the score) and `/privacy` (exactly what the site stores about a visitor), linked from Settings and the phone menu |
 | Operations | Per-source scraper health with a daily notice when a government site changes under you; encrypted off-site backups with a scripted restore; CI on every push; Dependabot; [`deploy/OPERATIONS.md`](deploy/OPERATIONS.md) is the operator's to-do list |
 
@@ -149,6 +150,12 @@ docker compose -f deploy/compose.yml logs -f app
   `TS_AUTHKEY`). If the database is empty and `deploy/state/` contains a
   `*.dump` (pg_dump custom format), the newest one is restored automatically.
 - Local access without Funnel: `http://localhost:${APP_PORT}` (default 8013).
+- Optional custom domain: `deploy/cloudflared.yml` runs a Cloudflare Tunnel
+  inside the same network namespace, so no port is opened and the app still
+  sees each visitor's IP. Off by default; set `COMPOSE_PROFILES=cloudflare`
+  and `CLOUDFLARED_CREDENTIALS` in `deploy/.env` (create the tunnel and its
+  DNS record with `cloudflared tunnel create` / `route dns`, and put its ID in
+  `cloudflared.yml`). `/mcp` is only routed through Funnel.
 - The app's own nightly `pg_dump` (04:00 ET, last 7 kept) lands in the `backups`
   volume: `docker compose -f deploy/compose.yml exec app ls /backups`. That
   copy dies with the Docker host, so there is also a **host-side, off-site

@@ -117,6 +117,10 @@ saying what failed; Dependabot will not reopen it.
    `docker compose -f deploy/compose.yml logs --tail=50 tailscale`, and check
    the machine in the Tailscale admin console. If the Tailscale container
    restarted, the app notices within ~45 s and restarts itself.
+   Only insidertrack.mgnetsolutions.com down, the ts.net URL fine →
+   the Cloudflare tunnel: `docker compose -f deploy/compose.yml logs --tail=50 cloudflared`.
+   After a Tailscale restart, restart it too (it shares that container's
+   network): `docker compose -f deploy/compose.yml up -d --no-deps --force-recreate cloudflared`.
 5. Still stuck → `deploy/stop.sh && deploy/start.sh` restarts the whole stack
    without touching data.
 
@@ -200,4 +204,5 @@ refuses everything. It reads the public API only.
 | Rollback DB snapshots | `deploy/state/*.dump` (restored automatically only into an empty database) |
 | App log | `docker compose -f deploy/compose.yml logs app` |
 | MCP tokens | `MCP_TOKENS` in `deploy/.env`; MCP log: `… logs mcp` |
+| Custom domain | `insidertrack.mgnetsolutions.com` — Cloudflare tunnel `insidertrack` (`deploy/cloudflared.yml`); credentials `~/.cloudflared/insidertrack.json`, outside the repo |
 | Version running | Settings footer, or `/health` |

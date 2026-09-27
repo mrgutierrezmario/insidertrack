@@ -1,0 +1,16 @@
+# Cloudflare Tunnel: insidertrack.mgnetsolutions.com → the app, with no open
+# ports on the Mac. Optional — the `cloudflare` compose profile runs it (see
+# compose.yml); the Funnel URL keeps working alongside it.
+#
+# The tunnel shares the tailscale container's network namespace, like the app,
+# so it reaches the app on 127.0.0.1 — the proxy address TRUSTED_PROXIES already
+# trusts, so rate limits and the terms gate still see each visitor's own IP.
+# Only the site is routed here; /mcp stays on the Funnel URL.
+# The credentials file lives outside the repo (CLOUDFLARED_CREDENTIALS).
+tunnel: 8cf28f4e-43ba-4637-9cfc-615d7b6f0621
+credentials-file: /etc/cloudflared/credentials.json
+no-autoupdate: true
+ingress:
+  - hostname: insidertrack.mgnetsolutions.com
+    service: http://127.0.0.1:8003
+  - service: http_status:404

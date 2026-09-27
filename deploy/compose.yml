@@ -3,7 +3,8 @@
 #
 # Public URL: Tailscale Funnel on the `tailscale` service. The app shares its
 # network namespace, so Funnel proxies to localhost:8003 and the app still
-# reaches postgres by name through that namespace.
+# reaches postgres by name through that namespace. Optionally also a custom
+# domain through Cloudflare Tunnel (the `cloudflare` profile, cloudflared.yml).
 
 name: stock-tracker
 
@@ -128,6 +129,25 @@ services:
     depends_on:
       app:
         condition: service_started
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  # Optional custom domain (insidertrack.mgnetsolutions.com) via Cloudflare
+  # Tunnel — see cloudflared.yml. Off unless COMPOSE_PROFILES=cloudflare and
+  # CLOUDFLARED_CREDENTIALS are set in deploy/.env.
+  cloudflared:
+    image: cloudflare/cloudflared:2026.9.3
+    profiles: [cloudflare]
+    restart: *restart
+    network_mode: service:tailscale
+    command: tunnel --config /etc/cloudflared/config.yml run
+    depends_on:
+      app:
+        condition: service_started
+    volumes:
+      - ./cloudflared.yml:/etc/cloudflared/config.yml:ro
+      - ${CLOUDFLARED_CREDENTIALS:-/dev/null}:/etc/cloudflared/credentials.json:ro
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "3" }
