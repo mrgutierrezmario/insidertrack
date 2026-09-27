@@ -7,8 +7,10 @@ import { EMAIL_KEY } from "../lib/storage";
 // Mock the API module — we don't want real network calls in unit tests.
 vi.mock("../lib/api", () => ({
   addToWatchlist: vi.fn(),
+  restoreWatchlist: vi.fn(),
+  restoreMessage: (r: string) => `restore failed: ${r}`,
 }));
-import { addToWatchlist } from "../lib/api";
+import { addToWatchlist, restoreWatchlist } from "../lib/api";
 
 describe("<WatchlistButton />", () => {
   beforeEach(() => {
@@ -99,5 +101,47 @@ describe("<WatchlistButton />", () => {
       });
     });
     expect(localStorage.getItem(EMAIL_KEY)).toBe("alice@example.com");
+  });
+
+  it("modal with a token signs back in before adding", async () => {
+    vi.mocked(restoreWatchlist).mockResolvedValueOnce("ok");
+    vi.mocked(addToWatchlist).mockResolvedValueOnce({ data: { id: 1, ticker: "X", status: "added" as const } } as any);
+    const user = userEvent.setup();
+    render(<WatchlistButton ticker="AAPL" />);
+    await user.click(screen.getByRole("button"));
+
+    await user.type(screen.getByPlaceholderText(/you@example\.com/i), "me@example.com");
+    await user.type(screen.getByPlaceholderText(/Watchlist token/i), "tok-123");
+    await user.click(screen.getByRole("button", { name: /Save/i }));
+
+    await waitFor(() => expect(addToWatchlist).toHaveBeenCalledWith({ email: "me@example.com", ticker: "AAPL" }));
+    expect(restoreWatchlist).toHaveBeenCalledWith("me@example.com", "tok-123");
+  });
+
+  it("modal with a wrong token shows why and does not add", async () => {
+    vi.mocked(restoreWatchlist).mockResolvedValueOnce("wrong_token");
+    const user = userEvent.setup();
+    render(<WatchlistButton ticker="AAPL" />);
+    await user.click(screen.getByRole("button"));
+
+    await user.type(screen.getByPlaceholderText(/you@example\.com/i), "me@example.com");
+    await user.type(screen.getByPlaceholderText(/Watchlist token/i), "bad");
+    await user.click(screen.getByRole("button", { name: /Save/i }));
+
+    expect(await screen.findByText(/restore failed: wrong_token/)).toBeInTheDocument();
+    expect(addToWatchlist).not.toHaveBeenCalled();
+  });
+
+  it("asks for the token when the saved email needs one (403)", async () => {
+    localStorage.setItem(EMAIL_KEY, "saved@example.com");
+    vi.mocked(addToWatchlist).mockRejectedValueOnce(
+      Object.assign(new Error("forbidden"), { isAxiosError: true, response: { status: 403 } }),
+    );
+    const user = userEvent.setup();
+    render(<WatchlistButton ticker="NFLX" />);
+    await user.click(screen.getByRole("button"));
+
+    expect(await screen.findByText(/already has a saved watchlist/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/you@example\.com/i)).toHaveValue("saved@example.com");
   });
 });

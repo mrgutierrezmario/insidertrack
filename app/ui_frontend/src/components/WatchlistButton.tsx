@@ -1,7 +1,8 @@
 import { C } from "../lib/theme";
 import { useState } from "react";
 import type { KeyboardEvent } from "react";
-import { addToWatchlist } from "../lib/api";
+import { isAxiosError } from "axios";
+import { addToWatchlist, restoreMessage, restoreWatchlist } from "../lib/api";
 import { EMAIL_KEY } from "../lib/storage";
 
 type WatchState = "idle" | "added" | "exists" | "error";
@@ -10,6 +11,8 @@ interface EmailModalProps {
   ticker: string;
   onConfirm: (email: string) => void;
   onCancel: () => void;
+  initialEmail?: string;
+  initialError?: string;
 }
 
 interface WatchlistButtonProps {
@@ -21,14 +24,23 @@ function isValidEmail(e: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((e || "").trim());
 }
 
-function EmailModal({ ticker, onConfirm, onCancel }: EmailModalProps) {
-  const [value, setValue] = useState("");
-  const [err, setErr] = useState("");
+function EmailModal({ ticker, onConfirm, onCancel, initialEmail = "", initialError = "" }: EmailModalProps) {
+  const [value, setValue] = useState(initialEmail);
+  const [token, setToken] = useState("");
+  const [err, setErr] = useState(initialError);
+  const [busy, setBusy] = useState(false);
 
-  const submit = () => {
+  const submit = async () => {
     const trimmed = value.trim().toLowerCase();
     if (!trimmed) { setErr("Email is required."); return; }
     if (!isValidEmail(trimmed)) { setErr("Enter a valid email address."); return; }
+    // Returning on a new device: sign back in with the token before adding.
+    if (token.trim()) {
+      setBusy(true);
+      const result = await restoreWatchlist(trimmed, token);
+      setBusy(false);
+      if (result !== "ok") { setErr(restoreMessage(result)); return; }
+    }
     onConfirm(trimmed);
   };
 
@@ -106,6 +118,29 @@ function EmailModal({ ticker, onConfirm, onCancel }: EmailModalProps) {
             marginBottom: 4,
           }}
         />
+        <input
+          type="text"
+          placeholder="Watchlist token (returning? paste it here)"
+          aria-label="Watchlist token (optional)"
+          autoComplete="off"
+          spellCheck={false}
+          value={token}
+          onChange={(e) => { setToken(e.target.value); setErr(""); }}
+          onKeyDown={onKey}
+          style={{
+            width: "100%",
+            boxSizing: "border-box",
+            background: C.bg,
+            border: `1px solid ${C.surfaceAlt}`,
+            borderRadius: 7,
+            color: C.text,
+            padding: "9px 12px",
+            fontSize: 13,
+            fontFamily: "monospace",
+            outline: "none",
+            margin: "6px 0 4px",
+          }}
+        />
         {err && (
           <div style={{ color: C.danger, fontSize: 12, marginBottom: 8 }}>{err}</div>
         )}
@@ -130,6 +165,7 @@ function EmailModal({ ticker, onConfirm, onCancel }: EmailModalProps) {
           </button>
           <button
             onClick={submit}
+            disabled={busy}
             style={{
               flex: 2,
               background: C.accentSolid,
@@ -142,7 +178,7 @@ function EmailModal({ ticker, onConfirm, onCancel }: EmailModalProps) {
               cursor: "pointer",
             }}
           >
-            Save &amp; Watch
+            {busy ? "Checking…" : "Save & Watch"}
           </button>
         </div>
       </div>
@@ -158,17 +194,37 @@ export default function WatchlistButton({ ticker, size = "sm" }: WatchlistButton
     ? { pad: "4px 10px", font: 12 }
     : { pad: "2px 7px", font: 11 };
 
-  const doAdd = async (email: string): Promise<void> => {
-    localStorage.setItem(EMAIL_KEY, email);
-    setShowModal(false);
+  const [modalEmail, setModalEmail] = useState("");
+  const [modalError, setModalError] = useState("");
+
+  const tryAdd = async (email: string): Promise<void> => {
     try {
       const r = await addToWatchlist({ email, ticker });
       setState(r.data.status === "already_watching" ? "exists" : "added");
       setTimeout(() => setState("idle"), 2500);
-    } catch {
+    } catch (err) {
+      const status = isAxiosError(err) ? err.response?.status : undefined;
+      if (status === 401 || status === 403) {
+        // This email already has a saved watchlist, and this browser doesn't
+        // have its token: ask for it instead of flashing a bare error.
+        setModalEmail(email);
+        setModalError(
+          "This email already has a saved watchlist. Paste your token to add to it, " +
+          "or open My Watchlist to email yourself a new one.",
+        );
+        setShowModal(true);
+        return;
+      }
       setState("error");
       setTimeout(() => setState("idle"), 2500);
     }
+  };
+
+  const doAdd = async (email: string): Promise<void> => {
+    localStorage.setItem(EMAIL_KEY, email);
+    setShowModal(false);
+    setModalError("");
+    await tryAdd(email);
   };
 
   const handleClick = async (e: React.MouseEvent<HTMLButtonElement>): Promise<void> => {
@@ -178,18 +234,12 @@ export default function WatchlistButton({ ticker, size = "sm" }: WatchlistButton
 
     const email = localStorage.getItem(EMAIL_KEY);
     if (!email) {
+      setModalEmail("");
+      setModalError("");
       setShowModal(true);
       return;
     }
-
-    try {
-      const r = await addToWatchlist({ email, ticker });
-      setState(r.data.status === "already_watching" ? "exists" : "added");
-      setTimeout(() => setState("idle"), 2500);
-    } catch {
-      setState("error");
-      setTimeout(() => setState("idle"), 2500);
-    }
+    await tryAdd(email);
   };
 
   const meta = {
@@ -203,9 +253,12 @@ export default function WatchlistButton({ ticker, size = "sm" }: WatchlistButton
     <>
       {showModal && (
         <EmailModal
+          key={modalError}
           ticker={ticker}
           onConfirm={doAdd}
-          onCancel={() => setShowModal(false)}
+          onCancel={() => { setShowModal(false); setModalError(""); }}
+          initialEmail={modalEmail}
+          initialError={modalError}
         />
       )}
       <button

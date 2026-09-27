@@ -2,6 +2,7 @@ import { C } from "../lib/theme";
 import { useState, useEffect } from "react";
 import type { ReactNode } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { restoreMessage, restoreWatchlist } from "../lib/api";
 
 const STORAGE_KEY = "insidertrack_terms_v1";
 
@@ -38,6 +39,9 @@ export default function Disclaimer({ children }: DisclaimerProps) {
     subscribe_evening: true,
   });
   const [subResult, setSubResult]     = useState<SubResult>(null);
+  // Returning visitor on a new device: email + token loads their saved watchlist.
+  const [showToken, setShowToken]     = useState(false);
+  const [token, setToken]             = useState("");
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -64,8 +68,16 @@ export default function Disclaimer({ children }: DisclaimerProps) {
   const handleAgree = async () => {
     if (email.trim() && !isValidEmail(email)) { setEmailError("Please enter a valid email address."); return; }
     if (wantsEmails && !email.trim()) { setEmailError("An email address is required to sign up for reports."); return; }
+    if (token.trim() && !email.trim()) { setEmailError("Enter the email your watchlist is saved under."); return; }
     setEmailError("");
     setSubmitting(true);
+
+    // Load a saved watchlist first: a wrong token should stop here, with the
+    // reason, rather than let the visitor in and fail later.
+    if (token.trim()) {
+      const result = await restoreWatchlist(email, token);
+      if (result !== "ok") { setEmailError(restoreMessage(result)); setSubmitting(false); return; }
+    }
 
     // Record IP + email agreement
     try {
@@ -185,8 +197,45 @@ export default function Disclaimer({ children }: DisclaimerProps) {
             <p style={{ color: C.dangerSolid, fontSize: "0.75rem", marginTop: "0.35rem" }}>{emailError}</p>
           )}
           <p style={{ color: C.textDim, fontSize: "0.72rem", marginTop: "0.35rem" }}>
-            Only stored if you subscribe; used for the reports and nothing else.
+            Only stored if you subscribe (for the reports) or load a saved watchlist.
           </p>
+
+          {showToken ? (
+            <div style={{ marginTop: "0.75rem" }}>
+              <label style={{ color: C.textSoft, fontSize: "0.8rem", fontWeight: 500, display: "block", marginBottom: "0.4rem" }}>
+                Watchlist token
+              </label>
+              <input
+                type="text"
+                placeholder="Paste the token from your watchlist email"
+                value={token}
+                autoComplete="off"
+                spellCheck={false}
+                onChange={e => { setToken(e.target.value); setEmailError(""); }}
+                onKeyDown={e => { if (e.key === "Enter" && !wantsEmails) handleAgree(); }}
+                style={{
+                  width: "100%",
+                  background: C.surface,
+                  color: C.text,
+                  border: "1px solid var(--c-divider)",
+                  borderRadius: 8,
+                  padding: "0.65rem 0.875rem",
+                  fontSize: "0.85rem",
+                  fontFamily: "monospace",
+                  outline: "none",
+                  boxSizing: "border-box",
+                }}
+              />
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowToken(true)}
+              style={{ background: "none", border: "none", padding: 0, marginTop: "0.6rem", color: C.accent, fontSize: "0.78rem", cursor: "pointer" }}
+            >
+              Returning? Load your saved watchlist with your token
+            </button>
+          )}
         </div>
 
         {/* Email subscription opt-in */}

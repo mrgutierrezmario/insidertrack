@@ -7,6 +7,8 @@ import {
   addToWatchlist,
   removeFromWatchlist,
   recoverWatchlistToken,
+  restoreMessage,
+  restoreWatchlist,
 } from "../lib/api";
 import { EMAIL_KEY, WATCHLIST_TOKEN_KEY } from "../lib/storage";
 import { card, LABEL_COLORS , C} from "../lib/theme";
@@ -82,11 +84,24 @@ export default function Watchlist() {
 
   useEffect(() => { if (email) load(email); }, [email]);
 
-  const saveEmail = () => {
+  const [tokenInput, setTokenInput] = useState("");
+  const [signingIn, setSigningIn] = useState(false);
+
+  const saveEmail = async () => {
     if (!isValidEmail(emailInput)) { setErr("Enter a valid email address."); return; }
     setErr("");
     const e = emailInput.trim().toLowerCase();
-    localStorage.setItem(EMAIL_KEY, e);
+    // Returning on a new device: check the token first, so a wrong one says so
+    // here instead of bouncing to the "Watchlist access" screen.
+    if (tokenInput.trim()) {
+      setSigningIn(true);
+      const result = await restoreWatchlist(e, tokenInput);
+      setSigningIn(false);
+      if (result !== "ok") { setErr(restoreMessage(result)); return; }
+      setTokenInput("");
+    } else {
+      localStorage.setItem(EMAIL_KEY, e);
+    }
     setEmail(e);
   };
 
@@ -154,18 +169,29 @@ export default function Watchlist() {
         <p style={{ color: C.textDim, fontSize: 13, marginBottom: 20 }}>
           Enter your email to create or load your watchlist. No password needed.
         </p>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "grid", gap: 8, textAlign: "left" }}>
           <input
-            type="email" placeholder="you@example.com" value={emailInput}
+            type="email" placeholder="you@example.com" value={emailInput} aria-label="Email"
             onChange={(e) => { setEmailInput(e.target.value); setErr(""); }}
             onKeyDown={(e) => { if (e.key === "Enter") saveEmail(); }}
-            style={{ flex: 1, background: C.bg, color: C.text, border: "1px solid var(--c-divider)", borderRadius: 7, padding: "10px 12px", fontSize: 14 }}
+            style={{ background: C.bg, color: C.text, border: "1px solid var(--c-divider)", borderRadius: 7, padding: "10px 12px", fontSize: 14 }}
           />
-          <button onClick={saveEmail}
-            style={{ background: C.accentSolid, color: "#fff", border: "none", borderRadius: 7, padding: "10px 18px", fontSize: 14, cursor: "pointer", fontWeight: 600 }}>
-            Continue
+          <input
+            type="text" placeholder="Watchlist token (returning? paste it here)" value={tokenInput}
+            aria-label="Watchlist token (optional)" autoComplete="off" spellCheck={false}
+            onChange={(e) => { setTokenInput(e.target.value); setErr(""); }}
+            onKeyDown={(e) => { if (e.key === "Enter") saveEmail(); }}
+            style={{ background: C.bg, color: C.text, border: "1px solid var(--c-divider)", borderRadius: 7, padding: "10px 12px", fontSize: 13, fontFamily: "monospace" }}
+          />
+          <button onClick={saveEmail} disabled={signingIn}
+            style={{ background: C.accentSolid, color: "#fff", border: "none", borderRadius: 7, padding: "10px 18px", fontSize: 14, cursor: signingIn ? "wait" : "pointer", fontWeight: 600 }}>
+            {signingIn ? "Checking…" : tokenInput.trim() ? "Load my watchlist" : "Continue"}
           </button>
         </div>
+        <p style={{ color: C.textDim, fontSize: 12, marginTop: 10, lineHeight: 1.5 }}>
+          New here? Leave the token empty. Your first saved stock creates your watchlist and this browser remembers it.
+          Lost your token? Continue with just your email and we'll offer to email you a new one.
+        </p>
         {err && <p style={{ color: C.danger, fontSize: 12, marginTop: 8 }}>{err}</p>}
       </div>
     );

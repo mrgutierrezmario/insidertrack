@@ -22,7 +22,7 @@ import type {
 } from "../types/api";
 
 export { ADMIN_TOKEN_KEY } from "./storage";
-import { WATCHLIST_TOKEN_KEY, readOwnAi } from "./storage";
+import { EMAIL_KEY, WATCHLIST_TOKEN_KEY, readOwnAi } from "./storage";
 
 // withCredentials ensures the httpOnly admin_token cookie is sent on every request.
 const api = axios.create({ baseURL: "", withCredentials: true });
@@ -353,6 +353,41 @@ export const removeFromWatchlist = (id: number, email = ""): Resp<void> =>
 
 export const recoverWatchlistToken = (email: string): Resp<{ status: string }> =>
   api.post("/watchlist/recover", { email });
+
+/** Result of trying an email + token pair: see restoreWatchlist. */
+export type RestoreResult = "ok" | "wrong_token" | "no_watchlist" | "error";
+
+/**
+ * Sign back in to a saved watchlist: check the email + token pair with the
+ * API and, only if they match, remember both in this browser. Used wherever
+ * the site asks for an email, so a returning visitor on a new device never
+ * has to go looking for a separate "paste your token" screen.
+ */
+export async function restoreWatchlist(email: string, token: string): Promise<RestoreResult> {
+  const e = email.trim().toLowerCase();
+  const t = token.trim();
+  try {
+    await api.get("/watchlist/", { params: { email: e }, headers: { Authorization: `Bearer ${t}` } });
+  } catch (err) {
+    const status = axios.isAxiosError(err) ? err.response?.status : undefined;
+    if (status === 403) return "wrong_token";
+    if (status === 401) return "no_watchlist";
+    return "error";
+  }
+  localStorage.setItem(EMAIL_KEY, e);
+  localStorage.setItem(WATCHLIST_TOKEN_KEY, t);
+  return "ok";
+}
+
+/** What to show for a failed restoreWatchlist. */
+export function restoreMessage(result: RestoreResult): string {
+  switch (result) {
+    case "wrong_token": return "That token doesn't match this email. Check it, or email yourself a new one.";
+    case "no_watchlist": return "There's no saved watchlist for this email yet. Leave the token empty to start one.";
+    case "error": return "Couldn't check the token right now. Try again in a minute.";
+    default: return "";
+  }
+}
 
 // ── Federal Reserve officials ─────────────────────────────────────────────────
 
