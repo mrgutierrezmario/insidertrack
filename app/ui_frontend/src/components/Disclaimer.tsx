@@ -40,7 +40,6 @@ export default function Disclaimer({ children }: DisclaimerProps) {
   });
   const [subResult, setSubResult]     = useState<SubResult>(null);
   // Returning visitor on a new device: email + token loads their saved watchlist.
-  const [showToken, setShowToken]     = useState(false);
   const [token, setToken]             = useState("");
 
   const navigate = useNavigate();
@@ -200,42 +199,35 @@ export default function Disclaimer({ children }: DisclaimerProps) {
             Only stored if you subscribe (for the reports) or load a saved watchlist.
           </p>
 
-          {showToken ? (
-            <div style={{ marginTop: "0.75rem" }}>
-              <label style={{ color: C.textSoft, fontSize: "0.8rem", fontWeight: 500, display: "block", marginBottom: "0.4rem" }}>
-                Watchlist token
-              </label>
-              <input
-                type="text"
-                placeholder="Paste the token from your watchlist email"
-                value={token}
-                autoComplete="off"
-                spellCheck={false}
-                onChange={e => { setToken(e.target.value); setEmailError(""); }}
-                onKeyDown={e => { if (e.key === "Enter" && !wantsEmails) handleAgree(); }}
-                style={{
-                  width: "100%",
-                  background: C.surface,
-                  color: C.text,
-                  border: "1px solid var(--c-divider)",
-                  borderRadius: 8,
-                  padding: "0.65rem 0.875rem",
-                  fontSize: "0.85rem",
-                  fontFamily: "monospace",
-                  outline: "none",
-                  boxSizing: "border-box",
-                }}
-              />
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowToken(true)}
-              style={{ background: "none", border: "none", padding: 0, marginTop: "0.6rem", color: C.accent, fontSize: "0.78rem", cursor: "pointer" }}
-            >
-              Returning? Load your saved watchlist with your token
-            </button>
-          )}
+          <div style={{ marginTop: "0.85rem" }}>
+            <label style={{ color: C.textSoft, fontSize: "0.8rem", fontWeight: 500, display: "block", marginBottom: "0.4rem" }}>
+              Watchlist token <span style={{ color: C.textDim, fontWeight: 400 }}>(optional, returning visitors)</span>
+            </label>
+            <input
+              type="text"
+              placeholder="Paste your token to load your saved stocks"
+              value={token}
+              autoComplete="off"
+              spellCheck={false}
+              onChange={e => { setToken(e.target.value); setEmailError(""); }}
+              onKeyDown={e => { if (e.key === "Enter" && !wantsEmails) handleAgree(); }}
+              style={{
+                width: "100%",
+                background: C.surface,
+                color: C.text,
+                border: "1px solid var(--c-divider)",
+                borderRadius: 8,
+                padding: "0.65rem 0.875rem",
+                fontSize: "0.85rem",
+                fontFamily: "monospace",
+                outline: "none",
+                boxSizing: "border-box",
+              }}
+            />
+            <p style={{ color: C.textDim, fontSize: "0.72rem", marginTop: "0.35rem" }}>
+              From your InsiderTrack "watchlist access token" email. New here, or no token? Leave it empty; My Watchlist can email you one.
+            </p>
+          </div>
         </div>
 
         {/* Email subscription opt-in */}
