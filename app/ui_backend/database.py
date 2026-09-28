@@ -160,10 +160,15 @@ def _apply_migrations():
     ]
     # Each statement runs in its own transaction so one failure can't poison
     # the rest, and every failure is logged: a typo here used to vanish
-    # silently and surface later as a missing column.
+    # silently and surface later as a missing column. ALTER TABLE needs an
+    # exclusive lock even when the column already exists, so each statement
+    # waits at most 10 s for one: a transaction left open elsewhere (2026-09:
+    # one stayed open 6 h) then costs a logged error, not a startup that
+    # never finishes.
     for sql in migrations:
         try:
             with engine.begin() as conn:
+                conn.execute(text("SET LOCAL lock_timeout = '10s'"))
                 conn.execute(text(sql))
         except Exception as exc:
             head = " ".join(sql.split())[:90]

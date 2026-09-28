@@ -77,6 +77,10 @@ def performance(db: Session = Depends(get_db)):
         .all()
     )
     tickers = [r[0] for r in rows][:10]
+    # End the read transaction before the price fetches: they go over the
+    # network, and a hung one kept this transaction (and its table lock) open
+    # for hours, which blocked the next deploy's schema checks.
+    db.rollback()
     result = {}
     for ticker in tickers:
         history = get_price_history(ticker, days=30)
