@@ -1,6 +1,6 @@
 fastapi==0.141.1
-uvicorn[standard]==0.53.0
-sqlalchemy==2.0.54
+uvicorn[standard]==0.54.0
+sqlalchemy==2.1.1
 psycopg2-binary==2.9.13
 python-dotenv==1.2.3
 httpx==0.28.1
@@ -13,4 +13,4 @@ apscheduler==3.11.3
 pydantic==2.13.5
 email-validator==2.3.0  # EmailStr; no longer pulled in by pydantic itself
 pydantic-settings==2.15.0
-anthropic==1.7.0
+anthropic==1.8.0
