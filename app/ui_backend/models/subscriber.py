@@ -13,4 +13,7 @@ class EmailSubscriber(Base):
     subscribe_midday = Column(Boolean, default=True)
     subscribe_evening = Column(Boolean, default=True)
     is_active = Column(Boolean, default=True)
+    # Public sign-ups start unconfirmed and get no reports until the owner
+    # clicks the emailed link.
+    confirmed = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -1,5 +1,6 @@
 import logging
 import logging.handlers
+import os
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -127,11 +128,17 @@ from version import __version__  # noqa: E402
 
 # default_response_class: a single NaN or Infinity anywhere in a payload
 # otherwise fails the whole response at render time (see json_safe).
+# The interactive API docs (/docs, /redoc, /openapi.json) are a map of every
+# endpoint, so they're off unless API_DOCS=1 (local development).
+_docs = os.environ.get("API_DOCS") == "1"
 app = FastAPI(
     title="InsiderTrack API",
     version=__version__,
     lifespan=lifespan,
     default_response_class=SafeJSONResponse,
+    docs_url="/docs" if _docs else None,
+    redoc_url="/redoc" if _docs else None,
+    openapi_url="/openapi.json" if _docs else None,
 )
 
 

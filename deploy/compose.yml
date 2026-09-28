@@ -65,8 +65,10 @@ services:
       - tailscale-state:/var/lib/tailscale
       - tailscale-config:/config:ro
     ports:
-      # Local/LAN access to the app without going through Funnel.
-      - "${APP_PORT:-8013}:8003"
+      # This Mac only. The public addresses go through Cloudflare and
+      # Tailscale, which don't use this port; set APP_BIND=0.0.0.0 to open it
+      # to the local network.
+      - "${APP_BIND:-127.0.0.1}:${APP_PORT:-8013}:8003"
 
   app:
     build:

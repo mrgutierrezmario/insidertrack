@@ -189,20 +189,25 @@ interface Subscriber {
   id: number;
   email: string;
   is_active: boolean;
+  confirmed?: boolean;
   subscribe_morning: boolean;
   subscribe_midday: boolean;
   subscribe_evening: boolean;
 }
 
 export const getSubscribers = (): Resp<Subscriber[]> => api.get("/config/subscribers");
-export const getMySubscription = (email: string): Resp<Subscriber> =>
-  api.get("/config/subscribers/lookup", { params: { email } });
+// Self-service changes go through the signed link we email to the subscriber
+// (`sub` + `sig`); the admin panel uses its sign-in cookie instead.
+export const getMySubscription = (sub: number, sig: string): Resp<Subscriber> =>
+  api.get("/config/subscribers/lookup", { params: { sub, sig } });
+export const requestManageLink = (email: string): Resp<unknown> =>
+  api.post("/config/subscribers/manage-link", { email });
 export const addSubscriber = (body: Partial<Subscriber>): Resp<Subscriber> =>
   api.post("/config/subscribers", body);
-export const updateSubscriber = (id: number, body: Partial<Subscriber>, email = ""): Resp<Subscriber> =>
-  api.patch(`/config/subscribers/${id}`, body, { params: { email } });
-export const deleteSubscriber = (id: number, email = ""): Resp<void> =>
-  api.delete(`/config/subscribers/${id}`, { params: { email } });
+export const updateSubscriber = (id: number, body: Partial<Subscriber>, sig = ""): Resp<Subscriber> =>
+  api.patch(`/config/subscribers/${id}`, body, { params: sig ? { sig } : {} });
+export const deleteSubscriber = (id: number, sig = ""): Resp<void> =>
+  api.delete(`/config/subscribers/${id}`, { params: sig ? { sig } : {} });
 export const sendReportNow = (period: string): Resp<unknown> =>
   api.post(`/config/send-report/${period}`);
 export const getEmailStatus = (): Resp<unknown> => api.get("/config/email-status");

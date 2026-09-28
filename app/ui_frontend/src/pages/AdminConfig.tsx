@@ -24,6 +24,7 @@ interface Subscriber {
   id: number;
   email: string;
   is_active: boolean;
+  confirmed?: boolean;
   subscribe_morning: boolean;
   subscribe_midday: boolean;
   subscribe_evening: boolean;
@@ -439,6 +440,9 @@ function AdminPanel() {
                 <div key={sub.id} style={{ background: C.surface, border: `1px solid ${sub.is_active ? C.surfaceAlt : C.bgSunken}`, borderRadius: 8, padding: "0.875rem 1rem", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap", opacity: sub.is_active ? 1 : 0.5 }}>
                   <div style={{ minWidth: 200 }}>
                     <div style={{ color: C.text, fontSize: "0.9rem" }}>{sub.email}</div>
+                    {sub.confirmed === false && (
+                      <div style={{ color: C.warningSolid, fontSize: "0.75rem", marginTop: 2 }}>Waiting for email confirmation</div>
+                    )}
                   </div>
                   <div style={{ display: "flex", gap: "0.5rem" }}>
                     {PERIODS.map(period => {

@@ -1,8 +1,7 @@
 import { C } from "../lib/theme";
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { isAxiosError } from "axios";
-import { getMySubscription, updateSubscriber, deleteSubscriber } from "../lib/api";
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { getMySubscription, requestManageLink, updateSubscriber, deleteSubscriber } from "../lib/api";
 import ConfirmModal from "../components/ConfirmModal";
 import useTheme from "../hooks/useTheme";
 import type { ThemePref } from "../hooks/useTheme";
@@ -36,41 +35,57 @@ function isValidEmail(e: string): boolean {
 export default function Config() {
   const navigate = useNavigate();
 
+  const [params] = useSearchParams();
+  // The signed link from our emails: ?sub=<id>&sig=<signature>
+  const linkSub = Number(params.get("sub")) || 0;
+  const linkSig = params.get("sig") || "";
+  const confirmedParam = params.get("confirmed");
+
   const [email, setEmail]           = useState("");
   const [emailError, setEmailError] = useState("");
   const [mySub, setMySub]           = useState<Subscription | null>(null);
-  const [looking, setLooking]       = useState(false);
+  const [sending, setSending]       = useState(false);
+  const [linkNote, setLinkNote]     = useState(
+    confirmedParam === "1" ? "Your subscription is confirmed. Reports start with the next one."
+    : confirmedParam === "invalid" ? "That confirmation link is not valid. Sign up again from the welcome screen."
+    : ""
+  );
 
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [toast, setToast]     = useState("");
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
-  const lookup = async () => {
+  useEffect(() => {
+    if (!linkSub || !linkSig) return;
+    getMySubscription(linkSub, linkSig)
+      .then((r) => setMySub(r.data as Subscription))
+      .catch(() => setLinkNote("This link is not valid any more. Request a new one below."));
+  }, [linkSub, linkSig]);
+
+  const sendLink = async () => {
     if (!email.trim()) { setEmailError("Enter your email address."); return; }
     if (!isValidEmail(email)) { setEmailError("Enter a valid email address."); return; }
-    setEmailError(""); setLooking(true);
+    setEmailError(""); setSending(true);
     try {
-      const r = await getMySubscription(email.trim());
-      setMySub(r.data as Subscription);
-    } catch (err) {
-      setMySub(null);
-      const is404 = isAxiosError(err) && err.response?.status === 404;
-      setEmailError(is404 ? "No subscription found for that email." : "Could not look up subscription.");
+      await requestManageLink(email.trim());
+      setLinkNote(`If ${email.trim()} gets our reports, a link to manage them is on its way.`);
+    } catch {
+      setEmailError("Couldn't send right now. Try again in a minute.");
     }
-    finally { setLooking(false); }
+    finally { setSending(false); }
   };
 
   const togglePeriod = async (period: Period) => {
     if (!mySub) return;
     const key = `subscribe_${period}` as `subscribe_${Period}`;
-    await updateSubscriber(mySub.id, { [key]: !mySub[key] }, mySub.email);
+    await updateSubscriber(mySub.id, { [key]: !mySub[key] }, linkSig);
     setMySub((s) => (s ? { ...s, [key]: !s[key] } : s));
     showToast("Preference updated.");
   };
 
   const toggleActive = async () => {
     if (!mySub) return;
-    await updateSubscriber(mySub.id, { is_active: !mySub.is_active }, mySub.email);
+    await updateSubscriber(mySub.id, { is_active: !mySub.is_active }, linkSig);
     setMySub((s) => (s ? { ...s, is_active: !s.is_active } : s));
     showToast(mySub.is_active ? "Subscription paused." : "Subscription resumed.");
   };
@@ -84,8 +99,8 @@ export default function Config() {
       danger: true,
       onConfirm: async () => {
         setConfirm(null);
-        await deleteSubscriber(sub.id, sub.email);
-        setMySub(null); setEmail("");
+        await deleteSubscriber(sub.id, linkSig);
+        setMySub(null); setLinkNote("");
         showToast("Unsubscribed successfully.");
       },
     });
@@ -152,15 +167,19 @@ export default function Config() {
 
       <section style={{ background: C.surface, border: "1px solid var(--c-surfaceAlt)", borderRadius: 10, padding: "1.5rem", marginBottom: "1.5rem" }}>
         <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>Manage My Email Subscription</div>
+        {linkNote && (
+          <p style={{ color: C.textSoft, fontSize: "0.82rem", marginBottom: "1rem" }}>{linkNote}</p>
+        )}
+        {!mySub && (<>
         <p style={{ color: C.textMuted, fontSize: "0.82rem", marginBottom: "1rem" }}>
-          Enter the email you signed up for reports with.
+          Enter the email you get reports at, and we'll send you a link to change or cancel them.
         </p>
         <div style={{ display: "flex", gap: "0.5rem" }}>
           <input
             type="email"
             value={email}
-            onChange={(e) => { setEmail(e.target.value); setEmailError(""); setMySub(null); }}
-            onKeyDown={(e) => { if (e.key === "Enter") lookup(); }}
+            onChange={(e) => { setEmail(e.target.value); setEmailError(""); }}
+            onKeyDown={(e) => { if (e.key === "Enter") sendLink(); }}
             placeholder="you@example.com"
             style={{
               flex: 1, background: C.bg, color: C.text,
@@ -169,17 +188,18 @@ export default function Config() {
             }}
           />
           <button
-            onClick={lookup}
-            disabled={looking}
-            style={{ background: C.accentSolid, color: "#fff", border: "none", borderRadius: 7, padding: "0.6rem 1.25rem", cursor: "pointer", fontSize: "0.88rem", fontWeight: 600, opacity: looking ? 0.6 : 1 }}
+            onClick={sendLink}
+            disabled={sending}
+            style={{ background: C.accentSolid, color: "#fff", border: "none", borderRadius: 7, padding: "0.6rem 1.25rem", cursor: "pointer", fontSize: "0.88rem", fontWeight: 600, opacity: sending ? 0.6 : 1 }}
           >
-            {looking ? "…" : "Look Up"}
+            {sending ? "…" : "Email Me a Link"}
           </button>
         </div>
         {emailError && <p style={{ color: C.dangerSolid, fontSize: "0.78rem", marginTop: "0.4rem" }}>{emailError}</p>}
+        </>)}
 
         {mySub && (
-          <div style={{ marginTop: "1.25rem", paddingTop: "1.25rem", borderTop: "1px solid var(--c-surfaceAlt)" }}>
+          <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
               <div>
                 <div style={{ color: C.text, fontWeight: 600 }}>{mySub.email}</div>

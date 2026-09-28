@@ -1,44 +1,92 @@
-import hmac
+import logging
 import time
-from collections import defaultdict
+from collections import defaultdict, deque
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 from typing import Optional
-
 from database import get_db
 from models.analysis import DailyAnalysis
 from models.subscriber import EmailSubscriber
-from routers.access import require_admin, _make_token
+from routers.access import require_admin, _valid_admin_token, _COOKIE_NAME
+from routers.watchlist import _check_rate, _norm_email
 from services.email_sender import send_report
-from config import settings
+from services.subscriber_links import manage_url as _manage_url, sig_ok as _sig_ok, sub_sig as _sub_sig
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/config", tags=["config"])
 
-# ── Rate limiting for subscriber signup ───────────────────────────────────────
-_sub_attempts: dict[str, list[float]] = defaultdict(list)
-_SUB_WINDOW = 3600   # 1-hour window
-_SUB_MAX    = 5      # max signups per IP per hour
+
+# ── Rate limiting ─────────────────────────────────────────────────────────────
+# Per IP (the proxy-aware IP from routers.access, so a forged X-Forwarded-For
+# can't dodge it) for every public subscriber request, and per email for
+# anything that sends mail, so nobody can flood a stranger's inbox.
+_SUB_WINDOW, _SUB_MAX = 3600, 5
+_sub_hits: dict[str, deque] = defaultdict(deque)
+_MAIL_WINDOW, _MAIL_MAX = 3600, 3
+_mail_hits: dict[str, deque] = defaultdict(deque)
 
 
 def _check_sub_rate_limit(request: Request):
-    forwarded = request.headers.get("X-Forwarded-For")
-    ip = forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "unknown")
+    _check_rate(_sub_hits, _SUB_WINDOW, _SUB_MAX, request, "subscription")
+
+
+def _mail_allowed(email: str) -> bool:
     now = time.time()
-    recent = [t for t in _sub_attempts[ip] if now - t < _SUB_WINDOW]
-    if len(recent) >= _SUB_MAX:
-        raise HTTPException(status_code=429, detail="Too many signup attempts. Try again later.")
-    recent.append(now)
-    _sub_attempts[ip] = recent
-    stale = [k for k, v in list(_sub_attempts.items()) if k != ip and not any(now - t < _SUB_WINDOW for t in v)]
-    for k in stale:
-        del _sub_attempts[k]
-
-
-def _is_admin(x_admin_token: str | None) -> bool:
-    if not x_admin_token:
+    bucket = _mail_hits[email]
+    while bucket and now - bucket[0] > _MAIL_WINDOW:
+        bucket.popleft()
+    if len(bucket) >= _MAIL_MAX:
         return False
-    return hmac.compare_digest(x_admin_token, _make_token(settings.admin_password))
+    bucket.append(now)
+    return True
+
+
+def _is_admin(request: Request, x_admin_token: str | None) -> bool:
+    return _valid_admin_token(request.cookies.get(_COOKIE_NAME)) or _valid_admin_token(x_admin_token)
+
+
+def _send_confirm(sub: EmailSubscriber):
+    from services.email_layout import MUTED, SITE_URL, button
+    from services.email_sender import send_simple_email
+
+    link = f"{SITE_URL}/config/subscribers/confirm?sub={sub.id}&sig={_sub_sig(sub)}"
+    body = (
+        '<p style="margin:0 0 14px;">Someone, hopefully you, asked to get InsiderTrack market '
+        "reports at this address. Confirm below and they'll start with the next report.</p>"
+        + button("Confirm my subscription", link)
+        + f'<p style="margin:16px 0 0;color:{MUTED};font-size:13px;">Didn\'t ask for this? Ignore this '
+        "email and you won't hear from us again.</p>"
+    )
+    try:
+        send_simple_email(
+            "Confirm your InsiderTrack reports", body, [sub.email],
+            title="Confirm your subscription", eyebrow="InsiderTrack reports",
+        )
+    except Exception:
+        logger.exception("Failed to send subscription confirmation to %s", sub.email)
+
+
+def _send_manage_link(sub: EmailSubscriber):
+    from services.email_layout import MUTED, button
+    from services.email_sender import send_simple_email
+
+    body = (
+        '<p style="margin:0 0 14px;">Here is the link to change or cancel your InsiderTrack '
+        "report emails.</p>"
+        + button("Manage my reports", _manage_url(sub))
+        + f'<p style="margin:16px 0 0;color:{MUTED};font-size:13px;">Didn\'t ask for this? You can '
+        "ignore this email. Nothing has changed.</p>"
+    )
+    try:
+        send_simple_email(
+            "Manage your InsiderTrack reports", body, [sub.email],
+            title="Manage your reports", eyebrow="InsiderTrack reports",
+        )
+    except Exception:
+        logger.exception("Failed to send subscription link to %s", sub.email)
 
 
 class SubscriberCreate(BaseModel):
@@ -55,6 +103,13 @@ class SubscriberUpdate(BaseModel):
     is_active: bool | None = None
 
 
+class ManageLinkIn(BaseModel):
+    email: EmailStr
+
+
+_CHECK_INBOX = {"status": "check_email"}
+
+
 @router.get("/subscribers")
 def list_subscribers(
     email: Optional[str] = Query(default=None),
@@ -69,76 +124,124 @@ def list_subscribers(
 
 
 @router.get("/subscribers/lookup")
-def lookup_subscriber(email: str = Query(...), db: Session = Depends(get_db)):
-    """Self-service lookup by email — no admin token required."""
-    sub = db.query(EmailSubscriber).filter(
-        EmailSubscriber.email == email.lower().strip()
-    ).first()
-    if not sub:
-        raise HTTPException(status_code=404, detail="No subscription found for that email.")
-    return sub
+def lookup_subscriber(
+    request: Request,
+    sub: int = Query(...),
+    sig: str = Query(...),
+    db: Session = Depends(get_db),
+):
+    """The subscriber behind an emailed manage link."""
+    _check_sub_rate_limit(request)
+    row = db.query(EmailSubscriber).filter(EmailSubscriber.id == sub).first()
+    if not row or not _sig_ok(row, sig):
+        raise HTTPException(status_code=404, detail="This link is not valid. Request a new one.")
+    return row
 
 
-@router.post("/subscribers", status_code=201)
+@router.get("/subscribers/confirm")
+def confirm_subscriber(sub: int = Query(...), sig: str = Query(...), db: Session = Depends(get_db)):
+    """The link in the confirmation email: switch the reports on, then open Settings."""
+    row = db.query(EmailSubscriber).filter(EmailSubscriber.id == sub).first()
+    if not row or not _sig_ok(row, sig):
+        return RedirectResponse("/config?confirmed=invalid", status_code=302)
+    if not row.confirmed:
+        row.confirmed = True
+        db.commit()
+    return RedirectResponse(f"/config?sub={row.id}&sig={sig}&confirmed=1", status_code=302)
+
+
+@router.post("/subscribers", status_code=202)
 def add_subscriber(
     body: SubscriberCreate,
     request: Request,
+    x_admin_token: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ):
+    """Admin: add a subscriber directly. Public: always the same "check your
+    inbox" answer, and nothing is sent until the owner clicks the link."""
+    email = _norm_email(body.email)
+    existing = db.query(EmailSubscriber).filter(EmailSubscriber.email == email).first()
+
+    if _is_admin(request, x_admin_token):
+        if existing:
+            raise HTTPException(status_code=409, detail="Email already subscribed.")
+        row = EmailSubscriber(**{**body.model_dump(), "email": email}, confirmed=True)
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        return row
+
     _check_sub_rate_limit(request)
-    existing = db.query(EmailSubscriber).filter(EmailSubscriber.email == body.email).first()
+    if existing and existing.confirmed:
+        # Already on the list: send the manage link instead. The answer is the
+        # same either way, so this can't be used to test who subscribes.
+        if _mail_allowed(email):
+            _send_manage_link(existing)
+        return _CHECK_INBOX
     if existing:
-        raise HTTPException(status_code=409, detail="Email already subscribed.")
-    sub = EmailSubscriber(**body.model_dump())
-    db.add(sub)
+        row = existing
+        for k, v in body.model_dump(exclude={"email"}).items():
+            setattr(row, k, v)
+    else:
+        row = EmailSubscriber(**{**body.model_dump(), "email": email}, confirmed=False)
+        db.add(row)
     db.commit()
-    db.refresh(sub)
-    return sub
+    db.refresh(row)
+    if _mail_allowed(email):
+        _send_confirm(row)
+    return _CHECK_INBOX
+
+
+@router.post("/subscribers/manage-link")
+def request_manage_link(body: ManageLinkIn, request: Request, db: Session = Depends(get_db)):
+    """Email the manage link to a confirmed subscriber. Same answer either way."""
+    _check_sub_rate_limit(request)
+    email = _norm_email(body.email)
+    row = db.query(EmailSubscriber).filter(EmailSubscriber.email == email).first()
+    if row and row.confirmed and _mail_allowed(email):
+        _send_manage_link(row)
+    return _CHECK_INBOX
+
+
+def _owned_subscriber(sub_id: int, sig: str, request: Request, x_admin_token: str | None, db: Session):
+    row = db.query(EmailSubscriber).filter(EmailSubscriber.id == sub_id).first()
+    if _is_admin(request, x_admin_token):
+        if not row:
+            raise HTTPException(status_code=404, detail="Subscriber not found.")
+        return row
+    _check_sub_rate_limit(request)
+    if not row or not _sig_ok(row, sig):
+        raise HTTPException(status_code=403, detail="This link is not valid. Request a new one.")
+    return row
 
 
 @router.patch("/subscribers/{sub_id}")
 def update_subscriber(
     sub_id: int,
     body: SubscriberUpdate,
-    email: str = Query(default=""),
+    request: Request,
+    sig: str = Query(default=""),
     x_admin_token: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ):
-    sub = db.query(EmailSubscriber).filter(EmailSubscriber.id == sub_id).first()
-    if not sub:
-        raise HTTPException(status_code=404, detail="Subscriber not found.")
-
-    if not _is_admin(x_admin_token):
-        if not email:
-            raise HTTPException(status_code=403, detail="Email verification required.")
-        if sub.email.lower() != email.lower().strip():
-            raise HTTPException(status_code=403, detail="Email does not match subscription.")
-
+    row = _owned_subscriber(sub_id, sig, request, x_admin_token, db)
     for field, value in body.model_dump(exclude_none=True).items():
-        setattr(sub, field, value)
+        setattr(row, field, value)
     db.commit()
-    db.refresh(sub)
-    return sub
+    db.refresh(row)
+    return row
 
 
 @router.delete("/subscribers/{sub_id}", status_code=204)
 def delete_subscriber(
     sub_id: int,
-    email: str = Query(default=""),
+    request: Request,
+    sig: str = Query(default=""),
     x_admin_token: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ):
-    sub = db.query(EmailSubscriber).filter(EmailSubscriber.id == sub_id).first()
-    if not sub:
-        raise HTTPException(status_code=404, detail="Subscriber not found.")
-
-    if not _is_admin(x_admin_token):
-        if not email:
-            raise HTTPException(status_code=403, detail="Email verification required.")
-        if sub.email.lower() != email.lower().strip():
-            raise HTTPException(status_code=403, detail="Email does not match subscription.")
-
-    db.delete(sub)
+    row = _owned_subscriber(sub_id, sig, request, x_admin_token, db)
+    db.delete(row)
     db.commit()
 
 
@@ -164,18 +267,17 @@ def send_report_now(
         )
 
     col = f"subscribe_{period}"
-    recipients = [
-        s.email
-        for s in db.query(EmailSubscriber).filter(
-            EmailSubscriber.is_active == True,  # noqa: E712
-            getattr(EmailSubscriber, col) == True,  # noqa: E712
-        ).all()
-    ]
+    subs = db.query(EmailSubscriber).filter(
+        EmailSubscriber.is_active == True,  # noqa: E712
+        EmailSubscriber.confirmed == True,  # noqa: E712
+        getattr(EmailSubscriber, col) == True,  # noqa: E712
+    ).all()
+    recipients = [s.email for s in subs]
 
     if not recipients:
         raise HTTPException(status_code=400, detail="No active subscribers for this report.")
 
-    ok = send_report(analysis, recipients)
+    ok = send_report(analysis, recipients, {s.email: _manage_url(s) for s in subs})
     if not ok:
         raise HTTPException(
             status_code=503,

@@ -124,7 +124,7 @@ Press **Ctrl+C** to shut everything down cleanly.
 | Service | URL |
 |---|---|
 | App | http://localhost:8003 |
-| API docs | http://localhost:8003/docs |
+| API docs | http://localhost:8003/docs (local `start.sh` only; off in Docker unless `API_DOCS=1`) |
 | Database | localhost:54329 (Docker; `DEV_DB_PORT=… bash start.sh` if taken) or 5432 (local) |
 
 ---
@@ -291,7 +291,7 @@ All times Eastern. Jobs run automatically when the backend is running.
 | 6:15 PM | Evaluate alert rules |
 | hourly | Sweep expired market-cache rows |
 
-Trigger any job manually from **API docs** at `/docs` or the relevant page in the app.
+Trigger any job manually from the relevant page in the app, or from **API docs** at `/docs` when running locally.
 
 ---
 

@@ -68,7 +68,7 @@ def _new_message(subject: str, from_addr: str, recipient: str, html_body: str) -
 SIGNAL_STYLE = {"BUY": (UP_FG, UP_BG), "SELL": (DOWN_FG, DOWN_BG), "HOLD": (HOLD_FG, HOLD_BG)}
 
 
-def _build_html(analysis: DailyAnalysis) -> str:
+def _build_html(analysis: DailyAnalysis, manage_url: str = "") -> str:
     period_label = analysis.period.capitalize()
     signals = analysis.signals or []
     bullish = analysis.tickers_bullish or []
@@ -113,6 +113,11 @@ def _build_html(analysis: DailyAnalysis) -> str:
     else:
         body += f'<p style="color:{MUTED};margin:20px 0 0;">No signals yet. Sync trades from the dashboard first.</p>'
     body += button("Open InsiderTrack", SITE_URL)
+    if manage_url:
+        body += (
+            f'<p style="margin:16px 0 0;color:{MUTED};font-size:13px;">'
+            f'<a href="{e(manage_url)}" style="color:{MUTED};">Change or cancel these emails</a></p>'
+        )
 
     return layout(
         f"{period_label} report · {analysis.analysis_date}",
@@ -123,7 +128,8 @@ def _build_html(analysis: DailyAnalysis) -> str:
     )
 
 
-def send_report(analysis: DailyAnalysis, recipients: list[str]) -> bool:
+def send_report(analysis: DailyAnalysis, recipients: list[str], manage_urls: dict[str, str] | None = None) -> bool:
+    """``manage_urls`` maps a recipient to their own signed manage link."""
     if not recipients:
         return True
     if not settings.mail_username or not settings.mail_password:
@@ -131,13 +137,14 @@ def send_report(analysis: DailyAnalysis, recipients: list[str]) -> bool:
         return False
 
     subject = f"InsiderTrack {analysis.period} report · {analysis.analysis_date}"
-    html = _build_html(analysis)
+    manage_urls = manage_urls or {}
     from_addr = settings.mail_from or settings.mail_username
 
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(settings.mail_username, settings.mail_password)
             for recipient in recipients:
+                html = _build_html(analysis, manage_urls.get(recipient, ""))
                 msg = _new_message(subject, from_addr, recipient, html)
                 server.sendmail(from_addr, [recipient], msg.as_string())
         logger.info(f"Report sent to {len(recipients)} recipient(s) for {analysis.period}")

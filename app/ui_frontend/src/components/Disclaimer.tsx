@@ -7,7 +7,6 @@ import { recoverWatchlistToken, restoreMessage, restoreWatchlist } from "../lib/
 const STORAGE_KEY = "insidertrack_terms_v1";
 
 type Status = "checking" | "pending" | "agreed";
-type SubResult = "already_registered" | "subscribed" | null;
 type PeriodKey = "subscribe_morning" | "subscribe_midday" | "subscribe_evening";
 
 interface DisclaimerProps { children: ReactNode }
@@ -38,7 +37,6 @@ export default function Disclaimer({ children }: DisclaimerProps) {
     subscribe_midday:  true,
     subscribe_evening: true,
   });
-  const [subResult, setSubResult]     = useState<SubResult>(null);
   // Returning visitor on a new device: email + token loads their saved watchlist.
   const [token, setToken]             = useState("");
   const [sendingToken, setSendingToken] = useState(false);
@@ -108,17 +106,12 @@ export default function Disclaimer({ children }: DisclaimerProps) {
     // Optionally subscribe to email reports
     if (wantsEmails) {
       try {
-        const res = await fetch("/config/subscribers", {
+        // Nothing is sent until they click the link in the confirmation email.
+        await fetch("/config/subscribers", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: email.trim(), ...periods }),
         });
-        if (res.status === 409) {
-          setSubResult("already_registered");
-          setSubmitting(false);
-          return; // keep modal open so they see the message
-        }
-        if (res.ok) setSubResult("subscribed");
       } catch {}
     }
 
@@ -195,7 +188,7 @@ export default function Disclaimer({ children }: DisclaimerProps) {
             type="email"
             placeholder="you@example.com"
             value={email}
-            onChange={e => { setEmail(e.target.value); setEmailError(""); setSubResult(null); }}
+            onChange={e => { setEmail(e.target.value); setEmailError(""); }}
             onKeyDown={e => { if (e.key === "Enter" && !wantsEmails) handleAgree(); }}
             style={{
               width: "100%",
@@ -274,7 +267,7 @@ export default function Disclaimer({ children }: DisclaimerProps) {
             <input
               type="checkbox"
               checked={wantsEmails}
-              onChange={e => { setWantsEmails(e.target.checked); setSubResult(null); }}
+              onChange={e => { setWantsEmails(e.target.checked); }}
               style={{ width: 16, height: 16, accentColor: C.accent, cursor: "pointer" }}
             />
             <span style={{ color: C.text, fontSize: "0.88rem", fontWeight: 500 }}>
@@ -285,7 +278,7 @@ export default function Disclaimer({ children }: DisclaimerProps) {
           {wantsEmails && (
             <div style={{ marginTop: "0.875rem", paddingTop: "0.875rem", borderTop: "1px solid var(--c-surfaceAlt)" }}>
               <p style={{ color: C.textMuted, fontSize: "0.75rem", marginBottom: "0.6rem" }}>
-                Choose which reports to receive:
+                Choose which reports to receive. We'll email you a link to confirm first.
               </p>
               <div style={{ display: "flex", gap: "0.625rem", flexWrap: "wrap" }}>
                 {PERIODS.map(({ key, label, time }) => {
@@ -315,37 +308,6 @@ export default function Disclaimer({ children }: DisclaimerProps) {
             </div>
           )}
 
-          {/* Already registered message */}
-          {subResult === "already_registered" && (
-            <div style={{
-              marginTop: "0.875rem",
-              padding: "0.65rem 0.875rem",
-              background: "var(--c-warningBg)",
-              border: "1px solid var(--c-warningDeep)",
-              borderRadius: 6,
-            }}>
-              <p style={{ color: C.warningSolid, fontSize: "0.8rem", margin: 0 }}>
-                ⚠️ <strong>{email}</strong> is already subscribed to reports.
-                To change or cancel them, go to{" "}
-                <strong style={{ color: C.textBright }}>Settings</strong>.
-              </p>
-              <button
-                onClick={handleAgree}
-                style={{
-                  marginTop: "0.6rem",
-                  background: "none",
-                  color: C.accent,
-                  border: "none",
-                  padding: 0,
-                  cursor: "pointer",
-                  fontSize: "0.78rem",
-                  textDecoration: "underline",
-                }}
-              >
-                Continue Without Subscribing →
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Buttons */}

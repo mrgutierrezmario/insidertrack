@@ -190,7 +190,7 @@ cd "$BACKEND_DIR"
 # routers/access.py:_get_ip() is the single source of truth (controlled by
 # TRUSTED_PROXIES env var). Without this flag, uvicorn trusts X-Forwarded-For
 # from 127.0.0.1 by default and clients can spoof their IP via the header.
-"$VENV/bin/python" -m uvicorn main:app --host 0.0.0.0 --port 8003 --forwarded-allow-ips="" > "$LOG_DIR/backend.log" 2>&1 &
+API_DOCS=1 "$VENV/bin/python" -m uvicorn main:app --host 0.0.0.0 --port 8003 --forwarded-allow-ips="" > "$LOG_DIR/backend.log" 2>&1 &
 BACKEND_PID=$!
 PIDS+=("$BACKEND_PID")
 

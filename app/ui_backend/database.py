@@ -105,6 +105,10 @@ def _apply_migrations():
         "ALTER TABLE signal_outcomes ADD COLUMN IF NOT EXISTS score_version INTEGER",
         # Everything snapshotted before the column existed used the original weights.
         "UPDATE signal_outcomes SET score_version = 1 WHERE score_version IS NULL",
+        # Report sign-ups need an emailed confirmation (2026-09). Rows from before
+        # then were added by the admin or already receiving reports: keep them on.
+        "ALTER TABLE email_subscribers ADD COLUMN IF NOT EXISTS confirmed BOOLEAN NOT NULL DEFAULT TRUE",
+        "ALTER TABLE email_subscribers ALTER COLUMN confirmed SET DEFAULT FALSE",
         # Persistent L2 cache for market_data. Sweeper job in scheduler.py
         # deletes expired rows hourly.
         """

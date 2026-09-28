@@ -41,18 +41,18 @@ scheduler = BackgroundScheduler(
 )
 
 
-def _get_subscribers_for_period(db, period: str) -> list[str]:
+def _get_subscribers_for_period(db, period: str) -> list:
     from models.subscriber import EmailSubscriber
     col = f"subscribe_{period}"
-    rows = (
+    return (
         db.query(EmailSubscriber)
         .filter(
             EmailSubscriber.is_active == True,  # noqa: E712
+            EmailSubscriber.confirmed == True,  # noqa: E712
             getattr(EmailSubscriber, col) == True,  # noqa: E712
         )
         .all()
     )
-    return [r.email for r in rows]
 
 
 def _run_and_email(period: str, sync: bool = False):
@@ -65,9 +65,10 @@ def _run_and_email(period: str, sync: bool = False):
                 # it abort the analysis + email for the rest of the job.
                 logger.warning(f"Congressional sync failed during {period} job: {exc}")
         analysis = run_analysis(db, period)
-        recipients = _get_subscribers_for_period(db, period)
-        if recipients:
-            send_report(analysis, recipients)
+        subs = _get_subscribers_for_period(db, period)
+        if subs:
+            from services.subscriber_links import manage_url
+            send_report(analysis, [s.email for s in subs], {s.email: manage_url(s) for s in subs})
 
 
 def _morning_job():
