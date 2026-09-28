@@ -70,7 +70,10 @@ def _yahoo_price(ticker: str) -> Optional[float]:
 
 def _yahoo_history(ticker: str, days: int) -> Optional[list[dict]]:
     # Pick the smallest standard range that covers the requested window.
-    range_ = "1mo" if days <= 30 else "3mo" if days <= 90 else "1y" if days <= 365 else "2y"
+    range_ = (
+        "1mo" if days <= 30 else "3mo" if days <= 90 else "1y" if days <= 365
+        else "2y" if days <= 730 else "5y" if days <= 1826 else "10y" if days <= 3652 else "max"
+    )
     result = _yahoo_chart(ticker, range_=range_, interval="1d")
     if not result:
         return None

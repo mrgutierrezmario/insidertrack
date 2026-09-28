@@ -9,6 +9,7 @@ interface ProjectionResult {
   ticker: string;
   triggered_by: string;
   entry_date: string;
+  disclosure_date?: string;
   entry_price: number;
   current_price: number;
   shares: number;
@@ -27,8 +28,14 @@ interface GrowthSeries {
   points?: GrowthPoint[];
   spy_points?: GrowthPoint[];
   entry_date?: string;
+  disclosure_date?: string;
   triggered_by?: string;
 }
+
+// The entry is the first trading day on or after the disclosure; say so when
+// they differ (a weekend or holiday).
+const entryLabel = (entry?: string, disclosed?: string) =>
+  entry && disclosed && disclosed !== entry ? `${entry} (disclosed ${disclosed})` : entry ?? "";
 
 export default function Simulator() {
   useDocumentTitle("Simulator");
@@ -131,7 +138,7 @@ export default function Simulator() {
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.5rem" }}>
             {[
-              ["Entry date", result.entry_date],
+              ["Entry date", entryLabel(result.entry_date, result.disclosure_date)],
               ["Entry price", `$${result.entry_price}`],
               ["Current price", `$${result.current_price}`],
               ["Shares bought", result.shares],
@@ -181,7 +188,7 @@ export default function Simulator() {
             const outperform = myReturn - spyReturn;
             return (
               <p style={{ color: C.textDim, fontSize: "0.75rem", marginTop: "0.5rem" }}>
-                Entry: {growth.entry_date} · Triggered by {growth.triggered_by}
+                Entry: {entryLabel(growth.entry_date, growth.disclosure_date)} · Triggered by {growth.triggered_by}
                 {(growth.spy_points?.length ?? 0) > 0 && (
                   <span style={{ marginLeft: 10, color: outperform >= 0 ? C.success : C.danger, fontWeight: 600 }}>
                     {outperform >= 0 ? "+" : ""}${outperform.toFixed(2)} vs SPY

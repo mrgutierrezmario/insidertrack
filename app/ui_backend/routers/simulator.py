@@ -3,7 +3,7 @@ Projects profit/loss if user invests $X into a ticker today,
 assuming they entered when the tracked politician's trade was disclosed.
 """
 
-from datetime import date, timedelta
+from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -15,6 +15,17 @@ from models.trade import Trade
 from services.market_data import get_current_price, get_price_history
 
 router = APIRouter(prefix="/simulator", tags=["simulator"])
+
+
+def _history_since(ticker: str, since: str) -> list[dict]:
+    """Daily history reaching back to ``since`` (at least a year)."""
+    days = max(365, (date.today() - date.fromisoformat(since)).days + 10)
+    return get_price_history(ticker, days=days)
+
+
+def _entry_bar(history: list[dict], since: str) -> Optional[dict]:
+    """The first trading day on or after ``since``: the day you could have bought."""
+    return next((bar for bar in history if bar["date"] >= since), None)
 
 
 @router.get("/project")
@@ -51,17 +62,12 @@ def project_investment(
     # open. Columns already loaded stay readable.
     db.close()
 
-    history = get_price_history(ticker, days=365)
+    history = _history_since(ticker, entry_date_str)
     if not history:
         raise HTTPException(status_code=502, detail=f"Could not fetch price history for {ticker}")
 
-    # Find price on or after disclosure date
-    entry_price = None
-    for bar in history:
-        if bar["date"] >= entry_date_str:
-            entry_price = bar["close"]
-            entry_date_used = bar["date"]
-            break
+    entry_bar = _entry_bar(history, entry_date_str)
+    entry_price = entry_bar["close"] if entry_bar else None
 
     price_meta = get_current_price(ticker, with_meta=True)
     current_price = price_meta["price"]
@@ -78,7 +84,8 @@ def project_investment(
     return {
         "ticker": ticker,
         "investment": amount,
-        "entry_date": entry_date_used,
+        "entry_date": entry_bar["date"],
+        "disclosure_date": entry_date_str,
         "entry_price": round(entry_price, 2),
         "current_price": round(current_price, 2),
         "is_demo": is_demo,
@@ -124,37 +131,39 @@ def growth_simulation(
     # open. Columns already loaded stay readable.
     db.close()
 
-    history = get_price_history(ticker, days=365)
+    history = _history_since(ticker, entry_date_str)
     if not history:
         raise HTTPException(status_code=502, detail=f"Could not fetch price history for {ticker}")
 
-    entry_price = None
-    points = []
-
-    for bar in history:
-        if bar["date"] >= entry_date_str:
-            if entry_price is None:
-                entry_price = bar["close"]
-            points.append({"date": bar["date"], "value": round((bar["close"] / entry_price) * amount, 2)})
-
-    if not points:
+    entry_bar = _entry_bar(history, entry_date_str)
+    if not entry_bar:
         raise HTTPException(status_code=404, detail="No price history after entry date")
+    entry_price = entry_bar["close"]
+    points = [
+        {"date": bar["date"], "value": round((bar["close"] / entry_price) * amount, 2)}
+        for bar in history
+        if bar["date"] >= entry_bar["date"]
+    ]
 
-    # SPY comparison — same dollar amount invested on same entry date
-    spy_history = get_price_history("SPY", days=365)
-    spy_points = []
-    spy_entry_price = None
-    for bar in spy_history or []:
-        if bar["date"] >= entry_date_str:
-            if spy_entry_price is None:
-                spy_entry_price = bar["close"]
-            spy_points.append({"date": bar["date"], "value": round((bar["close"] / spy_entry_price) * amount, 2)})
+    # SPY comparison: the same dollars invested on the same day.
+    spy_history = _history_since("SPY", entry_bar["date"]) or []
+    spy_entry = _entry_bar(spy_history, entry_bar["date"])
+    spy_points = (
+        [
+            {"date": bar["date"], "value": round((bar["close"] / spy_entry["close"]) * amount, 2)}
+            for bar in spy_history
+            if bar["date"] >= spy_entry["date"]
+        ]
+        if spy_entry
+        else []
+    )
 
     return {
         "ticker": ticker,
         "investment": amount,
-        "entry_date": entry_date_str,
-        "entry_price": round(entry_price, 2) if entry_price else None,
+        "entry_date": entry_bar["date"],
+        "disclosure_date": entry_date_str,
+        "entry_price": round(entry_price, 2),
         "triggered_by": triggered_by,
         "points": points,
         "spy_points": spy_points,
