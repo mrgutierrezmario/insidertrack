@@ -52,6 +52,10 @@ def news_feed(
 ):
     """Latest news for the tickers members are trading most right now."""
     tickers = _news_tickers(db)
+    # Done with the database: close the session before the network fetches
+    # below, so a slow or hung fetch can't hold a transaction (and its locks)
+    # open. Columns already loaded stay readable.
+    db.close()
     news = get_news(tickers, limit=limit)
     return {
         "tickers": tickers,

@@ -25,6 +25,10 @@ def earnings_for_tracked(email: Optional[str] = None, db: Session = Depends(get_
             w.ticker for w in db.query(WatchlistItem).filter(WatchlistItem.email == email.lower().strip()).all()
         ]
         tickers = sorted(set(tickers) | set(watchlist_tickers))
+    # Done with the database: close the session before the network fetches
+    # below, so a slow or hung fetch can't hold a transaction (and its locks)
+    # open. Columns already loaded stay readable.
+    db.close()
     all_earnings = get_earnings_calendar(tickers)
     upcoming = [e for e in all_earnings if e.get("is_upcoming")]
     past = [e for e in all_earnings if not e.get("is_upcoming")]

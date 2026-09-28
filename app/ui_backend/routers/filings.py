@@ -158,6 +158,10 @@ def delete_institution(cik: str, _: None = Depends(require_admin), db: Session =
 def recent_filings(limit_per: int = 3, db: Session = Depends(get_db)):
     """Fetch recent 13F-HR filings for each tracked institution from SEC EDGAR."""
     institutions = db.query(FilingInstitution).order_by(FilingInstitution.name).all()
+    # Done with the database: close the session before the network fetches
+    # below, so a slow or hung fetch can't hold a transaction (and its locks)
+    # open. Columns already loaded stay readable.
+    db.close()
     results = []
     for inst in institutions:
         subs = _fetch_submissions(inst.cik)

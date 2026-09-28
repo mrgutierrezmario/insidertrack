@@ -203,6 +203,10 @@ def watchlist_with_signals(
             signal_by_ticker[s["ticker"]] = s
     except Exception:
         pass
+    # Done with the database: close the session before the network fetches
+    # below, so a slow or hung fetch can't hold a transaction (and its locks)
+    # open. Columns already loaded stay readable.
+    db.close()
 
     # 7-day return per ticker using cached price history
     change_by_ticker: dict[str, float | None] = {}

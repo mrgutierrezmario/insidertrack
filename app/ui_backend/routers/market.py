@@ -77,10 +77,10 @@ def performance(db: Session = Depends(get_db)):
         .all()
     )
     tickers = [r[0] for r in rows][:10]
-    # End the read transaction before the price fetches: they go over the
-    # network, and a hung one kept this transaction (and its table lock) open
-    # for hours, which blocked the next deploy's schema checks.
-    db.rollback()
+    # Done with the database: close the session before the price fetches. A
+    # hung fetch here once kept a transaction (and its table lock) open for
+    # hours, which blocked the next deploy's schema checks.
+    db.close()
     result = {}
     for ticker in tickers:
         history = get_price_history(ticker, days=30)
@@ -114,6 +114,10 @@ def market_movers(db: Session = Depends(get_db)):
         .all()
     )
     tickers = sorted({r[0] for r in rows if r[0]})
+    # Done with the database: close the session before the network fetches
+    # below, so a slow or hung fetch can't hold a transaction (and its locks)
+    # open. Columns already loaded stay readable.
+    db.close()
 
     def fetch(tk):
         try:

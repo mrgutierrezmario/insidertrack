@@ -44,13 +44,19 @@ def project_investment(
             detail=f"No tracked buy for {ticker}. Try syncing trades first.",
         )
 
+    entry_date_str = str(entry_trade.disclosure_date)
+    triggered_by = entry_trade.politician.name if entry_trade.politician else "unknown"
+    # Done with the database: close the session before the network fetches
+    # below, so a slow or hung fetch can't hold a transaction (and its locks)
+    # open. Columns already loaded stay readable.
+    db.close()
+
     history = get_price_history(ticker, days=365)
     if not history:
         raise HTTPException(status_code=502, detail=f"Could not fetch price history for {ticker}")
 
     # Find price on or after disclosure date
     entry_price = None
-    entry_date_str = str(entry_trade.disclosure_date)
     for bar in history:
         if bar["date"] >= entry_date_str:
             entry_price = bar["close"]
@@ -80,7 +86,7 @@ def project_investment(
         "current_value": round(current_value, 2),
         "profit": round(profit, 2),
         "pct_return": round(pct_return, 2),
-        "triggered_by": entry_trade.politician.name if entry_trade.politician else "unknown",
+        "triggered_by": triggered_by,
     }
 
 
@@ -111,11 +117,17 @@ def growth_simulation(
             detail=f"No tracked buy for {ticker}.",
         )
 
+    entry_date_str = str(entry_trade.disclosure_date)
+    triggered_by = entry_trade.politician.name if entry_trade.politician else "unknown"
+    # Done with the database: close the session before the network fetches
+    # below, so a slow or hung fetch can't hold a transaction (and its locks)
+    # open. Columns already loaded stay readable.
+    db.close()
+
     history = get_price_history(ticker, days=365)
     if not history:
         raise HTTPException(status_code=502, detail=f"Could not fetch price history for {ticker}")
 
-    entry_date_str = str(entry_trade.disclosure_date)
     entry_price = None
     points = []
 
@@ -143,7 +155,7 @@ def growth_simulation(
         "investment": amount,
         "entry_date": entry_date_str,
         "entry_price": round(entry_price, 2) if entry_price else None,
-        "triggered_by": entry_trade.politician.name if entry_trade.politician else "unknown",
+        "triggered_by": triggered_by,
         "points": points,
         "spy_points": spy_points,
     }
