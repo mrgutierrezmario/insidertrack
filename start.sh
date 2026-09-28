@@ -87,6 +87,12 @@ if [ ! -f "$BACKEND_DIR/.env" ]; then
   cp "$BACKEND_DIR/.env.example" "$BACKEND_DIR/.env"
   warn "app/ui_backend/.env not found — created it from .env.example with defaults. Edit it to add API keys."
 fi
+# The admin password has no default; give a fresh checkout a random one.
+if grep -qE '^ADMIN_PASSWORD=$' "$BACKEND_DIR/.env"; then
+  pw="$(python3 -c 'import secrets; print(secrets.token_urlsafe(12))')"
+  sed -i.bak "s|^ADMIN_PASSWORD=$|ADMIN_PASSWORD=$pw|" "$BACKEND_DIR/.env" && rm -f "$BACKEND_DIR/.env.bak"
+  warn "Generated an admin password: see ADMIN_PASSWORD in app/ui_backend/.env"
+fi
 
 # Postgres credentials the DB checks below must match what the app will use.
 # .env.example ships defaults, so these are always set after the copy above.

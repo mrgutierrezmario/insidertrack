@@ -145,3 +145,18 @@ class TestManage:
             assert request_manage_link(ManageLinkIn(email="ghost@example.com"), _request(), db) == {"status": "check_email"}
         assert send.call_count == 1
         assert send.call_args.args[2] == ["me@example.com"]
+
+
+class TestNoDefaultAdminPassword:
+    def test_admin_sign_in_is_off_without_a_password(self, monkeypatch):
+        from routers import access
+        from routers.access import AdminVerifyRequest, _make_token, _valid_admin_token, admin_verify
+
+        monkeypatch.setattr(access.settings, "admin_password", "")
+        # The old default, or an empty password, must not get anyone in.
+        for guess in ("191919", ""):
+            with pytest.raises(HTTPException) as exc:
+                admin_verify(AdminVerifyRequest(password=guess), _request())
+            assert exc.value.status_code == 503
+        # Nor may a token derived from an empty password.
+        assert _valid_admin_token(_make_token("")) is False

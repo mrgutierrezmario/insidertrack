@@ -30,7 +30,9 @@ class Settings(BaseSettings):
     # Max fresh research notes per UTC day paid for by the site's keys
     # (cache hits and visitor-key notes don't count).
     ai_daily_cap: int = 150
-    admin_password: str = "191919"
+    # No default: admin sign-in stays off until ADMIN_PASSWORD is set, so a
+    # fresh install never has a guessable admin password.
+    admin_password: str = ""
 
     # Set true behind HTTPS (production via Tailscale Funnel / reverse proxy) — the
     # admin_token cookie will only be sent over TLS. Leave false in plain-HTTP

@@ -63,7 +63,7 @@ _COOKIE_NAME = "admin_token"
 
 
 def _valid_admin_token(token: str | None) -> bool:
-    if not token:
+    if not token or not settings.admin_password:
         return False
     # Current hour, plus the previous one so a session that started just before
     # the top of the hour isn't cut off at the boundary (matches the 1 h cookie).
@@ -133,12 +133,18 @@ class AdminVerifyRequest(BaseModel):
     password: str
 
 
+def _check_admin_password(password: str):
+    if not settings.admin_password:
+        raise HTTPException(status_code=503, detail="Admin sign-in is off until ADMIN_PASSWORD is set.")
+    if not hmac.compare_digest(password, settings.admin_password):
+        raise HTTPException(status_code=401, detail="Incorrect password")
+
+
 @router.post("/admin/verify")
 def admin_verify(body: AdminVerifyRequest, request: Request):
     """Legacy endpoint — returns token for header-based auth. Prefer /admin/login."""
     _check_rate_limit(_get_ip(request))
-    if not hmac.compare_digest(body.password, settings.admin_password):
-        raise HTTPException(status_code=401, detail="Incorrect password")
+    _check_admin_password(body.password)
     return {"ok": True, "token": _make_token(body.password)}
 
 
@@ -146,8 +152,7 @@ def admin_verify(body: AdminVerifyRequest, request: Request):
 def admin_login(body: AdminVerifyRequest, request: Request, response: Response):
     """Set an httpOnly admin session cookie. Safer than the token-in-sessionStorage approach."""
     _check_rate_limit(_get_ip(request))
-    if not hmac.compare_digest(body.password, settings.admin_password):
-        raise HTTPException(status_code=401, detail="Incorrect password")
+    _check_admin_password(body.password)
     response.set_cookie(
         key=_COOKIE_NAME,
         value=_make_token(body.password),

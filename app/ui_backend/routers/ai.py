@@ -1,6 +1,5 @@
 """AI-generated research summaries (Claude / Gemini / OpenAI, chosen in Settings)."""
 
-import hmac
 import re
 import time
 from collections import defaultdict, deque
@@ -8,7 +7,6 @@ from collections import defaultdict, deque
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from config import settings
 from database import get_db
 
 router = APIRouter(prefix="/ai", tags=["ai"])
@@ -86,9 +84,8 @@ def stock_summary(
     cred = _visitor_cred(request)
     # A visitor with their own key pays for the regeneration, so they may force it.
     if refresh and cred is None:
-        from routers.access import _make_token
-        expected = _make_token(settings.admin_password)
-        if not x_admin_token or not hmac.compare_digest(x_admin_token, expected):
+        from routers.access import _valid_admin_token
+        if not _valid_admin_token(x_admin_token):
             raise HTTPException(status_code=403, detail="Admin token required to force-refresh AI summaries.")
     from services.ai_summary import generate_stock_summary
     return generate_stock_summary(ticker, db, force=refresh, cred=cred)

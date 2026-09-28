@@ -6,13 +6,20 @@ of the row id and email, so it can't be forged or moved to another row.
 """
 import hashlib
 import hmac
+import secrets
 
 from config import settings
 from services.email_layout import SITE_URL
 
 
+# Without an admin password (a fresh dev install) links are signed with a
+# per-process random key instead of a guessable one; they stop working on
+# restart, which is fine there.
+_FALLBACK_KEY = secrets.token_hex(32)
+
+
 def sub_sig(sub) -> str:
-    key = f"subscriber-link:{settings.admin_password}".encode()
+    key = f"subscriber-link:{settings.admin_password or _FALLBACK_KEY}".encode()
     return hmac.new(key, f"{sub.id}:{sub.email}".encode(), hashlib.sha256).hexdigest()[:32]
 
 
