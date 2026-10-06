@@ -19,6 +19,7 @@ These run without you:
 | Morning / midday / evening analysis + email reports; alert evaluation | 8:00, 12:00, 18:00 (+15 min) | subscribers stop getting mail |
 | Member track records → Congress weights (`skill_factor`) | Sundays 4:30 | Politician pages show `×1.00 weight` for everyone |
 | Backup (database + `.env` + Tailscale identity → encrypted off-site copy) | nightly 3:00 (launchd on the Mac) | Email to `MAIL_ADMIN_TO`; `deploy/state/backups/backup.log` |
+| Restore drill (off-site bundle → throwaway stack with no internet, checked, torn down) | monthly, 1st at 5:30 (launchd) | Email to `MAIL_ADMIN_TO`; `deploy/state/backups/restore-drill.log` |
 | The app's own `pg_dump` into the `backups` volume (second copy, last 7) | nightly 4:00 | — |
 | Container restarts after a crash or reboot; network-namespace watchdog (in the app, plus the `watchdog` service) | always | site unreachable; `logs watchdog` |
 | Dependabot patch/minor updates | Mondays, merged when CI passes | GitHub email per PR |
@@ -63,19 +64,25 @@ congressional sync or skill refresh is running (they die with the
 container). Wait for it, or `deploy/start.sh --force` — they're idempotent,
 you just lose the progress.
 
-## Every few months (5 minutes)
+## Restore drill (monthly, automatic)
 
-Prove the backup restores — a backup that has never been restored is a
-hope, not a backup. On a spare machine (or after `deploy/stop.sh` and
-renaming the volumes):
+A backup that has never been restored is a hope, not a backup. launchd runs
+`deploy/restore-drill.sh --from-remote --notify` on the 1st of each month at
+05:30 (`com.mgnetwork.stock-tracker-restore-drill`, installed by
+`backup-setup.sh`): it restores the newest off-site bundle into a throwaway
+`stock-drill` stack, boots the app on it, checks trades, members, Form 4,
+settings, the scheduler and `/health`, and tears it down. It emails
+`MAIL_ADMIN_TO` only if it fails; log in `deploy/state/backups/restore-drill.log`.
 
-```bash
-deploy/restore.sh --from-remote latest
-```
+The drill stack has no internet (an internal Docker network): the restored
+database holds the real API keys and subscribers, and the app's startup
+backfill and scheduler would otherwise call Alpha Vantage and the AI
+providers, or send mail. Run it by hand any time with
+`deploy/restore-drill.sh` (`--keep` leaves it up to look at).
 
-It fetches the off-site copy, recreates `deploy/.env`, the database and the
-Tailscale identity, and starts the stack. Check `/health` and that the
-Dashboard shows trades.
+A full restore onto a spare machine is still worth doing once in a while:
+`deploy/restore.sh --from-remote latest` recreates `deploy/.env`, the
+database and the Tailscale identity, and starts the stack.
 
 ## When you have 20 minutes
 
