@@ -20,7 +20,7 @@ These run without you:
 | Member track records → Congress weights (`skill_factor`) | Sundays 4:30 | Politician pages show `×1.00 weight` for everyone |
 | Backup (database + `.env` + Tailscale identity → encrypted off-site copy) | nightly 3:00 (launchd on the Mac) | Email to `MAIL_ADMIN_TO`; `deploy/state/backups/backup.log` |
 | The app's own `pg_dump` into the `backups` volume (second copy, last 7) | nightly 4:00 | — |
-| Container restarts after a crash or reboot; network-namespace watchdog | always | site unreachable |
+| Container restarts after a crash or reboot; network-namespace watchdog (in the app, plus the `watchdog` service) | always | site unreachable; `logs watchdog` |
 | Dependabot patch/minor updates | Mondays, merged when CI passes | GitHub email per PR |
 | Security advisories | as published | GitHub email + Security tab |
 
@@ -116,11 +116,18 @@ saying what failed; Dependabot will not reopen it.
 4. Reachable locally but not from the internet → Tailscale:
    `docker compose -f deploy/compose.yml logs --tail=50 tailscale`, and check
    the machine in the Tailscale admin console. If the Tailscale container
-   restarted, the app notices within ~45 s and restarts itself.
+   restarted, the app notices within ~45 s and restarts itself, and the
+   `watchdog` service restarts the app and cloudflared once Tailscale is back
+   (`docker compose -f deploy/compose.yml logs watchdog` shows what it did).
+   It also restarts Tailscale when the ts.net URL stops answering (unless the
+   internet is down), the app after ~10 minutes unhealthy, and cloudflared
+   when it exits or has no Cloudflare connection for ~5 minutes.
    Only insidertrack.mgnetsolutions.com down, the ts.net URL fine →
    the Cloudflare tunnel: `docker compose -f deploy/compose.yml logs --tail=50 cloudflared`.
-   After a Tailscale restart, restart it too (it shares that container's
-   network): `docker compose -f deploy/compose.yml up -d --no-deps --force-recreate cloudflared`.
+   Recreating `tailscale` on its own (`up -d tailscale` after a config change)
+   strands the app and cloudflared on a container that no longer exists, which
+   the watchdog can't repair: recreate them in the same command, or use
+   `deploy/start.sh`.
 5. Still stuck → `deploy/stop.sh && deploy/start.sh` restarts the whole stack
    without touching data.
 

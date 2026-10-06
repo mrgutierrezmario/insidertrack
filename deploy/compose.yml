@@ -48,7 +48,8 @@ services:
         mv /config/serve.json.tmp /config/serve.json
 
   tailscale:
-    image: tailscale/tailscale:latest
+    # Pinned: the watchdog relies on containerboot's start-up behaviour.
+    image: tailscale/tailscale:v1.102.3
     restart: *restart
     hostname: ${TS_HOSTNAME:-stock-tracker}
     depends_on:
@@ -61,9 +62,30 @@ services:
       TS_USERSPACE: "true"
       TS_SERVE_CONFIG: /config/serve.json
       TS_EXTRA_ARGS: --accept-dns=false
+      # Log in only when the saved state has no login. Without it containerboot
+      # runs `tailscale up` on every start and exits when the control server is
+      # unreachable, so an internet outage becomes a restart loop, each restart
+      # stranding the app and cloudflared on a dead network namespace
+      # (lecture-note-app, 2026-10-05).
+      TS_AUTH_ONCE: "true"
     volumes:
       - tailscale-state:/var/lib/tailscale
       - tailscale-config:/config:ro
+    # Probes the public URL end to end through Funnel (any HTTP status counts;
+    # app health is the app's own check). With TS_USERSPACE the tailnet IP is
+    # not a local interface, so the public name is the only probe that
+    # exercises tailscaled. The watchdog service acts on it.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          d=$$(tailscale status --json | sed -n 's/^ *"DNSName": "\([^"]*\)\.",\{0,1\}$$/\1/p' | head -1)
+          && [ -n "$$d" ]
+          && wget -qS -T 10 -O /dev/null "https://$$d/health" 2>&1 | grep -q '^ *HTTP/'
+      interval: 60s
+      timeout: 20s
+      retries: 3
+      start_period: 5m
     ports:
       # This Mac only. The public addresses go through Cloudflare and
       # Tailscale, which don't use this port; set APP_BIND=0.0.0.0 to open it
@@ -143,13 +165,33 @@ services:
     profiles: [cloudflare]
     restart: *restart
     network_mode: service:tailscale
-    command: tunnel --config /etc/cloudflared/config.yml run
+    # Fixed metrics address: the watchdog polls /ready on it to notice a
+    # tunnel that is running but has no connection to Cloudflare.
+    command: tunnel --metrics 127.0.0.1:20241 --config /etc/cloudflared/config.yml run
     depends_on:
       app:
         condition: service_started
     volumes:
       - ./cloudflared.yml:/etc/cloudflared/config.yml:ro
       - ${CLOUDFLARED_CREDENTIALS:-/dev/null}:/etc/cloudflared/credentials.json:ro
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  # Self-healing (deploy/watchdog/watchdog.sh, shared with lecture-note-app):
+  # restarts tailscale when its public-URL probe fails, unless the internet is
+  # down; re-attaches the app and cloudflared when tailscale restarted
+  # underneath them; restarts the app after ~10 minutes unhealthy, and
+  # cloudflared when it exits or loses Cloudflare for ~5 minutes.
+  watchdog:
+    build: ./watchdog
+    image: stock-tracker-watchdog:latest
+    restart: *restart
+    environment:
+      PROJECT: stock-tracker
+      DEPENDANTS: app cloudflared
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "3" }
