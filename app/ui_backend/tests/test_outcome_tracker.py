@@ -56,7 +56,7 @@ class TestDetectSnapshotGaps:
         db.query(SignalOutcome).delete()
         # Snapshot exists for every weekday in the window except one.
         today = date(2026, 9, 18)   # a Friday
-        monkeypatch.setattr(ot, "date", _FrozenDate(today))
+        monkeypatch.setattr(ot, "_market_today", lambda: today)
         missing = date(2026, 9, 15)
         d = today - timedelta(days=7)
         while d <= today:   # the window is inclusive of both ends
@@ -66,6 +66,53 @@ class TestDetectSnapshotGaps:
         db.flush()
         gaps = ot.detect_snapshot_gaps(db, window_days=7)
         assert gaps == [missing]
+
+
+class TestMarketToday:
+    def test_uses_new_york_date_not_utc(self, monkeypatch):
+        """22:41 ET on Oct 5 is already Oct 6 in UTC — the container's clock."""
+        from datetime import datetime, timezone
+        utc_late = datetime(2026, 10, 6, 2, 41, tzinfo=timezone.utc)
+
+        class _DT(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return utc_late.astimezone(tz) if tz else utc_late
+        monkeypatch.setattr(ot, "datetime", _DT)
+        assert ot._market_today() == date(2026, 10, 5)
+
+
+class TestSnapshotRowsArePlainPython:
+    def test_numpy_scores_and_price_are_converted(self, monkeypatch):
+        """One numpy scalar made psycopg2 emit `np.float64(…)` and fail the batch."""
+        import numpy as np
+        import routers.signals as rs
+        payload = {"score_version": 3, "signals": [{
+            "ticker": "NVDA", "current_price": np.float64(228.38),
+            "composite_score": np.int64(71), "label": "Buy", "signal": "BUY",
+            "sub_scores": {"smart_money": np.float64(20.5), "insider": 10, "corporate": 5,
+                           "momentum": np.float64(12.0), "sentiment": 50, "risk_penalty": 0},
+        }]}
+        monkeypatch.setattr(rs, "technical_signals", lambda db: payload)
+        monkeypatch.setattr(ot, "_politician_by_ticker", lambda db, tickers: {})
+        captured = {}
+
+        class _Result:
+            rowcount = 1
+
+        class _DB:
+            def execute(self, stmt):
+                captured["rows"] = stmt.compile().params
+                return _Result()
+            def commit(self):
+                pass
+
+        monkeypatch.setattr(ot, "_market_today", lambda: date(2026, 10, 5))
+        assert ot.snapshot_signals(_DB()) == 1
+        values = [v for k, v in captured["rows"].items() if isinstance(v, (int, float)) and not isinstance(v, bool)]
+        assert values, captured["rows"]
+        for v in values:
+            assert type(v) in (int, float), (v, type(v))
 
 
 class _FrozenDate(date):

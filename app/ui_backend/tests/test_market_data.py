@@ -229,3 +229,25 @@ class TestYfinanceHistorySkipsNaNRows:
 
         rows = md.get_price_history("TEST", days=30)
         assert json.loads(json.dumps(rows, allow_nan=False)) == rows
+
+
+class TestPriceHistoryYfinance:
+    def test_bars_are_plain_floats_not_numpy(self, monkeypatch):
+        """pandas rows give numpy scalars; NumPy 2 renders them as np.float64(…),
+        which psycopg2 sent as SQL and broke the daily snapshot (2026-09-30)."""
+        import pandas as pd
+        import services.market_data as md
+        hist = pd.DataFrame(
+            {"Open": [10.0, 11.0], "High": [12.0, 13.0], "Low": [9.0, 10.0],
+             "Close": [11.5, 12.5], "Volume": [100, 200]},
+            index=pd.to_datetime(["2026-09-28", "2026-09-29"]),
+        )
+        monkeypatch.setattr(md, "_history_cache_get", lambda k: None)
+        monkeypatch.setattr(md, "_history_cache_set", lambda k, v: None)
+        monkeypatch.setattr(md, "_yf_call", lambda fn, *a, **kw: hist)
+        rows = md.get_price_history("AAPL", days=5)
+        assert [r["close"] for r in rows] == [11.5, 12.5]
+        for r in rows:
+            for k in ("open", "high", "low", "close"):
+                assert type(r[k]) is float, (k, type(r[k]))
+

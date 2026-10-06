@@ -12,7 +12,8 @@ Outcome tracker — two jobs:
 """
 
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -20,6 +21,13 @@ from sqlalchemy.orm import Session
 
 from models.signal_outcome import SignalOutcome
 from services.market_data import get_price_history
+
+
+def _market_today() -> date:
+    """Today in New York. The container runs on UTC, so after 8 PM ET
+    `date.today()` is already tomorrow: gap detection then flagged a day that
+    hasn't happened, and a night-time backfill would snapshot it."""
+    return datetime.now(ZoneInfo("America/New_York")).date()
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +116,7 @@ def snapshot_signals(db: Session, target_date: date | None = None) -> int:
     """
     from routers.signals import technical_signals, _compute_technical_signals, SCORE_VERSION
 
-    today = date.today()
+    today = _market_today()
     target_date = target_date or today
     is_backfilled = target_date < today
 
@@ -128,6 +136,11 @@ def snapshot_signals(db: Session, target_date: date | None = None) -> int:
     tickers = [s.get("ticker") for s in signals if s.get("ticker")]
     pol_map = _politician_by_ticker(db, tickers)
 
+    def _num(v):
+        """Plain Python number for the insert: a numpy scalar that slips
+        through (e.g. a cached pandas-derived price) breaks the whole batch."""
+        return v.item() if hasattr(v, "item") else v
+
     rows = []
     skipped_demo = 0
     for s in signals:
@@ -143,19 +156,19 @@ def snapshot_signals(db: Session, target_date: date | None = None) -> int:
         rows.append({
             "ticker":            ticker,
             "signal_date":       target_date,
-            "composite_score":   s.get("composite_score"),
+            "composite_score":   _num(s.get("composite_score")),
             "label":             s.get("label"),
             "signal":            s.get("signal"),
-            "price_at_signal":   price,
+            "price_at_signal":   _num(price),
             "politician_id":     pol.get("id"),
             "politician_name":   pol.get("name"),
-            "smart_money_score": sub.get("smart_money"),
-            "insider_score":     sub.get("insider"),
-            "corporate_score":   sub.get("corporate"),
+            "smart_money_score": _num(sub.get("smart_money")),
+            "insider_score":     _num(sub.get("insider")),
+            "corporate_score":   _num(sub.get("corporate")),
             "score_version":     signals_payload.get("score_version"),
-            "momentum_score":    sub.get("momentum"),
-            "sentiment_score":   sub.get("sentiment"),
-            "risk_penalty":      sub.get("risk_penalty"),
+            "momentum_score":    _num(sub.get("momentum")),
+            "sentiment_score":   _num(sub.get("sentiment")),
+            "risk_penalty":      _num(sub.get("risk_penalty")),
             "is_backfilled":     is_backfilled,
         })
 
@@ -204,7 +217,13 @@ def backfill_snapshot_gaps(db: Session, window_days: int = 14) -> dict:
     days_filled = 0
     days_skipped = 0
     for day in gaps:
-        inserted = snapshot_signals(db, target_date=day)
+        # One bad day must not abort the rest (it did on 2026-10-05).
+        try:
+            inserted = snapshot_signals(db, target_date=day)
+        except Exception:
+            db.rollback()
+            logger.exception(f"Backfill for {day} failed")
+            inserted = 0
         if inserted > 0:
             days_filled += 1
             rows_inserted += inserted
@@ -224,7 +243,7 @@ def detect_snapshot_gaps(db: Session, window_days: int = 14) -> list[date]:
     surfaced on /health so operators notice when the server was down at
     07:00 ET. Weekends are skipped — market is closed.
     """
-    today = date.today()
+    today = _market_today()
     start = today - timedelta(days=window_days)
     existing = {
         d for (d,) in db.query(SignalOutcome.signal_date)

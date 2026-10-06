@@ -366,13 +366,17 @@ def get_price_history(ticker: str, days: int = 90) -> list[dict]:
         # attempt to cache the series — Postgres rejects NaN in a `json`
         # column, so the L2 write fails and the ticker is re-fetched on
         # every request. Skip them here, once, rather than in each caller.
+        # float(): pandas hands back numpy scalars, and NumPy 2 renders them
+        # as `np.float64(…)` — psycopg2 then sends that text as SQL and the
+        # snapshot insert fails with 'schema "np" does not exist' (no
+        # signal_outcomes rows 2026-09-30 → 10-05 whenever this path ran).
         rows = [
             {
                 "date": str(idx.date()),
-                "open": round(row["Open"], 2),
-                "high": round(row["High"], 2),
-                "low": round(row["Low"], 2),
-                "close": round(row["Close"], 2),
+                "open": round(float(row["Open"]), 2),
+                "high": round(float(row["High"]), 2),
+                "low": round(float(row["Low"]), 2),
+                "close": round(float(row["Close"]), 2),
                 "volume": int(row["Volume"]),
             }
             for idx, row in hist.iterrows()
