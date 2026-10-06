@@ -181,8 +181,8 @@ services:
   # Self-healing (deploy/watchdog/watchdog.sh, shared with lecture-note-app):
   # restarts tailscale when its public-URL probe fails, unless the internet is
   # down; re-attaches the app and cloudflared when tailscale restarted
-  # underneath them; restarts the app after ~10 minutes unhealthy, and
-  # cloudflared when it exits or loses Cloudflare for ~5 minutes.
+  # underneath them; restarts the app and mcp after ~10 minutes unhealthy,
+  # and cloudflared when it exits or loses Cloudflare for ~5 minutes.
   watchdog:
     build: ./watchdog
     image: stock-tracker-watchdog:latest
@@ -190,6 +190,9 @@ services:
     environment:
       PROJECT: stock-tracker
       DEPENDANTS: app cloudflared
+      # Not in tailscale's namespace, but restarted after ~10 minutes
+      # unhealthy or an error exit like the others.
+      WATCHED: mcp
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     logging:
