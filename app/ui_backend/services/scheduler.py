@@ -14,7 +14,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from config import settings
-from database import SessionLocal
+from database import SessionLocal, sqlalchemy_url
 from services.analyzer import run_analysis
 from services.congress_fetcher import sync_all
 from services.email_sender import send_report
@@ -37,7 +37,9 @@ ET = "America/New_York"
 
 scheduler = BackgroundScheduler(
     timezone=ET,
-    jobstores={"default": SQLAlchemyJobStore(url=settings.database_url, tablename="apscheduler_jobs")},
+    # sqlalchemy_url(): same psycopg2 pin as the app's engine (SQLAlchemy 2.1
+    # defaults bare postgresql:// to psycopg v3, which isn't installed).
+    jobstores={"default": SQLAlchemyJobStore(url=sqlalchemy_url(settings.database_url), tablename="apscheduler_jobs")},
 )
 
 

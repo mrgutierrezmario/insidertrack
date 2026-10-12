@@ -11,8 +11,22 @@ logger = logging.getLogger(__name__)
 # because the app interleaves a scheduler (long-running jobs) with web
 # requests — the default pool_size=5 + max_overflow=10 can starve under
 # moderate load.
+def sqlalchemy_url(url: str) -> str:
+    """Pin the psycopg2 driver for a bare postgresql:// URL.
+
+    SQLAlchemy 2.1 made psycopg (v3) the default driver for postgresql://;
+    this app ships psycopg2-binary, so the bare URL failed with "No module
+    named 'psycopg'". DATABASE_URL itself stays driver-free because pg_dump
+    (services/db_backup.py) reads it too and doesn't accept "+psycopg2".
+    """
+    for bare in ("postgresql://", "postgres://"):
+        if url.startswith(bare):
+            return "postgresql+psycopg2://" + url[len(bare):]
+    return url
+
+
 engine = create_engine(
-    settings.database_url,
+    sqlalchemy_url(settings.database_url),
     pool_pre_ping=True,
     pool_size=10,
     max_overflow=20,
