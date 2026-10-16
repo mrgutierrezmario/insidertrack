@@ -7,6 +7,18 @@ All notable changes to InsiderTrack. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Trades on the price chart.** The ticker page's 90-day chart marks every Congress and
+  corporate-insider buy (▲) and sell (▼) on the candle it landed on — weekend trades snap to the
+  next session, same-day trades merge ("2 buys"), and crowded labels are dropped so they don't
+  overprint. Hovering a candle lists who traded and how much. The chart also draws daily volume
+  bars, and the page now opens on the 90-day view instead of intraday.
+
+### Fixed
+- **The ticker chart could draw twice.** The chart library loads asynchronously; if the
+  component re-rendered before it arrived (switching views quickly, or React's dev-mode double
+  mount), an orphan chart was built under the real one and its touch handlers were never removed.
+
 ### Fixed
 - **The `NaN`s themselves are gone at the source.** yfinance carries the holidays and halts
   that Yahoo's chart JSON reports as `null` as `NaN` instead, and `round(nan, 2)` is `nan`.

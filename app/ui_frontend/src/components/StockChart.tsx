@@ -2,6 +2,7 @@ import { C, resolvedPalette, resolveCss } from "../lib/theme";
 import { useResolvedTheme } from "../hooks/useTheme";
 import { useEffect, useRef, useState } from "react";
 import ChartModal from "./ChartModal";
+import type { DayMarker } from "../lib/tradeMarkers";
 
 // Time can be a string ("YYYY-MM-DD") for daily bars or a number (UNIX seconds)
 // for intraday — both shapes are accepted by lightweight-charts.
@@ -13,6 +14,7 @@ interface Candle {
   high: number;
   low: number;
   close: number;
+  volume?: number;
 }
 
 interface RawBar {
@@ -22,6 +24,7 @@ interface RawBar {
   high: number;
   low: number;
   close: number;
+  volume?: number;
 }
 
 interface StockChartProps {
@@ -29,6 +32,27 @@ interface StockChartProps {
   height?: number;
   interactive?: boolean;
   title?: string;
+  // Buy/sell markers keyed to daily candle dates; ignored on intraday data.
+  markers?: DayMarker[];
+}
+
+// Stable default so the chart effect doesn't rebuild on every render.
+const NO_MARKERS: DayMarker[] = [];
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch] as string));
+}
+
+// "#4ade80" → "#4ade8066"; anything else is passed through unchanged.
+function withAlpha(color: string, alpha: string): string {
+  return /^#[0-9a-f]{6}$/i.test(color) ? color + alpha : color;
+}
+
+function fmtVolume(v: number): string {
+  if (v >= 1e9) return `${(v / 1e9).toFixed(2)}B`;
+  if (v >= 1e6) return `${(v / 1e6).toFixed(2)}M`;
+  if (v >= 1e3) return `${(v / 1e3).toFixed(1)}K`;
+  return String(v);
 }
 
 function toChartTime(timeStr: string | undefined): ChartTime {
@@ -76,6 +100,7 @@ function renderCandleTooltip(
   y: number,
   height: number,
   cw: number,
+  trades: DayMarker[] = [],
 ) {
   if (!tooltip || !candle) return;
 
@@ -100,7 +125,12 @@ function renderCandleTooltip(
       <span style="color:var(--c-textMuted)">High</span><span style="color:var(--c-success)">${fmtPrice(candle.high)}</span>
       <span style="color:var(--c-textMuted)">Low</span><span style="color:var(--c-danger)">${fmtPrice(candle.low)}</span>
       <span style="color:var(--c-textMuted)">Close</span><span style="color:var(--c-textBright)">${fmtPrice(candle.close)}</span>
+      ${candle.volume ? `<span style="color:var(--c-textMuted)">Volume</span><span style="color:var(--c-textBright)">${fmtVolume(candle.volume)}</span>` : ""}
     </div>
+    ${trades.flatMap((m) => m.details.map((d) => `
+      <div style="margin-top:6px;font-size:11px;color:${m.side === "buy" ? "var(--c-success)" : "var(--c-danger)"}">
+        ${m.side === "buy" ? "▲" : "▼"} ${escapeHtml(d)}
+      </div>`)).join("")}
   `;
   tooltip.style.display = "block";
 
@@ -119,7 +149,7 @@ function renderCandleTooltip(
  * interactive: passed to modal instance — do not set manually
  * title: shown in modal header
  */
-export default function StockChart({ data, height = 300, interactive = false, title = "Chart" }: StockChartProps) {
+export default function StockChart({ data, height = 300, interactive = false, title = "Chart", markers = NO_MARKERS }: StockChartProps) {
   const theme = useResolvedTheme();
   const [expanded, setExpanded] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -138,13 +168,17 @@ export default function StockChart({ data, height = 300, interactive = false, ti
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let chart: any;
     let resizeHandler: (() => void) | undefined;
+    let removeTouch: (() => void) | undefined;
+    // The chart library loads asynchronously; if this effect is torn down
+    // first (re-render, StrictMode), don't build an orphan chart.
+    let cancelled = false;
     const tooltip = tooltipRef.current;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     import("lightweight-charts").then((lc: any) => {
       // lightweight-charts v5: addSeries(<type>, options) replaces addCandlestickSeries().
-      const { createChart, CrosshairMode, CandlestickSeries } = lc;
-      if (!containerRef.current) return;
+      const { createChart, CrosshairMode, CandlestickSeries, HistogramSeries, createSeriesMarkers } = lc;
+      if (cancelled || !containerRef.current) return;
 
       chart = createChart(containerRef.current, {
         height,
@@ -169,12 +203,45 @@ export default function StockChart({ data, height = 300, interactive = false, ti
         wickUpColor: R.success, wickDownColor: R.danger,
       });
 
-      const mapped = data.map((d) => ({
+      const mapped: Candle[] = data.map((d) => ({
         time: toChartTime(d.time ?? d.date),
-        open: d.open, high: d.high, low: d.low, close: d.close,
+        open: d.open, high: d.high, low: d.low, close: d.close, volume: d.volume,
       }));
       candleSeries.setData(mapped);
       mappedRef.current = mapped;
+      const byTime = new Map(mapped.map((c) => [c.time, c]));
+
+      // ── Volume: bars along the bottom quarter, on their own scale ──
+      if (mapped.some((c) => c.volume)) {
+        candleSeries.priceScale().applyOptions({ scaleMargins: { top: 0.08, bottom: 0.28 } });
+        const volumeSeries = chart.addSeries(HistogramSeries, {
+          priceFormat: { type: "volume" },
+          priceScaleId: "",
+          lastValueVisible: false,
+          priceLineVisible: false,
+        });
+        volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.78, bottom: 0 } });
+        volumeSeries.setData(mapped.map((c) => ({
+          time: c.time,
+          value: c.volume ?? 0,
+          color: withAlpha(c.close >= c.open ? R.success : R.danger, "55"),
+        })));
+      }
+
+      // ── Buy/sell markers: daily candles only ───────────────────────
+      const daily = typeof mapped[0]?.time === "string";
+      const dayMarkers = daily ? markers : [];
+      if (dayMarkers.length) {
+        createSeriesMarkers(candleSeries, dayMarkers.map((m) => ({
+          time: m.time,
+          position: m.side === "buy" ? "belowBar" : "aboveBar",
+          shape: m.side === "buy" ? "arrowUp" : "arrowDown",
+          color: m.side === "buy" ? R.success : R.danger,
+          text: m.text,
+        })));
+      }
+      const tradesOn = (t: ChartTime) => dayMarkers.filter((m) => m.time === t);
+
       chart.timeScale().fitContent();
 
       // ── Desktop: built-in crosshair ───────────────────────────────
@@ -184,8 +251,10 @@ export default function StockChart({ data, height = 300, interactive = false, ti
           if (tooltip) tooltip.style.display = "none";
           return;
         }
-        const candle = param.seriesData.get(candleSeries) as Candle | undefined;
-        renderCandleTooltip(tooltip, candle, fromLibTime(param.time), param.point.x, param.point.y, height, containerRef.current?.clientWidth ?? 300);
+        const t = fromLibTime(param.time);
+        // The series hands back OHLC only; take the full bar (with volume) from our copy.
+        const candle = byTime.get(t) ?? (param.seriesData.get(candleSeries) as Candle | undefined);
+        renderCandleTooltip(tooltip, candle, t, param.point.x, param.point.y, height, containerRef.current?.clientWidth ?? 300, tradesOn(t));
       });
 
       // ── Mobile: direct touch → find nearest candle ────────────────
@@ -204,7 +273,7 @@ export default function StockChart({ data, height = 300, interactive = false, ti
         const targetMs = timeToMs(t);
 
         const nearest = findNearest(mappedRef.current, targetMs);
-        renderCandleTooltip(tooltip, nearest, nearest?.time ?? t, x, y, height, containerRef.current.clientWidth);
+        renderCandleTooltip(tooltip, nearest, nearest?.time ?? t, x, y, height, containerRef.current.clientWidth, nearest ? tradesOn(nearest.time) : []);
       };
 
       const onTouchEnd = () => {
@@ -221,7 +290,7 @@ export default function StockChart({ data, height = 300, interactive = false, ti
       };
       window.addEventListener("resize", resizeHandler);
 
-      return () => {
+      removeTouch = () => {
         el.removeEventListener("touchstart", onTouch);
         el.removeEventListener("touchmove", onTouch);
         el.removeEventListener("touchend", onTouchEnd);
@@ -229,11 +298,13 @@ export default function StockChart({ data, height = 300, interactive = false, ti
     });
 
     return () => {
+      cancelled = true;
+      removeTouch?.();
       if (resizeHandler) window.removeEventListener("resize", resizeHandler);
       if (chart) chart.remove();
       chartRef.current = null;
     };
-  }, [data, height, theme]);
+  }, [data, height, theme, markers]);
 
   const chartEl = (
     <div style={{ position: "relative", width: "100%" }}>
@@ -251,6 +322,7 @@ export default function StockChart({ data, height = 300, interactive = false, ti
           pointerEvents: "none",
           zIndex: 10,
           minWidth: "150px",
+          maxWidth: "280px",
           boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
         }}
       />
@@ -288,6 +360,7 @@ export default function StockChart({ data, height = 300, interactive = false, ti
             height={window.innerHeight - 110}
             interactive={true}
             title={title}
+            markers={markers}
           />
         </ChartModal>
       )}

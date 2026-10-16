@@ -2,7 +2,7 @@ import { safeHref } from "../lib/safeUrl";
 import { fmtDate } from "../lib/format";
 import { C } from "../lib/theme";
 import useDocumentTitle from "../hooks/useDocumentTitle";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { isAxiosError } from "axios";
 import { getTrades, getInsiderTransactions, getIntraday, getPriceHistory, getTickerInfo, getMarketStatus, getTickerNews, getTickerEarnings } from "../lib/api";
@@ -10,6 +10,7 @@ import AiSummaryPanel from "../components/AiSummaryPanel";
 import TradeCard from "../components/TradeCard";
 import StockChart from "../components/StockChart";
 import WatchlistButton from "../components/WatchlistButton";
+import { buildDayMarkers, congressEvent, insiderEvent, type TradeEvent } from "../lib/tradeMarkers";
 import type { Trade } from "../types/api";
 
 const INTERVALS = ["1min", "5min", "15min", "30min", "60min"] as const;
@@ -32,6 +33,7 @@ interface Candle {
   high: number;
   low: number;
   close: number;
+  volume?: number;
   _demo?: boolean;
 }
 
@@ -117,7 +119,7 @@ export default function Ticker() {
   const [isDemo, setIsDemo] = useState(false);
   const [info, setInfo] = useState<TickerInfo | null>(null);
   const [interval, setInterval] = useState<Interval>("1min");
-  const [chartMode, setChartMode] = useState<"intraday" | "history">("intraday");
+  const [chartMode, setChartMode] = useState<"intraday" | "history">("history");
   const [intradayEnabled, setIntradayEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [chartLoading, setChartLoading] = useState(false);
@@ -168,6 +170,17 @@ export default function Ticker() {
       })
       .finally(() => setChartLoading(false));
   }, [symbol, chartMode, interval]);
+
+  // Congress + insider trades as chart markers (daily view only).
+  const markers = useMemo(() => {
+    if (chartMode !== "history") return [];
+    const events = [
+      ...trades.map(congressEvent),
+      ...insiderTxns.map(insiderEvent),
+    ].filter((e): e is TradeEvent => e !== null);
+    const dates = candles.map((c) => c.date ?? c.time ?? "").filter(Boolean).sort();
+    return buildDayMarkers(events, dates);
+  }, [chartMode, trades, insiderTxns, candles]);
 
   const formatMarketCap = (n: number | null | undefined): string => {
     if (!n) return "—";
@@ -259,11 +272,19 @@ export default function Ticker() {
             {chartError}
           </div>
         ) : candles.length > 0 ? (
-          <StockChart data={candles} height={320} title={symbol} />
+          <StockChart data={candles} height={320} title={symbol} markers={markers} />
         ) : (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 320, color: C.textDim }}>No chart data available</div>
         )}
       </div>
+
+      {chartMode === "history" && markers.length > 0 && (
+        <div style={{ display: "flex", gap: "1rem", color: C.textMuted, fontSize: "0.75rem", marginTop: "-1.5rem", marginBottom: "2rem", flexWrap: "wrap" }}>
+          <span><span style={{ color: C.success }}>▲</span> Congress or insider buy</span>
+          <span><span style={{ color: C.danger }}>▼</span> sell</span>
+          <span>Hover a marker's candle for who and how much</span>
+        </div>
+      )}
 
       <AiSummaryPanel symbol={symbol} />
 
