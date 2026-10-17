@@ -10,6 +10,8 @@ the admin when a source is failing or has stopped producing rows.
 States:
   ok       last run succeeded and rows have arrived within the expected window
   stale    runs succeed but no new rows for longer than the source's window
+           (for sources that also report new filings: no new filings for that
+           window, or no new rows for the longer max_rows_quiet_days)
   failing  the last N runs raised
   never    no run recorded yet
 """
@@ -30,9 +32,12 @@ FAILING_AFTER = 3  # consecutive failures before a source is "failing"
 
 # How long a healthy source may go without producing a new row. Congress
 # files continuously (recess weeks included); Form 4 is daily; 13F is
-# quarterly so the run cadence matters more than new rows.
+# quarterly so the run cadence matters more than new rows. Senate filings
+# often hold only bonds, private funds or non-public stock (no ticker, so no
+# rows), so its listing is watched on the 14-day window and its parser on a
+# longer one.
 SOURCES = {
-    "senate": {"label": "Senate EFD",            "max_quiet_days": 14},
+    "senate": {"label": "Senate EFD",            "max_quiet_days": 14, "max_rows_quiet_days": 30},
     "house":  {"label": "House Clerk PTRs",      "max_quiet_days": 14},
     "form4":  {"label": "SEC Form 4",            "max_quiet_days": 10},
     "whale":  {"label": "SEC 13F (whales)",      "max_quiet_days": 120},
@@ -54,6 +59,7 @@ def _load(db: Session, source: str) -> dict:
 
 
 def record(db: Session, source: str, *, ok: bool, new_rows: int = 0,
+           new_filings: Optional[int] = None,
            error: Optional[str] = None, detail: Optional[dict] = None) -> None:
     """Upsert the outcome of one run. Never raises — health bookkeeping must
     not take a sync down with it."""
@@ -67,6 +73,7 @@ def record(db: Session, source: str, *, ok: bool, new_rows: int = 0,
             "last_new_rows": new_rows if ok else None,
             "last_success_at": now if ok else prev.get("last_success_at"),
             "last_new_rows_at": now if (ok and new_rows > 0) else prev.get("last_new_rows_at"),
+            "last_new_filing_at": now if (ok and new_filings) else prev.get("last_new_filing_at"),
             "consecutive_failures": 0 if ok else int(prev.get("consecutive_failures", 0)) + 1,
             "detail": detail or {},
         }
@@ -87,12 +94,21 @@ def _status(source: str, st: dict) -> str:
         return "never"
     if int(st.get("consecutive_failures", 0)) >= FAILING_AFTER:
         return "failing"
-    quiet_days = SOURCES.get(source, {}).get("max_quiet_days")
+    meta = SOURCES.get(source, {})
+
+    def quiet_for(ts: Optional[str], days: Optional[int]) -> bool:
+        return bool(days and ts) and _now() - datetime.fromisoformat(ts) > timedelta(days=days)
+
     last_rows = st.get("last_new_rows_at") or st.get("last_success_at")
-    if quiet_days and last_rows:
-        age = _now() - datetime.fromisoformat(last_rows)
-        if age > timedelta(days=quiet_days):
+    rows_days = meta.get("max_rows_quiet_days")
+    if rows_days:
+        # Listing and parser watched separately: new filings must keep
+        # arriving, and some of them must yield rows within the longer window.
+        last_activity = max(filter(None, (st.get("last_new_filing_at"), last_rows)), default=None)
+        if quiet_for(last_activity, meta.get("max_quiet_days")) or quiet_for(last_rows, rows_days):
             return "stale"
+    elif quiet_for(last_rows, meta.get("max_quiet_days")):
+        return "stale"
     return "ok"
 
 
@@ -108,6 +124,7 @@ def summary(db: Session) -> dict:
             "last_success_at": st.get("last_success_at"),
             "last_new_rows_at": st.get("last_new_rows_at"),
             "last_new_rows": st.get("last_new_rows"),
+            "last_new_filing_at": st.get("last_new_filing_at"),
             "last_error": st.get("last_error"),
             "consecutive_failures": st.get("consecutive_failures", 0),
         }

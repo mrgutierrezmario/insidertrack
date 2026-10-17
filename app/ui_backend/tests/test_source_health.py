@@ -61,3 +61,38 @@ class TestRecordAndSummary:
         sh.record(db, "senate", ok=True, new_rows=3)
         sh.record(db, "senate", ok=True, new_rows=0)
         assert sh.summary(db)["sources"]["senate"]["status"] == "ok"
+
+
+class TestSenateFilingsWithoutRows:
+    """Senate filings can be new yet hold no tickers (bonds, private funds)."""
+
+    def _at(self, monkeypatch, days):
+        t = datetime.now(timezone.utc) + timedelta(days=days)
+        monkeypatch.setattr(sh, "_now", lambda: t)
+
+    def test_new_filings_without_rows_keep_it_ok(self, db, monkeypatch):
+        sh.record(db, "senate", ok=True, new_rows=4, new_filings=2)
+        self._at(monkeypatch, 20)
+        sh.record(db, "senate", ok=True, new_rows=0, new_filings=3)
+        src = sh.summary(db)["sources"]["senate"]
+        assert src["status"] == "ok"
+        assert src["last_new_filing_at"] > src["last_new_rows_at"]
+
+    def test_no_new_filings_past_window_is_stale(self, db, monkeypatch):
+        sh.record(db, "senate", ok=True, new_rows=4, new_filings=2)
+        self._at(monkeypatch, sh.SOURCES["senate"]["max_quiet_days"] + 1)
+        sh.record(db, "senate", ok=True, new_rows=0, new_filings=0)
+        assert sh.summary(db)["sources"]["senate"]["status"] == "stale"
+
+    def test_filings_but_no_rows_past_longer_window_is_stale(self, db, monkeypatch):
+        # listing works, but nothing parses into rows for a month: parser broken
+        sh.record(db, "senate", ok=True, new_rows=4, new_filings=2)
+        self._at(monkeypatch, sh.SOURCES["senate"]["max_rows_quiet_days"] + 1)
+        sh.record(db, "senate", ok=True, new_rows=0, new_filings=5)
+        assert sh.summary(db)["sources"]["senate"]["status"] == "stale"
+
+    def test_house_still_uses_rows_only(self, db, monkeypatch):
+        sh.record(db, "house", ok=True, new_rows=4)
+        self._at(monkeypatch, sh.SOURCES["house"]["max_quiet_days"] + 1)
+        sh.record(db, "house", ok=True, new_rows=0, new_filings=3)
+        assert sh.summary(db)["sources"]["house"]["status"] == "stale"

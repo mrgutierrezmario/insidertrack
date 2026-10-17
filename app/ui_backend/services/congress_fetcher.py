@@ -645,6 +645,11 @@ def _senate_report_superseded(db: Session, politician_id: int, filed: date) -> b
     ).first() is not None
 
 
+# New filings seen by the last run of each sync, for source_health: a Senate
+# filing can be real and new yet yield no rows (bonds, private funds).
+last_run_filings: dict[str, int] = {}
+
+
 def sync_senate_trades(db: Session, start_date: Optional[date] = None,
                        end_date: Optional[date] = None, progress=None,
                        reparse: bool = False, only: Optional[set[str]] = None) -> int:
@@ -674,6 +679,7 @@ def sync_senate_trades(db: Session, start_date: Optional[date] = None,
                 paper_budget -= 1
             kept_reports.append(r)
         new_reports = kept_reports
+        last_run_filings["senate"] = len(new_reports)
         logger.info(f"EFD: {len(reports)} PTRs since {start_date}, {len(new_reports)} new"
                     f" ({sum(1 for r in new_reports if r.get('paper'))} paper)")
 
@@ -1167,8 +1173,10 @@ def backfill(db: Session, since: date, until: Optional[date] = None, reparse: bo
         for name, fn in (("senate", sync_senate_trades), ("house", sync_house_trades)):
             _backfill_state.update(phase=name, done=0, total=0)
             try:
+                last_run_filings.pop(name, None)
                 result[name] = fn(db, start_date=since, end_date=until, progress=_progress(name), reparse=reparse)
                 source_health.record(db, name, ok=True, new_rows=result[name],
+                                     new_filings=last_run_filings.get(name),
                                      detail={"backfill": f"{since} → {until}"})
             except Exception as exc:
                 result[name] = 0
@@ -1279,8 +1287,10 @@ def sync_all(db: Session) -> dict:
         errors: dict = {}
         for name, fn in (("senate", sync_senate_trades), ("house", sync_house_trades)):
             try:
+                last_run_filings.pop(name, None)
                 result[name] = fn(db)
-                source_health.record(db, name, ok=True, new_rows=result[name])
+                source_health.record(db, name, ok=True, new_rows=result[name],
+                                     new_filings=last_run_filings.get(name))
             except Exception as exc:  # one source failing must not block the other
                 result[name] = 0
                 errors[name] = str(exc)
