@@ -15,6 +15,8 @@ All notable changes to InsiderTrack. The format follows
 - **Marked trades say when they became public.** Each line in the chart tooltip ends with
   "disclosed Oct 28 (26 days later)": Congress has up to 45 days to report, so an arrow on the
   trade date can sit before a move nobody could have acted on.
+- **A 1-year chart.** The ticker page has a 1-Year view next to 90-Day, with trade markers for
+  the whole year (it loads a deeper set of trades for them than the lists below show).
 - **Trades on the price chart.** The ticker page's 90-day chart marks every Congress and
   corporate-insider buy (▲) and sell (▼) on the candle it landed on — weekend trades snap to the
   next session, same-day trades merge ("2 buys"), and crowded labels are dropped so they don't

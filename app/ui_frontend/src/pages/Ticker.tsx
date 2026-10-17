@@ -121,6 +121,10 @@ export default function Ticker() {
   const [info, setInfo] = useState<TickerInfo | null>(null);
   const [interval, setInterval] = useState<Interval>("1min");
   const [chartMode, setChartMode] = useState<"intraday" | "history">("history");
+  const [historyDays, setHistoryDays] = useState<90 | 365>(90);
+  // The lists below the chart load the latest 100 / 50 trades; a year of
+  // markers can need more, so the 1-year view fetches its own deeper set.
+  const [yearTrades, setYearTrades] = useState<{ congress: Trade[]; insiders: InsiderTxn[] } | null>(null);
   const [intradayEnabled, setIntradayEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [chartLoading, setChartLoading] = useState(false);
@@ -158,7 +162,7 @@ export default function Ticker() {
     setChartError("");
     const fetch = chartMode === "intraday"
       ? getIntraday(symbol, interval)
-      : getPriceHistory(symbol, 90);
+      : getPriceHistory(symbol, historyDays);
     fetch
       .then((r) => {
         const c = ((r.data as { candles?: Candle[] }).candles) || [];
@@ -170,18 +174,37 @@ export default function Ticker() {
         setChartError(detail || "Could not load chart data");
       })
       .finally(() => setChartLoading(false));
-  }, [symbol, chartMode, interval]);
+  }, [symbol, chartMode, interval, historyDays]);
+
+  useEffect(() => {
+    setYearTrades(null);
+    if (chartMode !== "history" || historyDays !== 365) return;
+    let cancelled = false;
+    Promise.all([
+      getTrades({ ticker: symbol, limit: 500 }),
+      getInsiderTransactions({ ticker: symbol, limit: 300 }).catch(() => ({ data: [] })),
+    ]).then(([tradesRes, insidersRes]) => {
+      if (cancelled) return;
+      const td = tradesRes.data as { items?: Trade[] } | Trade[] | undefined;
+      const ins = insidersRes.data as { items?: InsiderTxn[] } | undefined;
+      setYearTrades({
+        congress: Array.isArray(td) ? td : td?.items ?? [],
+        insiders: ins?.items ?? [],
+      });
+    }).catch(() => { /* fall back to the page's lists */ });
+    return () => { cancelled = true; };
+  }, [symbol, chartMode, historyDays]);
 
   // Congress + insider trades as chart markers (daily view only).
   const markers = useMemo(() => {
     if (chartMode !== "history") return [];
     const events = [
-      ...trades.map(congressEvent),
-      ...insiderTxns.map(insiderEvent),
+      ...(yearTrades?.congress ?? trades).map(congressEvent),
+      ...(yearTrades?.insiders ?? insiderTxns).map(insiderEvent),
     ].filter((e): e is TradeEvent => e !== null);
     const dates = candles.map((c) => c.date ?? c.time ?? "").filter(Boolean).sort();
     return buildDayMarkers(events, dates);
-  }, [chartMode, trades, insiderTxns, candles]);
+  }, [chartMode, trades, insiderTxns, yearTrades, candles]);
 
   const formatMarketCap = (n: number | null | undefined): string => {
     if (!n) return "—";
@@ -226,17 +249,23 @@ export default function Ticker() {
         >
           Intraday {!intradayEnabled && "(unavailable)"}
         </button>
-        <button
-          onClick={() => setChartMode("history")}
-          style={{
-            background: chartMode === "history" ? C.accentSolid : C.surfaceAlt,
-            color: chartMode === "history" ? "#fff" : C.textSoft,
-            border: "none", borderRadius: 6, padding: "0.4rem 1rem",
-            cursor: "pointer", fontSize: "0.85rem",
-          }}
-        >
-          90-Day
-        </button>
+        {([[90, "90-Day"], [365, "1-Year"]] as const).map(([days, label]) => {
+          const active = chartMode === "history" && historyDays === days;
+          return (
+            <button
+              key={days}
+              onClick={() => { setChartMode("history"); setHistoryDays(days); }}
+              style={{
+                background: active ? C.accentSolid : C.surfaceAlt,
+                color: active ? "#fff" : C.textSoft,
+                border: "none", borderRadius: 6, padding: "0.4rem 1rem",
+                cursor: "pointer", fontSize: "0.85rem",
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
         {chartMode === "intraday" && intradayEnabled && (
           <div style={{ display: "flex", gap: "0.25rem", marginLeft: "0.5rem" }}>
             {INTERVALS.map((iv) => (
