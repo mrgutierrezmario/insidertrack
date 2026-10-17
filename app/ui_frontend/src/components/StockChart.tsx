@@ -1,8 +1,16 @@
-import { C, resolvedPalette, resolveCss } from "../lib/theme";
+import { C, resolvedPalette, resolveCss, type ColorToken } from "../lib/theme";
 import { useResolvedTheme } from "../hooks/useTheme";
 import { useEffect, useRef, useState } from "react";
 import ChartModal from "./ChartModal";
 import type { DayMarker } from "../lib/tradeMarkers";
+import type { LinePoint } from "../lib/indicators";
+
+// An overlay line on the price scale, e.g. a moving average.
+export interface ChartLine {
+  label: string;
+  color: ColorToken;
+  data: LinePoint[];
+}
 
 // Time can be a string ("YYYY-MM-DD") for daily bars or a number (UNIX seconds)
 // for intraday — both shapes are accepted by lightweight-charts.
@@ -34,10 +42,12 @@ interface StockChartProps {
   title?: string;
   // Buy/sell markers keyed to daily candle dates; ignored on intraday data.
   markers?: DayMarker[];
+  lines?: ChartLine[];
 }
 
 // Stable default so the chart effect doesn't rebuild on every render.
 const NO_MARKERS: DayMarker[] = [];
+const NO_LINES: ChartLine[] = [];
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch] as string));
@@ -149,7 +159,7 @@ function renderCandleTooltip(
  * interactive: passed to modal instance — do not set manually
  * title: shown in modal header
  */
-export default function StockChart({ data, height = 300, interactive = false, title = "Chart", markers = NO_MARKERS }: StockChartProps) {
+export default function StockChart({ data, height = 300, interactive = false, title = "Chart", markers = NO_MARKERS, lines = NO_LINES }: StockChartProps) {
   const theme = useResolvedTheme();
   const [expanded, setExpanded] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -177,7 +187,7 @@ export default function StockChart({ data, height = 300, interactive = false, ti
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     import("lightweight-charts").then((lc: any) => {
       // lightweight-charts v5: addSeries(<type>, options) replaces addCandlestickSeries().
-      const { createChart, CrosshairMode, CandlestickSeries, HistogramSeries, createSeriesMarkers } = lc;
+      const { createChart, CrosshairMode, CandlestickSeries, HistogramSeries, LineSeries, createSeriesMarkers } = lc;
       if (cancelled || !containerRef.current) return;
 
       chart = createChart(containerRef.current, {
@@ -226,6 +236,18 @@ export default function StockChart({ data, height = 300, interactive = false, ti
           value: c.volume ?? 0,
           color: withAlpha(c.close >= c.open ? R.success : R.danger, "55"),
         })));
+      }
+
+      // ── Overlay lines (moving averages) on the price scale ─────────
+      for (const line of lines) {
+        if (!line.data.length) continue;
+        chart.addSeries(LineSeries, {
+          color: R[line.color],
+          lineWidth: 1.5,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        }).setData(line.data);
       }
 
       // ── Buy/sell markers: daily candles only ───────────────────────
@@ -304,7 +326,7 @@ export default function StockChart({ data, height = 300, interactive = false, ti
       if (chart) chart.remove();
       chartRef.current = null;
     };
-  }, [data, height, theme, markers]);
+  }, [data, height, theme, markers, lines]);
 
   const chartEl = (
     <div style={{ position: "relative", width: "100%" }}>
@@ -361,6 +383,7 @@ export default function StockChart({ data, height = 300, interactive = false, ti
             interactive={true}
             title={title}
             markers={markers}
+            lines={lines}
           />
         </ChartModal>
       )}

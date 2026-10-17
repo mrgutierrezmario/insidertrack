@@ -15,6 +15,9 @@ All notable changes to InsiderTrack. The format follows
 - **Marked trades say when they became public.** Each line in the chart tooltip ends with
   "disclosed Oct 28 (26 days later)": Congress has up to 45 days to report, so an arrow on the
   trade date can sit before a move nobody could have acted on.
+- **50- and 200-day moving averages on the daily charts**, with a toggle under the chart. The
+  chart fetches ~200 trading days more history than it shows so both lines cover the whole
+  window; `/market/history` now accepts up to 730 days for that.
 - **A 1-year chart.** The ticker page has a 1-Year view next to 90-Day, with trade markers for
   the whole year (it loads a deeper set of trades for them than the lists below show).
 - **Trades on the price chart.** The ticker page's 90-day chart marks every Congress and

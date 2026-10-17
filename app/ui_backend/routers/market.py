@@ -54,7 +54,9 @@ def intraday(
 
 
 @router.get("/history/{ticker}")
-def history(ticker: str, days: int = Query(default=90, ge=1, le=365)):
+def history(ticker: str, days: int = Query(default=90, ge=1, le=730)):
+    # Up to two years: the chart shows one year at most, but a 200-day moving
+    # average needs ~200 trading days of history before the first visible bar.
     candles = get_price_history(ticker.upper(), days)
     if not candles:
         raise HTTPException(status_code=404, detail=f"No history returned for {ticker}.")

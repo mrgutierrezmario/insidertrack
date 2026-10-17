@@ -120,8 +120,9 @@ class TestQueryBounds:
         (1, True),
         (90, True),
         (365, True),
-        (366, False),
+        (730, True),
+        (731, False),
     ])
     def test_days_bounds(self, days, valid):
-        # Mirrors Query(ge=1, le=365) used by GET /market/history/{ticker}
-        assert valid == (1 <= days <= 365)
+        # Mirrors Query(ge=1, le=730) used by GET /market/history/{ticker}
+        assert valid == (1 <= days <= 730)

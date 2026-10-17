@@ -8,12 +8,21 @@ import { isAxiosError } from "axios";
 import { getTrades, getInsiderTransactions, getIntraday, getPriceHistory, getTickerInfo, getMarketStatus, getTickerNews, getTickerEarnings } from "../lib/api";
 import AiSummaryPanel from "../components/AiSummaryPanel";
 import TradeCard from "../components/TradeCard";
-import StockChart from "../components/StockChart";
+import StockChart, { type ChartLine } from "../components/StockChart";
+import { daysAgo, sma } from "../lib/indicators";
 import WatchlistButton from "../components/WatchlistButton";
 import { buildDayMarkers, congressEvent, insiderEvent, type TradeEvent } from "../lib/tradeMarkers";
 import type { Trade } from "../types/api";
 
 const INTERVALS = ["1min", "5min", "15min", "30min", "60min"] as const;
+
+// Calendar days fetched per daily view: the shown window plus ~200 trading
+// days before it, so the 200-day average covers the whole window.
+const FETCH_DAYS: Record<90 | 365, number> = { 90: 400, 365: 730 };
+const MOVING_AVERAGES = [
+  { n: 50, label: "50-day avg", color: "accent" },
+  { n: 200, label: "200-day avg", color: "info" },
+] as const;
 type Interval = typeof INTERVALS[number];
 
 interface InsiderTxn {
@@ -124,6 +133,7 @@ export default function Ticker() {
   const [historyDays, setHistoryDays] = useState<90 | 365>(90);
   // The lists below the chart load the latest 100 / 50 trades; a year of
   // markers can need more, so the 1-year view fetches its own deeper set.
+  const [showAverages, setShowAverages] = useState(true);
   const [yearTrades, setYearTrades] = useState<{ congress: Trade[]; insiders: InsiderTxn[] } | null>(null);
   const [intradayEnabled, setIntradayEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -162,7 +172,7 @@ export default function Ticker() {
     setChartError("");
     const fetch = chartMode === "intraday"
       ? getIntraday(symbol, interval)
-      : getPriceHistory(symbol, historyDays);
+      : getPriceHistory(symbol, FETCH_DAYS[historyDays]);
     fetch
       .then((r) => {
         const c = ((r.data as { candles?: Candle[] }).candles) || [];
@@ -195,6 +205,22 @@ export default function Ticker() {
     return () => { cancelled = true; };
   }, [symbol, chartMode, historyDays]);
 
+  // Daily views fetch extra history for the averages; show only the window.
+  const shownCandles = useMemo(() => {
+    if (chartMode !== "history") return candles;
+    const from = daysAgo(new Date(), historyDays);
+    return candles.filter((c) => (c.date ?? c.time ?? "") >= from);
+  }, [chartMode, historyDays, candles]);
+
+  const averages = useMemo((): ChartLine[] => {
+    if (chartMode !== "history" || !showAverages || !shownCandles.length) return [];
+    const from = shownCandles[0].date ?? shownCandles[0].time ?? "";
+    const bars = candles.map((c) => ({ date: c.date ?? c.time ?? "", close: c.close }));
+    return MOVING_AVERAGES.map(({ n, label, color }) => ({
+      label, color, data: sma(bars, n).filter((p) => p.time >= from),
+    }));
+  }, [chartMode, showAverages, candles, shownCandles]);
+
   // Congress + insider trades as chart markers (daily view only).
   const markers = useMemo(() => {
     if (chartMode !== "history") return [];
@@ -202,9 +228,10 @@ export default function Ticker() {
       ...(yearTrades?.congress ?? trades).map(congressEvent),
       ...(yearTrades?.insiders ?? insiderTxns).map(insiderEvent),
     ].filter((e): e is TradeEvent => e !== null);
-    const dates = candles.map((c) => c.date ?? c.time ?? "").filter(Boolean).sort();
-    return buildDayMarkers(events, dates);
-  }, [chartMode, trades, insiderTxns, yearTrades, candles]);
+    const dates = shownCandles.map((c) => c.date ?? c.time ?? "").filter(Boolean).sort();
+    // Keep labels ~25 per chart width apart: 3 candles on 90 days, ~10 on a year.
+    return buildDayMarkers(events, dates, Math.max(3, Math.round(dates.length / 25)));
+  }, [chartMode, trades, insiderTxns, yearTrades, shownCandles]);
 
   const formatMarketCap = (n: number | null | undefined): string => {
     if (!n) return "—";
@@ -301,18 +328,37 @@ export default function Ticker() {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 320, color: C.danger, fontSize: "0.9rem", padding: "2rem", textAlign: "center" }}>
             {chartError}
           </div>
-        ) : candles.length > 0 ? (
-          <StockChart data={candles} height={320} title={symbol} markers={markers} />
+        ) : shownCandles.length > 0 ? (
+          <StockChart data={shownCandles} height={320} title={symbol} markers={markers} lines={averages} />
         ) : (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 320, color: C.textDim }}>No chart data available</div>
         )}
       </div>
 
-      {chartMode === "history" && markers.length > 0 && (
-        <div style={{ display: "flex", gap: "1rem", color: C.textMuted, fontSize: "0.75rem", marginTop: "-1.5rem", marginBottom: "2rem", flexWrap: "wrap" }}>
-          <span><span style={{ color: C.success }}>▲</span> Congress or insider buy</span>
-          <span><span style={{ color: C.danger }}>▼</span> sell</span>
-          <span>Arrows sit on the trade date; hover for who, how much, and when it was disclosed</span>
+      {chartMode === "history" && shownCandles.length > 0 && (
+        <div style={{ display: "flex", gap: "1rem", color: C.textMuted, fontSize: "0.75rem", marginTop: "-1.5rem", marginBottom: "2rem", flexWrap: "wrap", alignItems: "center" }}>
+          {markers.length > 0 && (
+            <>
+              <span><span style={{ color: C.success }}>▲</span> Congress or insider buy</span>
+              <span><span style={{ color: C.danger }}>▼</span> sell</span>
+              <span>Arrows sit on the trade date; hover for who, how much, and when it was disclosed</span>
+            </>
+          )}
+          <span style={{ display: "flex", gap: "0.75rem", alignItems: "center", marginLeft: "auto" }}>
+            {showAverages && MOVING_AVERAGES.map(({ n, label, color }) => (
+              <span key={n}><span style={{ color: C[color], fontWeight: 700 }}>━</span> {label}</span>
+            ))}
+            <button
+              onClick={() => setShowAverages((v) => !v)}
+              aria-pressed={showAverages}
+              style={{
+                background: "transparent", border: "1px solid var(--c-surfaceAlt)", borderRadius: 4,
+                color: C.textMuted, padding: "0.1rem 0.5rem", cursor: "pointer", fontSize: "0.72rem",
+              }}
+            >
+              {showAverages ? "Hide averages" : "Show 50/200-day averages"}
+            </button>
+          </span>
         </div>
       )}
 
