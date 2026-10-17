@@ -58,6 +58,11 @@ describe("event builders", () => {
     expect(long?.who).toBe("Insider");
   });
 
+  it("treats a 'See Remarks' title as no title", () => {
+    const e = insiderEvent({ transaction_type: "sell", transaction_date: "2026-10-01", insider_name: "Jo Poe", insider_title: "See Remarks" });
+    expect(e).toMatchObject({ who: "Insider", detail: "Jo Poe sell" });
+  });
+
   it("skips insider rows that aren't a buy or sell", () => {
     expect(insiderEvent({ transaction_type: "grant", transaction_date: "2026-10-01", insider_name: "A" })).toBeNull();
   });

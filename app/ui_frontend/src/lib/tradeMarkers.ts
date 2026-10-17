@@ -120,7 +120,8 @@ export function insiderEvent(t: {
 }): TradeEvent | null {
   if (!t.transaction_date) return null;
   if (t.transaction_type !== "buy" && t.transaction_type !== "sell") return null;
-  const title = t.insider_title?.trim();
+  // Form 4 filers sometimes put the title in the remarks ("See Remarks").
+  const title = t.insider_title?.trim().replace(/^see remarks$/i, "") || undefined;
   return {
     date: t.transaction_date,
     side: t.transaction_type,
