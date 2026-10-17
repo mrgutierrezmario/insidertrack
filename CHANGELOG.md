@@ -7,6 +7,11 @@ All notable changes to InsiderTrack. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **Signal Outcomes shows the right "fills" date.** It added calendar days, while the fill job
+  counts trading days, so pending outcomes showed dates up to two weeks early (v4's first 30-day
+  results read "fills 2026-10-20"; they fill 2026-10-30).
+
 ## [1.2.0] — 2026-10-16
 
 ### Added

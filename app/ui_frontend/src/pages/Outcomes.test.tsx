@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import Outcomes from "./Outcomes";
+import Outcomes, { fillDate } from "./Outcomes";
 
 // ── Mock the API module — pages call axios, we want pure unit tests ───────────
 vi.mock("../lib/api", () => ({
@@ -96,10 +96,19 @@ describe("<Outcomes />", () => {
     await screen.findByText("NVDA");
     const nvdaRow = screen.getByText("NVDA").closest("tr")!;
 
-    // signal_date 2026-05-22 → fills 2026-06-21 (30d), 2026-07-21 (60d), 2026-08-20 (90d)
-    expect(within(nvdaRow).getByText("fills 2026-06-21")).toBeInTheDocument();
-    expect(within(nvdaRow).getByText("fills 2026-07-21")).toBeInTheDocument();
-    expect(within(nvdaRow).getByText("fills 2026-08-20")).toBeInTheDocument();
+    // signal_date 2026-05-22 → 30/60/90 *trading* days, as the backend fills them
+    expect(within(nvdaRow).getByText("fills 2026-07-03")).toBeInTheDocument();
+    expect(within(nvdaRow).getByText("fills 2026-08-14")).toBeInTheDocument();
+    expect(within(nvdaRow).getByText("fills 2026-09-25")).toBeInTheDocument();
+  });
+
+  it("counts trading days like the backend's fill job", () => {
+    // Expected values from services.outcome_tracker._add_trading_days
+    expect(fillDate("2026-09-20", 30)).toBe("2026-10-30");   // a Sunday signal
+    expect(fillDate("2026-09-20", 90)).toBe("2027-01-22");   // across the new year
+    expect(fillDate("2026-10-16", 60)).toBe("2027-01-08");
+    expect(fillDate(null, 30)).toBeNull();
+    expect(fillDate("not-a-date", 30)).toBeNull();
   });
 
   it("ticker filter triggers a refetch with the uppercased value", async () => {

@@ -75,17 +75,28 @@ function StatsCard({ stat }: { stat: import("../types/api").OutcomeStatsRow }) {
   );
 }
 
-function _addDays(iso: string | null | undefined, days: number): string | null {
+/**
+ * The date an outcome fills: `days` *trading* days after the signal,
+ * weekends skipped (holidays not), exactly like the backend's
+ * outcome_tracker._add_trading_days. Adding calendar days showed dates
+ * up to two weeks early (a 2026-09-20 signal "filled 2026-10-20"; the job
+ * fills it 2026-10-30).
+ */
+export function fillDate(iso: string | null | undefined, days: number): string | null {
   if (!iso) return null;
   const d = new Date(`${iso}T00:00:00Z`);
   if (Number.isNaN(d.getTime())) return null;
-  d.setUTCDate(d.getUTCDate() + days);
+  for (let added = 0; added < days; ) {
+    d.setUTCDate(d.getUTCDate() + 1);
+    const wd = d.getUTCDay();
+    if (wd !== 0 && wd !== 6) added++;
+  }
   return d.toISOString().slice(0, 10);
 }
 
 function OutcomeChip({ outcome, signalDate, days }: { outcome: OutcomeDirection | null; signalDate: string; days: number }) {
   if (!outcome) {
-    const fillsOn = _addDays(signalDate, days);
+    const fillsOn = fillDate(signalDate, days);
     const today = new Date().toISOString().slice(0, 10);
     const overdue = fillsOn && fillsOn < today;
     return (
