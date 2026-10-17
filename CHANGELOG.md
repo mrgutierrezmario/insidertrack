@@ -33,6 +33,13 @@ All notable changes to InsiderTrack. The format follows
   bars, and the page now opens on the 90-day view instead of intraday.
 
 ### Fixed
+- **A member who moved chambers is shown in their current one** (Jim Banks, House → Senate),
+  taken from the roster's latest term by the cleanup pass after each sync.
+- **A late trade no longer carries both "FILED N DAYS LATER" and "STALE"** — a late filing is
+  stale by definition, so the late badge alone says it.
+- **`deploy/start.sh` no longer warns "Funnel is not enabled" on every run.** Tailscale re-reads
+  the serve config on each deploy and briefly lists the host without "(Funnel on)"; the check
+  now waits up to 20 s before warning.
 - **Members who have left Congress get a party and state again.** The roster held only current
   members, so 93 of 287 members (5,074 trades) showed no party. It now also loads former members
   who served since 2012 (a name two of them share is skipped rather than guessed), and the
