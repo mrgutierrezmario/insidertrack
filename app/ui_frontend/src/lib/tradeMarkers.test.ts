@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDayMarkers, congressEvent, insiderEvent, type TradeEvent } from "./tradeMarkers";
+import { buildDayMarkers, congressEvent, disclosureNote, insiderEvent, type TradeEvent } from "./tradeMarkers";
 
 const DATES = ["2026-10-01", "2026-10-02", "2026-10-05", "2026-10-06"];
 
@@ -71,5 +71,30 @@ describe("label spacing", () => {
     );
     expect(out.map((m) => m.text)).toEqual(["A", "", "C", "D"]);
     expect(out[1].details).toEqual(["B buy"]);
+  });
+});
+
+describe("disclosureNote", () => {
+  it("says when a late filing became public", () => {
+    expect(disclosureNote("2026-10-02", "2026-10-28")).toBe(" · disclosed Oct 28 (26 days later)");
+    expect(disclosureNote("2026-10-27", "2026-10-28")).toBe(" · disclosed Oct 28 (1 day later)");
+  });
+
+  it("counts across a month and year boundary", () => {
+    expect(disclosureNote("2026-12-20", "2027-01-05")).toBe(" · disclosed Jan 5 (16 days later)");
+  });
+
+  it("is empty for same-day, missing or malformed dates", () => {
+    expect(disclosureNote("2026-10-13", "2026-10-13")).toBe("");
+    expect(disclosureNote("2026-10-13", null)).toBe("");
+    expect(disclosureNote("2026-10-13", "10/20/2026")).toBe("");
+  });
+
+  it("is appended to Congress tooltip lines", () => {
+    const e = congressEvent({
+      trade_date: "2026-07-10", disclosure_date: "2026-08-06", direction: "buy",
+      amount_range: "$1,001 – $15,000", politician: { name: "Dan Newhouse" },
+    });
+    expect(e?.detail).toBe("Dan Newhouse (Congress) buy · $1,001 – $15,000 · disclosed Aug 6 (27 days later)");
   });
 });

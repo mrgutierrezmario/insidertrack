@@ -65,6 +65,27 @@ function surname(name: string): string {
   return parts[parts.length - 1] ?? name;
 }
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function dayNumber(iso: string): number {
+  const [y, m, d] = iso.split("-").map(Number);
+  return Date.UTC(y, m - 1, d) / 86_400_000;
+}
+
+/**
+ * " · disclosed Oct 28 (26 days later)" — when the public learned of the
+ * trade. Congress has up to 45 days to report, so a marker on the trade date
+ * can sit before a move nobody could have acted on. Empty when the filing
+ * date is missing, malformed or the same day.
+ */
+export function disclosureNote(tradeDate: string, filedDate: string | null | undefined): string {
+  if (!filedDate || !/^\d{4}-\d{2}-\d{2}$/.test(filedDate) || !/^\d{4}-\d{2}-\d{2}$/.test(tradeDate)) return "";
+  const lag = dayNumber(filedDate) - dayNumber(tradeDate);
+  if (lag <= 0) return "";
+  const [, m, d] = filedDate.split("-").map(Number);
+  return ` · disclosed ${MONTHS[m - 1]} ${d} (${lag} day${lag === 1 ? "" : "s"} later)`;
+}
+
 function money(n: number): string {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
@@ -73,6 +94,7 @@ function money(n: number): string {
 
 export function congressEvent(t: {
   trade_date: string | null;
+  disclosure_date?: string | null;
   direction: Side | null;
   amount_range: string | null;
   politician: { name: string } | null;
@@ -83,13 +105,15 @@ export function congressEvent(t: {
     date: t.trade_date,
     side: t.direction,
     who: surname(name),
-    detail: `${name} (Congress) ${t.direction}${t.amount_range ? ` · ${t.amount_range}` : ""}`,
+    detail: `${name} (Congress) ${t.direction}${t.amount_range ? ` · ${t.amount_range}` : ""}`
+      + disclosureNote(t.trade_date, t.disclosure_date),
   };
 }
 
 export function insiderEvent(t: {
   transaction_type: string;
   transaction_date?: string | null;
+  filing_date?: string | null;
   insider_name: string;
   insider_title?: string | null;
   value?: number | null;
@@ -101,6 +125,7 @@ export function insiderEvent(t: {
     date: t.transaction_date,
     side: t.transaction_type,
     who: title && title.length <= 12 ? title : "Insider",
-    detail: `${t.insider_name}${title ? `, ${title}` : ""} ${t.transaction_type}${t.value ? ` · ${money(t.value)}` : ""}`,
+    detail: `${t.insider_name}${title ? `, ${title}` : ""} ${t.transaction_type}${t.value ? ` · ${money(t.value)}` : ""}`
+      + disclosureNote(t.transaction_date, t.filing_date),
   };
 }

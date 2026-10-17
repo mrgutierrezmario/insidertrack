@@ -24,6 +24,7 @@ interface InsiderTxn {
   shares?: number | null;
   value?: number | null;
   transaction_date?: string | null;
+  filing_date?: string | null;
 }
 
 interface Candle {
@@ -282,7 +283,7 @@ export default function Ticker() {
         <div style={{ display: "flex", gap: "1rem", color: C.textMuted, fontSize: "0.75rem", marginTop: "-1.5rem", marginBottom: "2rem", flexWrap: "wrap" }}>
           <span><span style={{ color: C.success }}>▲</span> Congress or insider buy</span>
           <span><span style={{ color: C.danger }}>▼</span> sell</span>
-          <span>Hover a marker's candle for who and how much</span>
+          <span>Arrows sit on the trade date; hover for who, how much, and when it was disclosed</span>
         </div>
       )}
 
