@@ -20,6 +20,7 @@ import json
 import logging
 import re
 import time
+import unicodedata
 import zipfile
 from datetime import date, datetime, timedelta
 from typing import Optional
@@ -120,8 +121,21 @@ def get_sync_state() -> dict:
 # Free roster from the unitedstates/congress-legislators project; maps a
 # member's name to party + home state, which neither the House index nor the
 # EFD search rows include. Cached in-process and refreshed daily.
-LEGISLATORS_URL = "https://unitedstates.github.io/congress-legislators/legislators-current.csv"
-_PARTY_ABBR = {"Democrat": "D", "Republican": "R", "Independent": "I"}
+LEGISLATORS_URL = "https://unitedstates.github.io/congress-legislators/legislators-current.json"
+# Former members: without them everyone who has left Congress had no party
+# (93 of 287 members on 2026-10-16). JSON because only it carries term
+# dates — the roster goes back to 1789 and only STOCK Act-era members
+# (any term ending 2012 or later) may match, so a namesake from 1850
+# can't. ~13 MB and it barely changes, so it is refreshed weekly.
+FORMER_LEGISLATORS_URL = "https://unitedstates.github.io/congress-legislators/legislators-historical.json"
+FORMER_SINCE = "2012-01-01"
+_PARTY_ABBR = {"Democrat": "D", "Republican": "R", "Independent": "I", "Libertarian": "L"}
+_former: list[dict] = []
+_former_loaded_on: Optional[date] = None
+# (chamber, surname) → roster entries who served there since FORMER_SINCE —
+# the fallback when a filed name ('Rafael E Cruz') matches no spelling of the
+# roster's ('Ted Cruz').
+_by_surname: dict[tuple[str, str], list[dict]] = {}
 _legislators: dict[str, tuple[str, str]] = {}   # "first last" → (party, state)
 _roster: dict[str, dict] = {}                    # name key → {full_name, bioguide, party, state}
 _legislators_loaded_on: Optional[date] = None
@@ -129,6 +143,17 @@ _legislators_loaded_on: Optional[date] = None
 
 _HONORIFICS = ("hon", "honorable", "mr", "mrs", "ms", "dr", "rep", "sen", "senator", "representative")
 _SUFFIXES = ("jr", "sr", "ii", "iii", "iv", "v")
+# Degrees some filers append ('Neal Patrick Dunn, MD, FACS').
+_DEGREES = ("md", "facs", "phd", "dds", "dvm", "esq", "cpa", "rn", "mba", "jd")
+
+
+def _fold(text: str) -> str:
+    """Lowercase ASCII: 'Sánchez' → 'sanchez' (the [^a-z] filters below
+    would otherwise drop the accented letter and make 'snchez'). Other
+    non-ASCII marks become spaces, like ASCII punctuation does, so a curly
+    'O’Halleran' keys the same as 'O'Halleran'."""
+    decomposed = unicodedata.normalize("NFKD", text or "")
+    return "".join(c if c.isascii() else " " for c in decomposed if not unicodedata.combining(c)).lower()
 
 
 def _name_key(name: str) -> str:
@@ -136,8 +161,8 @@ def _name_key(name: str) -> str:
     generational suffixes dropped, one-letter initials skipped, then the
     first remaining token + the last. 'C. Scott Franklin', 'Scott Mr
     Franklin' and 'Scott Scott Franklin' all become 'scott franklin'."""
-    toks = [t for t in re.sub(r"[^a-z ]", " ", (name or "").lower()).split()
-            if t not in _HONORIFICS and t not in _SUFFIXES and len(t) > 1]
+    toks = [t for t in re.sub(r"[^a-z ]", " ", _fold(name)).split()
+            if t not in _HONORIFICS and t not in _SUFFIXES and t not in _DEGREES and len(t) > 1]
     if not toks:
         return ""
     return f"{toks[0]} {toks[-1]}" if len(toks) > 1 else toks[0]
@@ -160,8 +185,8 @@ def _norm_name(first: str, last: str) -> str:
     """Normalize to 'firsttoken lasttoken', lowercased, punctuation stripped —
     so 'Hon. Richard W. Allen' and 'Richard Allen' collide, and a trailing
     suffix ('Kean Jr') doesn't get mistaken for the surname."""
-    first = re.sub(r"[^a-z ]", "", (first or "").lower()).split()
-    last = re.sub(r"[^a-z ]", "", (last or "").lower()).split()
+    first = re.sub(r"[^a-z ]", "", _fold(first)).split()
+    last = re.sub(r"[^a-z ]", "", _fold(last)).split()
     # drop honorific prefixes that sometimes ride along in the first name
     first = [t for t in first if t not in _HONORIFICS]
     # drop generational suffixes that sometimes ride along in the last name
@@ -169,6 +194,159 @@ def _norm_name(first: str, last: str) -> str:
     f = first[0] if first else ""
     l = last[-1] if last else ""
     return f"{f} {l}".strip()
+
+
+def _display_name(first: str, middle: str, nickname: str, last: str) -> str:
+    """'first last', except when the roster's first name is an initial:
+    'W. Gregory Steube' goes by Greg → 'Gregory Steube', 'J. French Hill'
+    → 'French Hill'."""
+    if len(first.strip(". ")) == 1 and (nickname or middle):
+        first = nickname or middle
+    return f"{first} {last}".strip()
+
+
+def _plain_official(name: str) -> str:
+    """Official name without middle initials or generational suffixes:
+    'Kathy E. Manning' → 'Kathy Manning', 'Bill Pascrell, Jr.' → 'Bill
+    Pascrell'. A leading initial stays ('A. Donald McEachin')."""
+    toks = name.replace(",", " ").split()
+    keep = [t for i, t in enumerate(toks)
+            if i == 0 or not (re.fullmatch(r"[A-Z]\.", t) or t.lower().strip(".") in _SUFFIXES)]
+    return " ".join(keep)
+
+
+def _roster_rows(people: list[dict], since: str = FORMER_SINCE, official_names: bool = False) -> list[dict]:
+    """Roster rows ({first, middle, nickname, last, chambers, full_name,
+    bioguide, party, state}) from a congress-legislators JSON file, for
+    everyone who served on or after `since`: the chambers they sat in since
+    then, and the party and state of their last term. With `official_names`
+    the display name is the roster's official_full when it has one
+    ('Marjorie Taylor Greene', not 'Marjorie Greene') — used for former
+    members; current members keep the 'first last' names the site has
+    always shown them under."""
+    out = []
+    for person in people:
+        terms = person.get("terms") or []
+        if not terms or max(t.get("end", "") for t in terms) < since:
+            continue
+        name, last_term = person.get("name") or {}, terms[-1]
+        first, last = name.get("first", ""), name.get("last", "")
+        middle, nickname = name.get("middle", ""), name.get("nickname", "")
+        out.append({
+            "first": first, "middle": middle, "nickname": nickname, "last": last,
+            "chambers": {{"rep": "house", "sen": "senate"}.get(t.get("type"), "") for t in terms if t.get("end", "") >= since},
+            "full_name": (official_names and _plain_official(name.get("official_full", "")))
+            or _display_name(first, middle, nickname, last),
+            "bioguide": (person.get("id") or {}).get("bioguide", ""),
+            "party": _PARTY_ABBR.get(last_term.get("party", ""), ""),
+            "state": last_term.get("state", ""),
+        })
+    return out
+
+
+def _load_former() -> list[dict]:
+    global _former, _former_loaded_on
+    if _former and _former_loaded_on and (date.today() - _former_loaded_on).days < 7:
+        return _former
+    try:
+        resp = httpx.get(FORMER_LEGISLATORS_URL, timeout=60, follow_redirects=True,
+                         headers={"User-Agent": _USER_AGENT})
+        resp.raise_for_status()
+        rows = _roster_rows(resp.json(), official_names=True)
+        if rows:
+            _former, _former_loaded_on = rows, date.today()
+            logger.info(f"Loaded {len(rows)} former legislators (served since {FORMER_SINCE})")
+    except Exception as exc:
+        logger.warning(f"Former-legislator roster unavailable: {exc}")
+    return _former
+
+
+def _name_keys(first: str, nick: str, last: str) -> set[str]:
+    """Every spelling the filings might use: first/last, nickname/last,
+    and the same via _name_key (which also skips initials)."""
+    return {k for k in (_norm_name(first, last), _norm_name(nick, last) if nick else "",
+                        _name_key(f"{first} {last}"), _name_key(f"{nick} {last}") if nick else "") if k}
+
+
+def _surname(name: str) -> str:
+    toks = [t for t in re.sub(r"[^a-z ]", " ", _fold(name)).split()
+            if t not in _HONORIFICS and t not in _SUFFIXES and t not in _DEGREES and len(t) > 1]
+    return toks[-1] if toks else ""
+
+
+def _given_names(name: str) -> list[str]:
+    """Every token of a filed name except the surname, initials included
+    as one letter ('John P Ricketts' → ['john', 'p'])."""
+    toks = [t for t in re.sub(r"[^a-z ]", " ", _fold(name)).split()
+            if t not in _HONORIFICS and t not in _SUFFIXES and t not in _DEGREES]
+    return toks[:-1]
+
+
+# Short forms that don't share a prefix with the formal name (prefix pairs
+# like Dan/Daniel or Chris/Christopher need no entry).
+_NICKNAMES = {
+    "mike": "michael", "jim": "james", "jimmy": "james", "bill": "william", "billy": "william",
+    "bob": "robert", "bobby": "robert", "rick": "richard", "dick": "richard", "ted": "edward",
+    "chuck": "charles", "liz": "elizabeth", "beth": "elizabeth", "betsy": "elizabeth",
+    "peggy": "margaret", "maggie": "margaret", "tony": "anthony", "jack": "john",
+    "hank": "henry", "larry": "lawrence", "cindy": "cynthia", "sandy": "sandra",
+}
+
+
+def _given_compatible(filed: list[str], entry: dict) -> bool:
+    """Could these filed given names be this roster member? 'Dan'/'Daniel'
+    (one starts the other, 3+ letters), a known short form ('Mike'/
+    'Michael'), or a lone initial matching the roster's first, middle or
+    nickname initial."""
+    roster_names = [_fold(entry.get(k, "")).strip(". ") for k in ("first", "middle", "nickname")]
+    roster_names = [n for n in roster_names if n]
+    for f in filed:
+        for r in roster_names:
+            if len(f) == 1 or len(r) == 1:
+                if f[0] == r[0]:
+                    return True
+            elif len(f) >= 3 and len(r) >= 3 and (f.startswith(r) or r.startswith(f)):
+                return True
+            elif _NICKNAMES.get(f, f) == _NICKNAMES.get(r, r):
+                return True
+    return False
+
+
+def build_roster(current: list[dict], former: list[dict]) -> tuple[dict[str, tuple[str, str]], dict[str, dict]]:
+    """(directory, roster) from current and former members. A current
+    member always owns their name. A name two former members share is left
+    out — guessing would merge two people's trades. Also rebuilds the
+    (chamber, surname) index used by resolve_identity's fallback."""
+    global _by_surname
+    directory: dict[str, tuple[str, str]] = {}
+    roster: dict[str, dict] = {}
+    by_surname: dict[tuple[str, str], dict[str, dict]] = {}
+    for row in [*former, *current]:
+        entry = {k: row.get(k, "") for k in ("full_name", "bioguide", "party", "state", "first", "middle", "nickname")}
+        for chamber in row.get("chambers") or ():
+            if chamber:
+                by_surname.setdefault((chamber, _surname(row["last"])), {})[row["bioguide"] or row["full_name"]] = entry
+    _by_surname = {k: list(v.values()) for k, v in by_surname.items()}
+    seen: dict[str, set[str]] = {}
+    for row in former:
+        for k in _name_keys(row["first"], row["nickname"], row["last"]):
+            seen.setdefault(k, set()).add(row["bioguide"] or row["full_name"])
+    for row in former:
+        entry = {k: row[k] for k in ("full_name", "bioguide", "party", "state")}
+        for k in _name_keys(row["first"], row["nickname"], row["last"]):
+            if len(seen[k]) == 1:
+                roster[k] = entry
+        key = _norm_name(row["first"], row["last"])
+        if key and len(seen.get(key, ())) == 1:
+            directory[key] = (row["party"], row["state"])
+    for row in current:
+        entry = {k: row[k] for k in ("full_name", "bioguide", "party", "state")}
+        for k in _name_keys(row["first"], row["nickname"], row["last"]):
+            roster[k] = entry
+        key = _norm_name(row["first"], row["last"])
+        if key:
+            directory[key] = (row["party"], row["state"])
+    return directory, roster
 
 
 def _load_legislators() -> dict[str, tuple[str, str]]:
@@ -179,28 +357,13 @@ def _load_legislators() -> dict[str, tuple[str, str]]:
         resp = httpx.get(LEGISLATORS_URL, timeout=30, follow_redirects=True,
                          headers={"User-Agent": _USER_AGENT})
         resp.raise_for_status()
-        directory: dict[str, tuple[str, str]] = {}
-        roster: dict[str, dict] = {}
-        for row in csv.DictReader(io.StringIO(resp.text)):
-            party = _PARTY_ABBR.get((row.get("party") or "").strip(), "")
-            state = (row.get("state") or "").strip()
-            key = _norm_name(row.get("first_name", ""), row.get("last_name", ""))
-            if key.strip():
-                directory[key] = (party, state)
-            first, nick, last = row.get("first_name", ""), row.get("nickname", ""), row.get("last_name", "")
-            entry = {"full_name": f"{first} {last}".strip(), "bioguide": (row.get("bioguide_id") or "").strip(),
-                     "party": party, "state": state}
-            # Every spelling the filings might use: first/last, nickname/last,
-            # and the same via _name_key (which also skips initials).
-            for k in {_norm_name(first, last), _norm_name(nick, last) if nick else "",
-                      _name_key(f"{first} {last}"), _name_key(f"{nick} {last}") if nick else ""}:
-                if k:
-                    roster[k] = entry
+        current = _roster_rows(resp.json())
+        directory, roster = build_roster(current, _load_former())
         if directory:
             _legislators = directory
             _roster = roster
             _legislators_loaded_on = date.today()
-            logger.info(f"Loaded {len(directory)} legislators for party/state enrichment")
+            logger.info(f"Loaded {len(current)} current + {len(_former)} former legislators for party/state enrichment")
     except Exception as exc:
         logger.warning(f"Legislator directory unavailable: {exc}")
     return _legislators
@@ -211,12 +374,28 @@ def _enrich(first: str, last: str) -> tuple[str, str]:
     return _load_legislators().get(_norm_name(first, last), ("", ""))
 
 
-def resolve_identity(name: str) -> tuple[str, str, str, str, str]:
+def _surname_match(name: str, chamber: str) -> Optional[dict]:
+    """The one roster member of `chamber` (since FORMER_SINCE) with this
+    surname — narrowed by given-name compatibility when several share it.
+    None unless exactly one is left."""
+    given = _given_names(name)
+    candidates = _by_surname.get((chamber, _surname(name)), [])
+    if len(candidates) > 1:
+        candidates = [c for c in candidates if _given_compatible(given, c)]
+    if not candidates and len(given) >= 2:
+        # A married name filed after the roster's ('Ashley Hinson Arenholz'
+        # is Ashley Hinson): try the second-to-last word, given names required.
+        candidates = [c for c in _by_surname.get((chamber, given[-1]), []) if _given_compatible(given[:-1], c)]
+    return candidates[0] if len(candidates) == 1 else None
+
+
+def resolve_identity(name: str, chamber: Optional[str] = None) -> tuple[str, str, str, str, str]:
     """(display_name, name_key, bioguide, party, state) for a filed name —
-    from the roster when it knows the person, else a cleaned spelling."""
+    from the roster when it knows the person (by any spelling, else by
+    surname within `chamber`), else a cleaned spelling."""
     _load_legislators()
     key = _name_key(name)
-    hit = _roster.get(key)
+    hit = _roster.get(key) or (_surname_match(name, chamber) if chamber else None)
     if hit:
         return hit["full_name"], _name_key(hit["full_name"]) or key, hit["bioguide"], hit["party"], hit["state"]
     return clean_display_name(name), key, "", "", ""
@@ -225,7 +404,7 @@ def resolve_identity(name: str) -> tuple[str, str, str, str, str]:
 def _get_or_create_politician(db: Session, name: str, chamber: str, party: str = "", state: str = "") -> Politician:
     """Find the member behind a filed name whatever its spelling: by bioguide
     id when the roster knows them, else by name key, else by exact name."""
-    display, key, bioguide, r_party, r_state = resolve_identity(name)
+    display, key, bioguide, r_party, r_state = resolve_identity(name, chamber)
     party, state = party or r_party, state or r_state
     politician = None
     if bioguide:
@@ -367,24 +546,30 @@ def merge_duplicate_politicians(db: Session) -> dict:
     counts = dict(db.query(Trade.politician_id, func.count(Trade.id)).group_by(Trade.politician_id).all())
     groups: dict[tuple, list] = {}
     for p in members:
-        display, key, bioguide, party, state = resolve_identity(p.name)
+        display, key, bioguide, party, state = resolve_identity(p.name, p.chamber)
         if not p.name_key:
             p.name_key = key or None
         if bioguide and not p.bioguide_id:
             p.bioguide_id = bioguide
+        # Former members never file again, so _get_or_create_politician
+        # never backfills them; fill party/state here.
+        if party and not (p.party or "").strip():
+            p.party = party
+        if state and not (p.state or "").strip():
+            p.state = state
         ident = ("b", bioguide) if bioguide else ("k", p.chamber, key)
         groups.setdefault(ident, []).append(p)
     merged = 0
     for ident, ps in groups.items():
         if len(ps) < 2:
             p = ps[0]
-            display = resolve_identity(p.name)[0]
+            display = resolve_identity(p.name, p.chamber)[0]
             if display and p.name != display and not db.query(Politician.id).filter(Politician.name == display, Politician.id != p.id).first():
                 p.name = display
             continue
         ps.sort(key=lambda p: -(counts.get(p.id, 0)))
         keep, rest = ps[0], ps[1:]
-        display = resolve_identity(keep.name)[0]
+        display = resolve_identity(keep.name, keep.chamber)[0]
         if not ident[0] == "b":
             # Not in the roster: of all the spellings, the shortest cleaned one
             # is the least likely to carry index junk.

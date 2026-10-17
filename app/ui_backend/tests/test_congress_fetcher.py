@@ -631,19 +631,106 @@ class TestMergeDuplicates:
 
 
 class TestRosterLoad:
-    def test_roster_is_populated_from_csv(self, monkeypatch):
+    @staticmethod
+    def _person(first, last, bioguide, terms, middle="", nickname="", official=""):
+        name = {"first": first, "last": last}
+        if middle: name["middle"] = middle
+        if nickname: name["nickname"] = nickname
+        if official: name["official_full"] = official
+        return {"id": {"bioguide": bioguide}, "name": name,
+                "terms": [{"type": t, "start": s, "end": e, "party": p, "state": st} for t, s, e, p, st in terms]}
+
+    def _load(self, monkeypatch, current, former):
         from services import congress_fetcher as cf
-        csv_text = ("last_name,first_name,middle_name,suffix,nickname,full_name,birthday,gender,type,state,district,senate_class,party,bioguide_id\n"
-                    "Crenshaw,Daniel,,,Dan,Daniel Crenshaw,1984-03-14,M,rep,TX,2,,Republican,C001120\n")
         class _R:
-            text = csv_text
+            def __init__(self, data): self.data = data
             def raise_for_status(self): pass
-        monkeypatch.setattr(cf.httpx, "get", lambda *a, **k: _R())
+            def json(self): return self.data
+        monkeypatch.setattr(cf.httpx, "get", lambda url, **k: _R(former if "historical" in url else current))
         cf._legislators, cf._roster, cf._legislators_loaded_on = {}, {}, None
+        cf._former, cf._former_loaded_on, cf._by_surname = [], None, {}
         cf._load_legislators()
+        return cf
+
+    def teardown_method(self):
+        from services import congress_fetcher as cf
+        cf._legislators, cf._roster, cf._legislators_loaded_on = {}, {}, None
+        cf._former, cf._former_loaded_on, cf._by_surname = [], None, {}
+
+    def test_current_member_by_any_spelling(self, monkeypatch):
+        current = [self._person("Daniel", "Crenshaw", "C001120", [("rep", "2019-01-03", "2027-01-03", "Republican", "TX")], nickname="Dan")]
+        cf = self._load(monkeypatch, current, [])
         assert cf._roster["dan crenshaw"]["bioguide"] == "C001120"
         assert cf.resolve_identity("Dan Crenshaw") == ("Daniel Crenshaw", "daniel crenshaw", "C001120", "R", "TX")
-        cf._legislators, cf._roster, cf._legislators_loaded_on = {}, {}, None
+
+    def test_former_members_since_2012_only(self, monkeypatch):
+        former = [
+            self._person("Sean", "Maloney", "M001185", [("rep", "2013-01-03", "2023-01-03", "Democrat", "NY")],
+                         middle="Patrick", official="Sean Patrick Maloney"),
+            self._person("Orange", "Jacobs", "J000011", [("rep", "1875-03-04", "1879-03-03", "Republican", "WA")]),
+        ]
+        cf = self._load(monkeypatch, [], former)
+        assert cf.resolve_identity("Sean Patrick Maloney")[2:] == ("M001185", "D", "NY")
+        assert cf.resolve_identity("Sean Patrick Maloney")[0] == "Sean Patrick Maloney"
+        assert cf.resolve_identity("Orange Jacobs", "house")[2] == ""        # served before 2012
+
+    def test_shared_former_name_is_left_out_and_current_wins(self, monkeypatch):
+        current = [self._person("Mike", "Rogers", "R000575", [("rep", "2003-01-03", "2027-01-03", "Republican", "AL")])]
+        former = [
+            self._person("John", "Smith", "S1", [("rep", "2013-01-03", "2015-01-03", "Democrat", "OH")]),
+            self._person("John", "Smith", "S2", [("rep", "2013-01-03", "2017-01-03", "Republican", "TX")]),
+            self._person("Mike", "Rogers", "R000572", [("rep", "2001-01-03", "2015-01-03", "Republican", "MI")]),
+        ]
+        cf = self._load(monkeypatch, current, former)
+        assert cf.resolve_identity("John Smith")[2] == ""                   # two former John Smiths: no guess
+        assert cf.resolve_identity("John Smith", "house")[2] == ""          # nor by surname
+        assert cf.resolve_identity("Mike Rogers")[2] == "R000575"           # current member owns the name
+
+    def test_surname_fallback_within_chamber(self, monkeypatch):
+        current = [
+            self._person("Ted", "Cruz", "C001098", [("sen", "2013-01-03", "2031-01-03", "Republican", "TX")]),
+            self._person("Mike", "Garcia", "G000061", [("rep", "2020-05-19", "2027-01-03", "Republican", "CA")]),
+            self._person("Sylvia", "Garcia", "G000587", [("rep", "2019-01-03", "2027-01-03", "Democrat", "TX")]),
+            self._person("Jim", "Banks", "B001299", [("rep", "2017-01-03", "2025-01-03", "Republican", "IN"),
+                                                      ("sen", "2025-01-03", "2031-01-03", "Republican", "IN")]),
+        ]
+        cf = self._load(monkeypatch, current, [])
+        assert cf.resolve_identity("Rafael E Cruz", "senate")[:3] == ("Ted Cruz", "ted cruz", "C001098")
+        assert cf.resolve_identity("Rafael E Cruz", "house")[2] == ""       # no House Cruz
+        assert cf.resolve_identity("Rafael E Cruz")[2] == ""                # no chamber, no fallback
+        assert cf.resolve_identity("Michael Garcia", "house")[2] == "G000061"   # Mike/Michael picks one of two
+        assert cf.resolve_identity("Robert Garcia", "house")[2] == ""       # neither Garcia fits
+        assert cf.resolve_identity("James E Banks", "house")[2] == "B001299"    # House terms count too
+
+    def test_married_name_accents_and_degrees(self, monkeypatch):
+        current = [
+            self._person("Ashley", "Hinson", "H001091", [("rep", "2021-01-03", "2027-01-03", "Republican", "IA")]),
+            self._person("Linda", "Sánchez", "S001156", [("rep", "2003-01-03", "2027-01-03", "Democrat", "CA")]),
+            self._person("Neal", "Dunn", "D000628", [("rep", "2017-01-03", "2027-01-03", "Republican", "FL")]),
+            self._person("Tom", "O’Halleran", "O000171", [("rep", "2017-01-03", "2027-01-03", "Democrat", "AZ")]),
+        ]
+        cf = self._load(monkeypatch, current, [])
+        assert cf.resolve_identity("Ashley Hinson Arenholz", "house")[2] == "H001091"
+        assert cf.resolve_identity("Linda T. Sanchez")[2] == "S001156"
+        assert cf.resolve_identity("Neal Patrick Dunn, MD, FACS")[2] == "D000628"
+        assert cf.resolve_identity("Tom O'Halleran")[2] == "O000171"
+
+    def test_display_names(self, monkeypatch):
+        current = [self._person("W.", "Steube", "S001214", [("rep", "2019-01-03", "2027-01-03", "Republican", "FL")], middle="Gregory", nickname="Greg")]
+        former = [self._person("Bill", "Pascrell", "P000096", [("rep", "1997-01-03", "2025-01-03", "Democrat", "NJ")],
+                               official="Bill Pascrell, Jr.")]
+        cf = self._load(monkeypatch, current, former)
+        assert cf.resolve_identity("Greg Steube", "house")[0] == "Greg Steube"
+        assert cf.resolve_identity("Bill Pascrell")[0] == "Bill Pascrell"
+
+    def test_merge_pass_fills_party_for_members_who_never_file_again(self, db, monkeypatch):
+        from models.politician import Politician
+        former = [self._person("Peter", "Meijer", "M001186", [("rep", "2021-01-03", "2023-01-03", "Republican", "MI")])]
+        cf = self._load(monkeypatch, [], former)
+        p = Politician(name="Peter Meijer", chamber="house", party="", state=""); db.add(p); db.flush()
+        cf.merge_duplicate_politicians(db)
+        db.refresh(p)
+        assert (p.party, p.state, p.bioguide_id) == ("R", "MI", "M001186")
 
 
 class TestSenateExchangeTicker:

@@ -33,6 +33,14 @@ All notable changes to InsiderTrack. The format follows
   bars, and the page now opens on the 90-day view instead of intraday.
 
 ### Fixed
+- **Members who have left Congress get a party and state again.** The roster held only current
+  members, so 93 of 287 members (5,074 trades) showed no party. It now also loads former members
+  who served since 2012 (a name two of them share is skipped rather than guessed), and the
+  cleanup pass after each sync fills party/state for members who never file again. Formal names
+  now match the roster's common ones — "Rafael E Cruz" is Ted Cruz, "A. Mitchell McConnell, Jr."
+  is Mitch McConnell — through accent folding, degrees dropped ("MD, FACS"), short forms
+  (Mike/Michael) and, when the full name misses, the one member of that chamber with the surname.
+  92 of the 93 resolve; four duplicate records of the same person were merged.
 - **Senate EFD no longer reads "stale" while it is working.** Senate filings often hold only
   bonds, private funds or non-public stock — no ticker, so no rows — and the health check took
   two quiet weeks of those for a broken scraper. It now watches new filings (14 days) and new
