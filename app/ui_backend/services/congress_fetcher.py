@@ -136,6 +136,9 @@ _former_loaded_on: Optional[date] = None
 # the fallback when a filed name ('Rafael E Cruz') matches no spelling of the
 # roster's ('Ted Cruz').
 _by_surname: dict[tuple[str, str], list[dict]] = {}
+# bioguide → roster entry, for facts the name keys don't carry (the chamber
+# of the member's latest term).
+_by_bioguide: dict[str, dict] = {}
 _legislators: dict[str, tuple[str, str]] = {}   # "first last" → (party, state)
 _roster: dict[str, dict] = {}                    # name key → {full_name, bioguide, party, state}
 _legislators_loaded_on: Optional[date] = None
@@ -235,6 +238,7 @@ def _roster_rows(people: list[dict], since: str = FORMER_SINCE, official_names: 
         out.append({
             "first": first, "middle": middle, "nickname": nickname, "last": last,
             "chambers": {{"rep": "house", "sen": "senate"}.get(t.get("type"), "") for t in terms if t.get("end", "") >= since},
+            "chamber": {"rep": "house", "sen": "senate"}.get(last_term.get("type"), ""),
             "full_name": (official_names and _plain_official(name.get("official_full", "")))
             or _display_name(first, middle, nickname, last),
             "bioguide": (person.get("id") or {}).get("bioguide", ""),
@@ -317,7 +321,7 @@ def build_roster(current: list[dict], former: list[dict]) -> tuple[dict[str, tup
     member always owns their name. A name two former members share is left
     out — guessing would merge two people's trades. Also rebuilds the
     (chamber, surname) index used by resolve_identity's fallback."""
-    global _by_surname
+    global _by_surname, _by_bioguide
     directory: dict[str, tuple[str, str]] = {}
     roster: dict[str, dict] = {}
     by_surname: dict[tuple[str, str], dict[str, dict]] = {}
@@ -327,6 +331,7 @@ def build_roster(current: list[dict], former: list[dict]) -> tuple[dict[str, tup
             if chamber:
                 by_surname.setdefault((chamber, _surname(row["last"])), {})[row["bioguide"] or row["full_name"]] = entry
     _by_surname = {k: list(v.values()) for k, v in by_surname.items()}
+    _by_bioguide = {row["bioguide"]: row for row in [*former, *current] if row.get("bioguide")}
     seen: dict[str, set[str]] = {}
     for row in former:
         for k in _name_keys(row["first"], row["nickname"], row["last"]):
@@ -557,6 +562,11 @@ def merge_duplicate_politicians(db: Session) -> dict:
             p.party = party
         if state and not (p.state or "").strip():
             p.state = state
+        # A member who moved chambers (Jim Banks, House → Senate) is shown
+        # in the chamber of their latest term.
+        latest = (_by_bioguide.get(bioguide) or {}).get("chamber") if bioguide else None
+        if latest and p.chamber != latest:
+            p.chamber = latest
         ident = ("b", bioguide) if bioguide else ("k", p.chamber, key)
         groups.setdefault(ident, []).append(p)
     merged = 0

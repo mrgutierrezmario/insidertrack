@@ -621,7 +621,6 @@ class TestMergeDuplicates:
         assert db.query(Trade).filter(Trade.politician_id == survivors["Scott Franklin"].id).count() == 3
 
     def test_get_or_create_finds_by_key(self, db, monkeypatch):
-        from models.politician import Politician
         from services import congress_fetcher as cf
         monkeypatch.setattr(cf, "_load_legislators", lambda: None)
         monkeypatch.setattr(cf, "_roster", {})
@@ -648,14 +647,14 @@ class TestRosterLoad:
             def json(self): return self.data
         monkeypatch.setattr(cf.httpx, "get", lambda url, **k: _R(former if "historical" in url else current))
         cf._legislators, cf._roster, cf._legislators_loaded_on = {}, {}, None
-        cf._former, cf._former_loaded_on, cf._by_surname = [], None, {}
+        cf._former, cf._former_loaded_on, cf._by_surname, cf._by_bioguide = [], None, {}, {}
         cf._load_legislators()
         return cf
 
     def teardown_method(self):
         from services import congress_fetcher as cf
         cf._legislators, cf._roster, cf._legislators_loaded_on = {}, {}, None
-        cf._former, cf._former_loaded_on, cf._by_surname = [], None, {}
+        cf._former, cf._former_loaded_on, cf._by_surname, cf._by_bioguide = [], None, {}, {}
 
     def test_current_member_by_any_spelling(self, monkeypatch):
         current = [self._person("Daniel", "Crenshaw", "C001120", [("rep", "2019-01-03", "2027-01-03", "Republican", "TX")], nickname="Dan")]
@@ -722,6 +721,22 @@ class TestRosterLoad:
         cf = self._load(monkeypatch, current, former)
         assert cf.resolve_identity("Greg Steube", "house")[0] == "Greg Steube"
         assert cf.resolve_identity("Bill Pascrell")[0] == "Bill Pascrell"
+
+    def test_merge_pass_moves_a_member_to_their_latest_chamber(self, db, monkeypatch):
+        from models.politician import Politician
+        from models.trade import Trade
+        current = [self._person("Jim", "Banks", "B001299", [("rep", "2017-01-03", "2025-01-03", "Republican", "IN"),
+                                                             ("sen", "2025-01-03", "2031-01-03", "Republican", "IN")])]
+        cf = self._load(monkeypatch, current, [])
+        house = Politician(name="James E Banks", chamber="house"); senate = Politician(name="James Banks", chamber="senate")
+        db.add_all([house, senate]); db.flush()
+        db.add_all([Trade(politician_id=house.id, ticker="X", transaction_type="purchase", amount_range="$1,001 - $15,000",
+                          source="house", raw_data="{}") for _ in range(2)])
+        db.flush()
+        cf.merge_duplicate_politicians(db)
+        survivors = db.query(Politician).filter(Politician.bioguide_id == "B001299").all()
+        assert len(survivors) == 1
+        assert (survivors[0].name, survivors[0].chamber) == ("Jim Banks", "senate")
 
     def test_merge_pass_fills_party_for_members_who_never_file_again(self, db, monkeypatch):
         from models.politician import Politician
