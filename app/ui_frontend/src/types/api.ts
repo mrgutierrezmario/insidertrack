@@ -255,11 +255,20 @@ export interface OutcomeRow {
   created_at: string | null;
 }
 
+export interface OutcomeStatsWindow {
+  total: number; up: number; down: number; flat: number; win_rate: number | null;
+  // Against SPY over the same trading days (absent from older API responses).
+  avg_return?: number | null;
+  avg_excess?: number | null;     // percentage points vs SPY
+  beat_spy_rate?: number | null;  // % of snapshots that beat SPY
+  spy_measured?: number;
+}
+
 export interface OutcomeStatsRow {
   label: SignalLabel;
-  d30: { total: number; up: number; down: number; flat: number; win_rate: number | null };
-  d60: { total: number; up: number; down: number; flat: number; win_rate: number | null };
-  d90: { total: number; up: number; down: number; flat: number; win_rate: number | null };
+  d30: OutcomeStatsWindow;
+  d60: OutcomeStatsWindow;
+  d90: OutcomeStatsWindow;
 }
 
 export interface OutcomeStats {

@@ -8,6 +8,13 @@ All notable changes to InsiderTrack. The format follows
 ## [Unreleased]
 
 ### Added
+- **The outcomes scorecard compares every label with SPY.** A label that "went up" 60% of the
+  time in a rising market may still trail the index. Each label and window on Signal Outcomes
+  (and in `/outcomes/stats`) now shows the average return minus SPY's over the same trading
+  days, and how often the label beat SPY.
+- **Marked trades say when they became public.** Each line in the chart tooltip ends with
+  "disclosed Oct 28 (26 days later)": Congress has up to 45 days to report, so an arrow on the
+  trade date can sit before a move nobody could have acted on.
 - **Trades on the price chart.** The ticker page's 90-day chart marks every Congress and
   corporate-insider buy (▲) and sell (▼) on the candle it landed on — weekend trades snap to the
   next session, same-day trades merge ("2 buys"), and crowded labels are dropped so they don't
@@ -15,6 +22,10 @@ All notable changes to InsiderTrack. The format follows
   bars, and the page now opens on the 90-day view instead of intraday.
 
 ### Fixed
+- **Senate EFD no longer reads "stale" while it is working.** Senate filings often hold only
+  bonds, private funds or non-public stock — no ticker, so no rows — and the health check took
+  two quiet weeks of those for a broken scraper. It now watches new filings (14 days) and new
+  rows (30 days) separately.
 - **The ticker chart could draw twice.** The chart library loads asynchronously; if the
   component re-rendered before it arrived (switching views quickly, or React's dev-mode double
   mount), an orphan chart was built under the real one and its touch handlers were never removed.

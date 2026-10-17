@@ -124,3 +124,46 @@ class _FrozenDate(date):
     @classmethod
     def today(cls):
         return cls._today
+
+
+class TestExcessVsSpy:
+    """Raw win rate vs. beating the market over the same days."""
+
+    @staticmethod
+    def _spy(start: date, days: int, start_px: float, step: float) -> list[dict]:
+        out, d, px = [], start, start_px
+        for _ in range(days):
+            if d.weekday() < 5:
+                out.append({"date": d.isoformat(), "close": round(px, 4)})
+                px += step
+            d += timedelta(days=1)
+        return out
+
+    def test_flat_market_excess_equals_return(self):
+        spy = self._spy(date(2026, 6, 1), 200, 500.0, 0.0)
+        out = ot.excess_vs_spy([("Watch", date(2026, 6, 1), 5.0, None, None)], spy)
+        assert out[("Watch", 30)] == {"avg_return": 5.0, "avg_excess": 5.0, "beat_spy_rate": 100.0, "spy_measured": 1}
+        assert ("Watch", 60) not in out
+
+    def test_rising_market_turns_a_win_into_a_loss(self):
+        # SPY +1/day from 100 → +30% over 30 trading days; the signal's +10% lags it
+        spy = self._spy(date(2026, 6, 1), 200, 100.0, 1.0)
+        out = ot.excess_vs_spy([("Strong Watch", date(2026, 6, 1), 10.0, None, None)], spy)
+        assert out[("Strong Watch", 30)]["avg_excess"] == -20.0
+        assert out[("Strong Watch", 30)]["beat_spy_rate"] == 0.0
+
+    def test_averages_and_rates_per_label_and_window(self):
+        spy = self._spy(date(2026, 6, 1), 300, 500.0, 0.0)
+        rows = [
+            ("Neutral", date(2026, 6, 1), 4.0, -2.0, None),
+            ("Neutral", date(2026, 6, 2), -6.0, 8.0, None),
+        ]
+        out = ot.excess_vs_spy(rows, spy)
+        assert out[("Neutral", 30)]["avg_return"] == -1.0
+        assert out[("Neutral", 30)]["beat_spy_rate"] == 50.0
+        assert out[("Neutral", 60)]["avg_excess"] == 3.0
+
+    def test_rows_older_than_spy_history_skip_the_spy_numbers(self):
+        spy = self._spy(date(2026, 7, 1), 200, 500.0, 0.0)
+        out = ot.excess_vs_spy([("Watch", date(2026, 6, 1), 5.0, None, None)], spy)
+        assert out[("Watch", 30)] == {"avg_return": 5.0, "avg_excess": None, "beat_spy_rate": None, "spy_measured": 0}

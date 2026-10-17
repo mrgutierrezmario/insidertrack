@@ -74,6 +74,40 @@ def _price_on_date(history: list[dict], target: date) -> float | None:
     return best
 
 
+def excess_vs_spy(rows, spy_history: list[dict]) -> dict[tuple[str, int], dict]:
+    """Per (label, window): average return, average excess over SPY across
+    the same trading days, and how often the signal beat SPY.
+
+    `rows` are (label, signal_date, return_30d, return_60d, return_90d).
+    SPY is measured close-to-close from the signal date to the same target
+    date fill_outcomes uses, so the two returns cover the same days. Rows
+    whose window SPY history doesn't cover are left out of the SPY numbers
+    (avg_return still counts them).
+    """
+    acc: dict[tuple[str, int], dict] = {}
+    for label, signal_date, *returns in rows:
+        for days, ret in zip((30, 60, 90), returns):
+            if ret is None:
+                continue
+            a = acc.setdefault((label, days), {"returns": [], "excess": []})
+            a["returns"].append(ret)
+            start = _price_on_date(spy_history, signal_date)
+            end = _price_on_date(spy_history, _add_trading_days(signal_date, days))
+            if start and end and spy_history and date.fromisoformat(spy_history[0]["date"]) <= signal_date:
+                a["excess"].append(ret - (end - start) / start * 100)
+
+    out = {}
+    for key, a in acc.items():
+        ex = a["excess"]
+        out[key] = {
+            "avg_return": round(sum(a["returns"]) / len(a["returns"]), 2),
+            "avg_excess": round(sum(ex) / len(ex), 2) if ex else None,
+            "beat_spy_rate": round(sum(1 for x in ex if x > 0) / len(ex) * 100, 1) if ex else None,
+            "spy_measured": len(ex),
+        }
+    return out
+
+
 def _politician_by_ticker(db: Session, tickers: list[str]) -> dict[str, dict]:
     """
     Return a dict mapping ticker → {id, name} for the most recent tracked-politician

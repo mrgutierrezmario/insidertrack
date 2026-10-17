@@ -65,6 +65,26 @@ def outcome_stats(
             q = q.filter(SignalOutcome.score_version == version)
         return q.scalar() or 0
 
+    # Raw win rate says "went up"; the market went up too. Compare each
+    # resolved snapshot with SPY over the same days.
+    from services.market_data import get_price_history
+    from services.outcome_tracker import excess_vs_spy
+    resolved = db.query(SignalOutcome.label, SignalOutcome.signal_date, SignalOutcome.return_30d,
+                        SignalOutcome.return_60d, SignalOutcome.return_90d).filter(
+        SignalOutcome.return_30d != None)  # noqa: E711
+    if version is not None:
+        resolved = resolved.filter(SignalOutcome.score_version == version)
+    resolved = resolved.all()
+    vs_spy: dict = {}
+    if resolved:
+        span = (date.today() - min(r[1] for r in resolved)).days + 10
+        try:
+            spy = get_price_history("SPY", days=span)
+        except Exception:
+            spy = []
+        if spy and not spy[-1].get("_demo"):
+            vs_spy = excess_vs_spy(resolved, spy)
+
     for label in labels:
         row: dict = {"label": label}
         for days, col in [(30, "outcome_30d"), (60, "outcome_60d"), (90, "outcome_90d")]:
@@ -78,6 +98,8 @@ def outcome_stats(
                 "down":     down,
                 "flat":     total - up - down,
                 "win_rate": round(up / total * 100, 1) if total else None,
+                **vs_spy.get((label, days), {"avg_return": None, "avg_excess": None,
+                                             "beat_spy_rate": None, "spy_measured": 0}),
             }
         result.append(row)
 

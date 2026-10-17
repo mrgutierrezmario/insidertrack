@@ -19,7 +19,7 @@ const STATS_FIXTURE = {
   tracking_since:  "2026-05-16",
   latest_snapshot: "2026-05-22",
   labels: [
-    { label: "Strong Watch",  d30: { total: 2, up: 1, down: 1, flat: 0, win_rate: 50 },  d60: { total: 0, up: 0, down: 0, flat: 0, win_rate: null }, d90: { total: 0, up: 0, down: 0, flat: 0, win_rate: null } },
+    { label: "Strong Watch",  d30: { total: 2, up: 1, down: 1, flat: 0, win_rate: 50, avg_return: 3.1, avg_excess: -1.4, beat_spy_rate: 50, spy_measured: 2 },  d60: { total: 0, up: 0, down: 0, flat: 0, win_rate: null }, d90: { total: 0, up: 0, down: 0, flat: 0, win_rate: null } },
     { label: "Watch",         d30: { total: 0, up: 0, down: 0, flat: 0, win_rate: null }, d60: { total: 0, up: 0, down: 0, flat: 0, win_rate: null }, d90: { total: 0, up: 0, down: 0, flat: 0, win_rate: null } },
     { label: "Neutral",       d30: { total: 0, up: 0, down: 0, flat: 0, win_rate: null }, d60: { total: 0, up: 0, down: 0, flat: 0, win_rate: null }, d90: { total: 0, up: 0, down: 0, flat: 0, win_rate: null } },
     { label: "High Risk",     d30: { total: 0, up: 0, down: 0, flat: 0, win_rate: null }, d60: { total: 0, up: 0, down: 0, flat: 0, win_rate: null }, d90: { total: 0, up: 0, down: 0, flat: 0, win_rate: null } },
@@ -69,6 +69,13 @@ describe("<Outcomes />", () => {
     expect(screen.getByRole("heading", { name: /Signal Outcomes/i })).toBeInTheDocument();
     await waitFor(() => expect(getOutcomeStats).toHaveBeenCalled());
     expect(await screen.findByText(/4 snapshots/)).toBeInTheDocument();
+  });
+
+  it("shows how each label did against SPY when the API measured it", async () => {
+    renderPage();
+    expect(await screen.findByText("-1.4 pts · beat 50%")).toBeInTheDocument();
+    // windows with nothing measured show no SPY line
+    expect(screen.getAllByText("vs SPY")).toHaveLength(1);
   });
 
   it("renders a row per outcome and shows real UP/DOWN/FLAT outcomes for resolved rows", async () => {

@@ -41,6 +41,19 @@ function WinRateBar({ up, down, flat, total }: { up: number; down: number; flat:
   );
 }
 
+function VsSpy({ d }: { d: import("../types/api").OutcomeStatsWindow }) {
+  if (d.beat_spy_rate == null || d.avg_excess == null) return null;
+  const color = d.avg_excess > 0 ? C.success : d.avg_excess < 0 ? C.danger : C.textSoft;
+  const sign = d.avg_excess > 0 ? "+" : "";
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 3, fontSize: 11 }}
+         data-tip={`Average return minus SPY's over the same days, and the share of ${d.spy_measured} snapshots that beat SPY`}>
+      <span style={{ color: C.textMuted }}>vs SPY</span>
+      <span style={{ color }}>{sign}{d.avg_excess.toFixed(1)} pts · beat {Math.round(d.beat_spy_rate)}%</span>
+    </div>
+  );
+}
+
 function StatsCard({ stat }: { stat: import("../types/api").OutcomeStatsRow }) {
   const color = LABEL_COLORS[stat.label] || C.textSoft;
   return (
@@ -55,6 +68,7 @@ function StatsCard({ stat }: { stat: import("../types/api").OutcomeStatsRow }) {
             </span>
           </div>
           <WinRateBar {...d} />
+          <VsSpy d={d} />
         </div>
       ))}
     </div>
