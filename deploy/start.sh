@@ -141,13 +141,10 @@ if [ -n "$PUBLIC" ] && [ "${PUBLIC#https://}" != "${PUBLIC_DOMAIN:-}" ]; then
   echo "  NOTE: PUBLIC_DOMAIN in deploy/.env is '${PUBLIC_DOMAIN:-}' but Funnel serves ${PUBLIC#https://}."
   echo "        Set PUBLIC_DOMAIN=${PUBLIC#https://} and re-run so CORS trusts the public origin."
 fi
-# Tailscale re-reads serve.json on every deploy; for a few seconds the status
-# lists the host without "(Funnel on)", which used to print this warning on
-# every run though Funnel was fine. Give it 20 s before calling it off.
-funnel_on() { ts funnel status 2>/dev/null | grep -q "Funnel on"; }
-if [ -n "$PUBLIC" ] && ! funnel_on; then
-  for i in $(seq 1 10); do sleep 2; funnel_on && break; done
-fi
+# Capture, then match: under `set -o pipefail`, `ts … | grep -q` reports
+# failure when grep matches and exits early (the writer gets SIGPIPE), which
+# printed this warning on every run though Funnel was on.
+funnel_on() { local out; out=$(ts funnel status 2>/dev/null) || return 1; [[ $out == *"Funnel on"* ]]; }
 if [ -n "$PUBLIC" ] && ! funnel_on; then
   echo "  Funnel is not enabled for your Tailscale account yet. Run:"
   echo "    docker compose -f deploy/compose.yml exec tailscale tailscale funnel --bg 8003"
