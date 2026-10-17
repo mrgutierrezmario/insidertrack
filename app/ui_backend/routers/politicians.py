@@ -113,6 +113,19 @@ def leaderboard(min_trades: int = Query(default=10, ge=1, le=200), limit: int = 
     }
 
 
+@router.get("/late-filers")
+def late_filers(days: int | None = Query(default=None, ge=1, le=36500,
+                                          description="Only trades disclosed in the last N days; omit for all history"),
+                limit: int = Query(default=100, ge=1, le=500),
+                db: Session = Depends(get_db)):
+    """Members ranked by how many trades they disclosed more than 45 days
+    after the trade — the STOCK Act's outer deadline."""
+    from services.late_filing import late_filers as compute
+    out = compute(db, days=days)
+    out["items"] = out["items"][:limit]
+    return out
+
+
 @router.get("/{politician_id}")
 def get_politician(politician_id: int, db: Session = Depends(get_db)):
     p = db.query(Politician).filter(Politician.id == politician_id).first()

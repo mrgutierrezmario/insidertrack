@@ -39,6 +39,30 @@ function RiskBadge({ level }: { level: RiskLevel | null }) {
   );
 }
 
+// The STOCK Act's outer deadline: disclosed no later than 45 days after the trade.
+const LATE_AFTER_DAYS = 45;
+
+function filingLagDays(trade: Pick<Trade, "trade_date" | "disclosure_date">): number | null {
+  const iso = /^\d{4}-\d{2}-\d{2}/;
+  if (!trade.trade_date || !trade.disclosure_date || !iso.test(trade.trade_date) || !iso.test(trade.disclosure_date)) return null;
+  const day = (s: string) => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)) / 86_400_000;
+  return day(trade.disclosure_date) - day(trade.trade_date);
+}
+
+function LateBadge({ trade }: { trade: Trade }) {
+  const lag = filingLagDays(trade);
+  if (lag == null || lag <= LATE_AFTER_DAYS) return null;
+  return (
+    <Link to="/late-filers" data-tip={`Disclosed ${lag} days after the trade. The STOCK Act allows 45 at most.`} style={{
+      background: C.warningBg, color: C.warningSolid, border: "1px solid var(--c-warningDeep)",
+      borderRadius: 5, padding: "1px 7px", fontSize: 10, fontWeight: 700,
+      letterSpacing: "0.04em", whiteSpace: "nowrap", textDecoration: "none",
+    }}>
+      FILED {lag} DAYS LATER
+    </Link>
+  );
+}
+
 function tradeColor(trade: Trade): string {
   // Colour follows the bet, not the verb: a put purchase is bearish.
   if (trade.direction === "buy") return C.success;
@@ -131,6 +155,7 @@ export default function TradeCard({ trade, onRemoved, onReread }: TradeCardProps
           {ownerLabel && <Tag tip="Who holds the position, per the filing. The STOCK Act covers spouses and dependent children too.">{ownerLabel.toUpperCase()}</Tag>}
           {trade.amends && <Tag tip={`From an amended report that replaced the one filed ${trade.amends}. Only the corrected version is shown.`}>AMENDED</Tag>}
           {isPaper && <Tag tip={`Filed on paper (a scanned, often handwritten form). Read by the site's AI model${trade.ai_confidence != null ? ` with ${Math.round(trade.ai_confidence * 100)}% confidence` : ""}. The asset name was matched to a ticker and the amount comes from a ticked box. Open the filing to check.`}>PAPER · AI-READ</Tag>}
+          <LateBadge trade={trade} />
           <RiskBadge level={trade.risk_level} />
           {trade.ticker && <WatchlistButton ticker={trade.ticker} />}
         </div>

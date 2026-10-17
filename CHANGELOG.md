@@ -8,6 +8,12 @@ All notable changes to InsiderTrack. The format follows
 ## [Unreleased]
 
 ### Added
+- **Late Filers** (Congress → Late Filers): members ranked by trades disclosed more than 45 days
+  after they happened, the STOCK Act's outer deadline — late/all trades, share late, how many
+  reports, typical and longest delay (linked to the filing), all time or the last 12 months.
+  Trade cards carry a "FILED 113 DAYS LATER" badge. Checked against the original House PDFs
+  (McClain 2025, Suozzi 2021): the late rows are real catch-up filings, not misread dates.
+  API: `GET /politicians/late-filers?days=`.
 - **The outcomes scorecard compares every label with SPY.** A label that "went up" 60% of the
   time in a rising market may still trail the index. Each label and window on Signal Outcomes
   (and in `/outcomes/stats`) now shows the average return minus SPY's over the same trading

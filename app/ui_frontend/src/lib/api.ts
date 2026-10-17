@@ -7,6 +7,7 @@ import type {
   HolderRecord,
   InsiderCluster,
   Leaderboard,
+  LateFilers,
   ModelCall,
   ModelDeskStats,
   ModelDeskToday,
@@ -107,6 +108,8 @@ export const getModelDeskCalls = (limit = 300): Resp<{ items: ModelCall[]; stats
   api.get("/ai-desk/calls", { params: { limit } });
 export const generateModelDesk = (force = false): Resp<{ status: string }> =>
   api.post("/ai-desk/generate", null, { params: { force } });
+export const getLateFilers = (days?: number): Resp<LateFilers> =>
+  api.get("/politicians/late-filers", { params: days ? { days } : {} });
 export const getLeaderboard = (minTrades = 10): Resp<Leaderboard> => api.get("/politicians/leaderboard", { params: { min_trades: minTrades } });
 export const createPolitician = (body: Partial<Politician>): Resp<Politician> =>
   api.post("/politicians/", body);

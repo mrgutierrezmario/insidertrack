@@ -178,6 +178,33 @@ export interface Leaderboard {
   unranked: LeaderboardRow[];
 }
 
+// ── Late filers ──────────────────────────────────────────────────────────────
+export interface LateFilerRow {
+  id: number;
+  name: string;
+  party: Party | null;
+  chamber: Chamber;
+  state: string | null;
+  trades: number;
+  late_trades: number;
+  late_pct: number;
+  late_filings: number;
+  median_lag_days: number;
+  worst: { lag_days: number; trade_date: string; disclosure_date: string; filing_url: string | null };
+  latest_late_disclosure: string;
+}
+
+export interface LateFilers {
+  late_after_days: number;
+  window_days: number | null;
+  trades: number;
+  late_trades: number;
+  late_pct: number | null;
+  members_with_trades: number;
+  members_late: number;
+  items: LateFilerRow[];
+}
+
 // ── Health (data sources) ─────────────────────────────────────────────────────
 export type HealthSourceStatus = "ok" | "stale" | "failing" | "never";
 
