@@ -49,9 +49,14 @@ function filingLagDays(trade: Pick<Trade, "trade_date" | "disclosure_date">): nu
   return day(trade.disclosure_date) - day(trade.trade_date);
 }
 
+function isLate(trade: Trade): boolean {
+  const lag = filingLagDays(trade);
+  return lag != null && lag > LATE_AFTER_DAYS;
+}
+
 function LateBadge({ trade }: { trade: Trade }) {
   const lag = filingLagDays(trade);
-  if (lag == null || lag <= LATE_AFTER_DAYS) return null;
+  if (lag == null || !isLate(trade)) return null;
   return (
     <Link to="/late-filers" data-tip={`Disclosed ${lag} days after the trade. The STOCK Act allows 45 at most.`} style={{
       background: C.warningBg, color: C.warningSolid, border: "1px solid var(--c-warningDeep)",
@@ -156,7 +161,8 @@ export default function TradeCard({ trade, onRemoved, onReread }: TradeCardProps
           {trade.amends && <Tag tip={`From an amended report that replaced the one filed ${trade.amends}. Only the corrected version is shown.`}>AMENDED</Tag>}
           {isPaper && <Tag tip={`Filed on paper (a scanned, often handwritten form). Read by the site's AI model${trade.ai_confidence != null ? ` with ${Math.round(trade.ai_confidence * 100)}% confidence` : ""}. The asset name was matched to a ticker and the amount comes from a ticked box. Open the filing to check.`}>PAPER · AI-READ</Tag>}
           <LateBadge trade={trade} />
-          <RiskBadge level={trade.risk_level} />
+          {/* A late filing is stale by definition; one badge says it. */}
+          {!isLate(trade) && <RiskBadge level={trade.risk_level} />}
           {trade.ticker && <WatchlistButton ticker={trade.ticker} />}
         </div>
         {trade.asset_name && (

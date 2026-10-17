@@ -30,6 +30,17 @@ describe("<TradeCard /> late badge", () => {
     expect(badge.closest("a")).toHaveAttribute("href", "/late-filers");
   });
 
+  it("replaces the STALE badge on a late filing, which is stale by definition", () => {
+    renderCard({ ...base, disclosure_date: "2026-06-22", risk_level: "HIGH" });
+    expect(screen.getByText("FILED 113 DAYS LATER")).toBeInTheDocument();
+    expect(screen.queryByText("STALE")).toBeNull();
+  });
+
+  it("keeps STALE for an old trade filed on time", () => {
+    renderCard({ ...base, risk_level: "HIGH" });
+    expect(screen.getByText("STALE")).toBeInTheDocument();
+  });
+
   it("is absent when a date is missing", () => {
     renderCard({ ...base, disclosure_date: null });
     expect(screen.queryByText(/DAYS LATER/)).toBeNull();
