@@ -7,6 +7,8 @@ All notable changes to InsiderTrack. The format follows
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-10-16
+
 ### Added
 - **Late Filers** (Congress → Late Filers): members ranked by trades disclosed more than 45 days
   after they happened, the STOCK Act's outer deadline — late/all trades, share late, how many
@@ -31,6 +33,19 @@ All notable changes to InsiderTrack. The format follows
   next session, same-day trades merge ("2 buys"), and crowded labels are dropped so they don't
   overprint. Hovering a candle lists who traded and how much. The chart also draws daily volume
   bars, and the page now opens on the 90-day view instead of intraday.
+- **Ollama** as a fourth AI provider (local model server, no key, no quota). `AI_BATCH_PROVIDER`
+  (default `ollama`) chooses who writes the daily Model Desk brief so the cloud free tiers are not
+  exhausted by scheduled work; the cloud provider remains the fallback. Image requests (scanned paper
+  filings) skip Ollama unless `OLLAMA_VISION_MODEL` is set.
+- Admin → AI: a second provider choice for scheduled jobs, an Ollama card (server URL, live model
+  list from the server, Test), and a usage table — calls, failures and tokens per job and provider,
+  since start-up and today (`GET /settings/ai/usage`; one `ai_usage` log line per call).
+- **AI Desk**: each morning (8:30 ET) the site's AI model reads the day's disclosures and makes 3–5 directional calls with a horizon and reasoning; every call is stored unedited and scored at its horizon against SPY, with a running hit-rate. Dashboard card + `/ai-desk` page under Signals; admin can generate/regenerate. One provider call a day.
+- **Fund track records**: each 13F holder's new/increased positions (and trims/exits, inverted) measured 30/60/90 days after the filing date against SPY; a "Fund track records" ranking on the Whales page and a section on every fund's page. `GET /whales/leaderboard`, `GET /whales/{id}/track-record`; `whale_positions.filed_on` now holds the real SEC filing date.
+- Watchlist page shows the AI Desk calls on your own tickers; new alert type **AI Desk call** (threshold = minimum confidence %).
+- Paper amendments reconcile like electronic ones (Senate: the index title names the amended report; House: same ticker + trade date replaces the earlier row). Admin **Re-read filing** on paper rows (`POST /trades/{id}/reread`) — a fresh model reading that refreshes every row from that filing.
+- Keyless news feed labels headlines by financial keywords (Somewhat-Bullish / -Bearish / Neutral), marked as a keyword read.
+- Readable secondary text: every text token clears WCAG AA in both themes; the Dashboard watchlist card fills its column and scrolls.
 
 ### Fixed
 - **A member who moved chambers is shown in their current one** (Jim Banks, House → Senate),
@@ -55,8 +70,6 @@ All notable changes to InsiderTrack. The format follows
 - **The ticker chart could draw twice.** The chart library loads asynchronously; if the
   component re-rendered before it arrived (switching views quickly, or React's dev-mode double
   mount), an orphan chart was built under the real one and its touch handlers were never removed.
-
-### Fixed
 - **The `NaN`s themselves are gone at the source.** yfinance carries the holidays and halts
   that Yahoo's chart JSON reports as `null` as `NaN` instead, and `round(nan, 2)` is `nan`.
   One such row poisoned that ticker's `current_price` (it is `closes[-1]`), every SMA computed
@@ -71,23 +84,6 @@ All notable changes to InsiderTrack. The format follows
   failing together. Non-finite values now serialise as `null` (every one of these fields is
   already optional) and each is logged with its JSON path, so the source stays findable: grep
   the app log for `non-finite`.
-
-### Added
-- **Ollama** as a fourth AI provider (local model server, no key, no quota). `AI_BATCH_PROVIDER`
-  (default `ollama`) chooses who writes the daily Model Desk brief so the cloud free tiers are not
-  exhausted by scheduled work; the cloud provider remains the fallback. Image requests (scanned paper
-  filings) skip Ollama unless `OLLAMA_VISION_MODEL` is set.
-- Admin → AI: a second provider choice for scheduled jobs, an Ollama card (server URL, live model
-  list from the server, Test), and a usage table — calls, failures and tokens per job and provider,
-  since start-up and today (`GET /settings/ai/usage`; one `ai_usage` log line per call).
-
-### Added
-- **AI Desk**: each morning (8:30 ET) the site's AI model reads the day's disclosures and makes 3–5 directional calls with a horizon and reasoning; every call is stored unedited and scored at its horizon against SPY, with a running hit-rate. Dashboard card + `/ai-desk` page under Signals; admin can generate/regenerate. One provider call a day.
-- **Fund track records**: each 13F holder's new/increased positions (and trims/exits, inverted) measured 30/60/90 days after the filing date against SPY; a "Fund track records" ranking on the Whales page and a section on every fund's page. `GET /whales/leaderboard`, `GET /whales/{id}/track-record`; `whale_positions.filed_on` now holds the real SEC filing date.
-- Watchlist page shows the AI Desk calls on your own tickers; new alert type **AI Desk call** (threshold = minimum confidence %).
-- Paper amendments reconcile like electronic ones (Senate: the index title names the amended report; House: same ticker + trade date replaces the earlier row). Admin **Re-read filing** on paper rows (`POST /trades/{id}/reread`) — a fresh model reading that refreshes every row from that filing.
-- Keyless news feed labels headlines by financial keywords (Somewhat-Bullish / -Bearish / Neutral), marked as a keyword read.
-- Readable secondary text: every text token clears WCAG AA in both themes; the Dashboard watchlist card fills its column and scrolls.
 
 ## [1.1.0] — 2026-09-19
 
@@ -148,5 +144,6 @@ notes gained Claude / Gemini / OpenAI providers on 2026-09-17; and 2026-09-19
 brought the data-model pass above. Commit history before that date was
 rewritten once to remove attribution trailers; contents are unchanged.
 
+[1.2.0]: https://github.com/mrgutierrezmario/insidertrack/releases/tag/v1.2.0
 [1.1.0]: https://github.com/mrgutierrezmario/insidertrack/releases/tag/v1.1.0
 [1.0.0]: https://github.com/mrgutierrezmario/insidertrack/releases/tag/v1.0.0
