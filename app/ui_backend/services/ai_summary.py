@@ -111,7 +111,6 @@ _daily = {"day": None, "count": 0}
 
 
 def _site_budget_ok() -> bool:
-    from config import settings
     today = time.strftime("%Y-%m-%d", time.gmtime())
     if _daily["day"] != today:
         _daily.update(day=today, count=0)

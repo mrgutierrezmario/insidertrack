@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from models.analysis import DailyAnalysis
 from models.politician import Politician
 from models.trade import Trade
-from services.market_data import get_bulk_prices, get_current_price
+from services.market_data import get_bulk_prices
 
 logger = logging.getLogger(__name__)
 

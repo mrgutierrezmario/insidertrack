@@ -7,7 +7,6 @@ All keys are namespaced with a unique prefix so the tests don't collide with
 real cached data, and the teardown sweeps them.
 """
 
-import time
 import uuid
 import pytest
 

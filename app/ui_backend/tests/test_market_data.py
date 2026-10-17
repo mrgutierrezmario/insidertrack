@@ -3,14 +3,13 @@ Unit tests for market_data helpers that don't require external APIs.
 """
 
 import time
-import pytest
 
 
 class TestCacheEviction:
     """_cache_set evicts expired entries when the dict grows beyond 500."""
 
     def test_cache_get_hit(self):
-        from services.market_data import _cache_set, _cache_get, _cache, CACHE_TTL
+        from services.market_data import _cache_set, _cache_get
         _cache_set("test:evict:hit", {"v": 1})
         assert _cache_get("test:evict:hit") == {"v": 1}
 

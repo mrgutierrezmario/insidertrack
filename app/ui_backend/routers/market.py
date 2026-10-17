@@ -16,7 +16,6 @@ from database import get_db
 from models.politician import Politician as PoliticianModel
 from models.trade import Trade
 from services.market_data import (
-    AV_BASE,
     _cache_get,
     _cache_set,
     get_intraday,
@@ -191,7 +190,6 @@ def market_movers(db: Session = Depends(get_db)):
 
 @router.get("/status")
 def market_status():
-    from config import settings
     has_av = bool(settings.alpha_vantage_key)
     return {
         "intraday_enabled": True,  # keyless Yahoo fallback always available

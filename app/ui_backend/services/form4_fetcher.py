@@ -334,7 +334,7 @@ def _daily_index_entries(day: date) -> Optional[list[tuple[str, str, str]]]:
         m = _IDX_LINE_RE.match(line)
         if not m:
             continue
-        company, cik, _filed, path, accession = m.group(2).strip(), m.group(3), m.group(4), m.group(5), m.group(6)
+        company, cik, _filed, _path, accession = m.group(2).strip(), m.group(3), m.group(4), m.group(5), m.group(6)
         if accession in seen:
             continue
         seen.add(accession)

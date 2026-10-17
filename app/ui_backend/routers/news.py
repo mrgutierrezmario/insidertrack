@@ -7,8 +7,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from database import get_db
-from services.news_fetcher import get_news, average_sentiment
-from services.tickers import tracked_tickers as _tracked_tickers  # re-exported for back-compat
+from services.news_fetcher import get_news
 
 NEWS_TICKERS = 10   # the source is called per ticker (Google News) or batched (AV); keep it to the ones that matter
 

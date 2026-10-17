@@ -105,11 +105,10 @@ def refresh_skill(db: Session, span_days: int = 1200) -> dict:
     """Weekly: recompute every member's track record and store the factor.
     One price series per ticker at a fixed span so all members share the
     cache; slow (thousands of tickers) but it runs off-hours."""
-    from models.politician import Politician
+    from models.politician import Politician  # noqa: F401 — registers the mapper Trade.politician resolves
     from models.trade import Trade
     ids = [pid for (pid,) in db.query(Trade.politician_id).filter(Trade.direction == "buy").distinct().all()]
     _job_flag(db, SKILL_JOB_KEY, date.today().isoformat() + "T" + __import__("time").strftime("%H:%M:%S"))
-    updated = 0
     try:
         return _refresh_skill_members(db, ids, span_days)
     finally:

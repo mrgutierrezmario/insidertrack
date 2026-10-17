@@ -4,7 +4,6 @@ from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from config import settings
 from database import get_db
 from models.politician import Politician
 from models.trade import Trade

@@ -16,7 +16,6 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 from statistics import mean, median
-from typing import Optional
 
 from sqlalchemy.orm import Session
 

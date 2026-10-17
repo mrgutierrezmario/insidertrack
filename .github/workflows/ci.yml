@@ -44,6 +44,8 @@ jobs:
           cache: pip
           cache-dependency-path: app/ui_backend/requirements-dev.txt
       - run: pip install -r requirements-dev.txt
+      - name: Lint (errors only — see ruff.toml)
+        run: ruff check .
       - name: Create schema + run migrations
         run: python -c "from database import init_db; init_db()"
       - run: python -m pytest -q

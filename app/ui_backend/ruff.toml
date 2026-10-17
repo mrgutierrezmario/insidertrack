@@ -1,0 +1,11 @@
+# Errors only (undefined names, unused imports/variables, syntax): what CI and
+# the pre-commit hook enforce. Style rules are not turned on for this codebase,
+# and it has never been run through `ruff format`, so formatting is excluded
+# too — reformatting every file would be its own deliberate change.
+exclude = [".venv"]
+
+[lint]
+select = ["F", "E9"]
+
+[format]
+exclude = ["**/*.py"]

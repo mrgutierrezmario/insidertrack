@@ -9,8 +9,6 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models.insider import Form4Transaction
-from models.politician import Politician
-from models.trade import Trade
 from services.tickers import tracked_tickers as _tracked_tickers  # re-exported for back-compat
 
 router = APIRouter(prefix="/insiders", tags=["insiders"])
