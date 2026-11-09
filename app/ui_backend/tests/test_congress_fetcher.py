@@ -867,3 +867,66 @@ class TestPaperAmendments:
         assert out == {"filing_id": "8221000", "rows": 1} and len(calls) == 1   # only the targeted filing was read
         rows = db.query(Trade).filter(Trade.filing_id == "8221000").all()
         assert [r.ticker for r in rows] == ["AAPL"]
+
+
+from datetime import date  # noqa: E402
+
+from services import congress_fetcher as cf  # noqa: E402
+
+
+class TestEfdFreshSessionOn403:
+    """EFD's bot filter refused the search with 403 for weeks; a 403 now gets
+    one retry on a brand-new session instead of failing the whole sync."""
+
+    class _Client:
+        def __init__(self, name):
+            self.name, self.closed = name, False
+
+        def close(self):
+            self.closed = True
+
+    @staticmethod
+    def _http_error(status):
+        import httpx
+        req = httpx.Request("POST", cf.EFD_SEARCH_DATA)
+        return httpx.HTTPStatusError(str(status), request=req, response=httpx.Response(status, request=req))
+
+    def _setup(self, monkeypatch, outcomes):
+        """outcomes: per _fetch_ptr_list call, a list of reports or an exception."""
+        made, calls = [], []
+        monkeypatch.setattr(cf, "_efd_client", lambda: (made.append(self._Client(f"fresh{len(made)}")), made[-1])[1])
+        monkeypatch.setattr(cf.time, "sleep", lambda s: None)
+
+        def fake_list(client, start, end=None):
+            calls.append(client.name)
+            out = outcomes[len(calls) - 1]
+            if isinstance(out, Exception):
+                raise out
+            return out
+        monkeypatch.setattr(cf, "_fetch_ptr_list", fake_list)
+        return made, calls
+
+    def test_success_keeps_the_session(self, monkeypatch):
+        made, calls = self._setup(monkeypatch, [[{"uuid": "a"}]])
+        first = self._Client("first")
+        client, reports = cf._fetch_ptr_list_fresh_on_403(first, date(2026, 10, 1))
+        assert client is first and not first.closed and reports == [{"uuid": "a"}] and not made
+
+    def test_403_retries_once_on_a_new_session(self, monkeypatch):
+        made, calls = self._setup(monkeypatch, [self._http_error(403), [{"uuid": "b"}]])
+        first = self._Client("first")
+        client, reports = cf._fetch_ptr_list_fresh_on_403(first, date(2026, 10, 1))
+        assert first.closed and client is made[0] and not client.closed
+        assert calls == ["first", "fresh0"] and reports == [{"uuid": "b"}]
+
+    def test_second_403_raises_and_closes_the_new_session(self, monkeypatch):
+        made, calls = self._setup(monkeypatch, [self._http_error(403), self._http_error(403)])
+        with pytest.raises(cf.httpx.HTTPStatusError):
+            cf._fetch_ptr_list_fresh_on_403(self._Client("first"), date(2026, 10, 1))
+        assert len(made) == 1 and made[0].closed
+
+    def test_other_errors_are_not_retried(self, monkeypatch):
+        made, calls = self._setup(monkeypatch, [self._http_error(500)])
+        with pytest.raises(cf.httpx.HTTPStatusError):
+            cf._fetch_ptr_list_fresh_on_403(self._Client("first"), date(2026, 10, 1))
+        assert not made and calls == ["first"]

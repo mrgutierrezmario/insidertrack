@@ -669,6 +669,35 @@ def _efd_client() -> httpx.Client:
     return client
 
 
+EFD_FRESH_SESSION_WAIT = 30.0     # seconds before retrying a refused search on a new session
+
+
+def _fetch_ptr_list_fresh_on_403(client: httpx.Client, start_date: date,
+                                 end_date: Optional[date] = None) -> tuple[httpx.Client, list[dict]]:
+    """`_fetch_ptr_list`, but a 403 gets one more try on a brand-new session.
+
+    EFD sits behind Akamai Bot Manager (the bm_s / bm_so cookies). From
+    Oct 22 to Nov 9 2026 it refused the search with 403 on every run, then
+    let the same requests through again. Retrying inside the refused session
+    can't help, so close it, wait, and start over: home page, agreement,
+    search. Same honest User-Agent; no attempt to look like a browser.
+    Returns the client in use, which the caller must close."""
+    try:
+        return client, _fetch_ptr_list(client, start_date, end_date)
+    except httpx.HTTPStatusError as exc:
+        if exc.response is None or exc.response.status_code != 403:
+            raise
+        logger.warning(f"EFD search refused (403); retrying once on a fresh session in {EFD_FRESH_SESSION_WAIT:.0f}s")
+    client.close()
+    time.sleep(EFD_FRESH_SESSION_WAIT)
+    fresh = _efd_client()
+    try:
+        return fresh, _fetch_ptr_list(fresh, start_date, end_date)
+    except Exception:
+        fresh.close()   # the caller still holds (and closes) the old client
+        raise
+
+
 def _fetch_ptr_list(client: httpx.Client, start_date: date, end_date: Optional[date] = None) -> list[dict]:
     """Page through the EFD search API for Senate PTRs filed between
     `start_date` and `end_date` (inclusive; open-ended when None)."""
@@ -861,7 +890,7 @@ def sync_senate_trades(db: Session, start_date: Optional[date] = None,
     client = _efd_client()
     seen = set() if reparse else _load_processed(db, "senate")
     try:
-        reports = _fetch_ptr_list(client, start_date, end_date)
+        client, reports = _fetch_ptr_list_fresh_on_403(client, start_date, end_date)
         new_reports = [r for r in reports if r["uuid"] not in seen and (only is None or r["uuid"] in only)]
         # Paper filings: only within the per-run budget, never in a bulk
         # re-parse (each one is a vision-model call); a targeted re-read may.
